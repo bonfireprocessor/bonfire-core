@@ -7,3 +7,4 @@
 tb/*
 vhdl_gen/*
 /vhdl/work-obj93.cf
+*.vhd
