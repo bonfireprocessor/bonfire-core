@@ -28,21 +28,26 @@ def left_shift_comb(d_i,d_o, shift_i, fill_i,c_sh_power_high=5,c_sh_power_low=0)
     For example the first instance will shift the powers 0..2, the second one 3..4
     """
 
+    l=len(d_i)
     
-
     @always_comb
     def comb():
         p=c_sh_power_low
-        temp=modbv(d_i.val)[len(d_i):]
-        fill=intbv(0)[len(d_i):]
+       
+
+        temp=modbv(d_i.val)[l:]
+        
+        fill=intbv(0)[l:]
+        for i in range(len(fill)):   
+            fill[i]=fill_i 
 
         for i in range(c_sh_power_high-c_sh_power_low):
             shift= 2**p
             if  shift_i[i]==1:
                 #print l-shift, shift 
 
-                #print len(u),len(l), len(u)+len(l)
-                temp[32:] = concat(temp[len(d_i)-shift:0],fill[2**p:])
+                #print(bin(fill[2**p:]))
+                temp[32:] = concat(temp[l-shift:0],fill[2**p:])
             p+=1
 
         d_o.next=temp
