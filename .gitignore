@@ -1,0 +1,9 @@
+*.pyc
+*.vcd
+*.ghw
+
+*.v 
+/work-obj93.cf
+tb/*
+vhdl_gen/*
+/vhdl/work-obj93.cf
