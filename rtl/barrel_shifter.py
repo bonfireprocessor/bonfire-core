@@ -29,6 +29,7 @@ def left_shift_comb(d_i,d_o, shift_i, fill_i,c_sh_power_high=5,c_sh_power_low=0)
     """
 
     l=len(d_i)
+    print "Shifter instance with config {} {}".format(c_sh_power_high,c_sh_power_low)
     
     @always_comb
     def comb():
@@ -44,12 +45,72 @@ def left_shift_comb(d_i,d_o, shift_i, fill_i,c_sh_power_high=5,c_sh_power_low=0)
         for i in range(c_sh_power_high-c_sh_power_low):
             shift= 2**p
             if  shift_i[i]==1:
-                #print l-shift, shift 
-
-                #print(bin(fill[2**p:]))
                 temp[32:] = concat(temp[l-shift:0],fill[2**p:])
             p+=1
 
         d_o.next=temp
 
     return instances()
+
+@block 
+def left_shift_pipelined(clock,reset,d_i,d_o, shift_i, fill_i,en_i,ready_o, c_pipe_stage=0):
+    """
+  Parameters:
+    Runtime:
+        clock   : Clock signal
+        reset   : Reset signal
+
+        d_i     : input Signal bit vector Input Data (aribitrary length)
+        d_o     : output Signal bit vector : Shiftet output, must be same length as d_i
+        shift_i : bit vector, shift amount
+        fill_i  :  bool fill value, which is filled in from right side
+        en_i    : Input Enable Signal
+        ready_o : Output ready signal
+
+    Configuration:
+        c_pipe_stage : Position of the pipeline stage, Default=0
+                       0 : No pipeline stage, the shifter is fully combinatorical, ready_o is directly connected to en_i
+                       >0 : Pipeline stage at <c_pipe_stage> level of shifter, must be <= len(fill_i)
+        
+    """
+
+    print len(shift_i), c_pipe_stage
+    assert(c_pipe_stage<=len(shift_i) and c_pipe_stage>=0)
+
+    if c_pipe_stage > 0:
+
+        print  "Shifter implemented with one pipeline stage: {}:{} || {}:{} ".format(c_pipe_stage,0,len(shift_i),c_pipe_stage)
+
+        stage_reg = Signal(modbv(0)[len(d_i):])
+        stage0_out = Signal(modbv(0)[len(d_i):])
+
+        # Signal shift_1 defined as work around for potential Vivado synthesis bug when
+        # indexing a signal slice (e.g. s(5 downto 3)(i))  
+        shift_1 = Signal(intbv(0)[len(shift_i)-c_pipe_stage:])
+       
+        stage_0=left_shift_comb(d_i,stage0_out,shift_i(c_pipe_stage,0),fill_i,c_pipe_stage,0)
+        stage_1=left_shift_comb(stage_reg,d_o,shift_1,fill_i,len(shift_i),c_pipe_stage)
+
+        @always_comb
+        def comb():
+            shift_1.next=shift_i[len(shift_i):c_pipe_stage]
+
+
+        @always_seq(clock.posedge,reset=reset)
+        def shifter_pipe():
+            if en_i:
+                stage_reg.next=stage0_out
+            ready_o.next=en_i
+
+    else:
+
+      print "Shifter implemented without pipeline stage "  
+      shifter_inst=left_shift_comb(d_i,d_o,shift_i,fill_i,len(shift_i))
+
+      @always_comb
+      def shifter():
+          ready_o.next=en_i  
+
+    return instances()   
+            
+
