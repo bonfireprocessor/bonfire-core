@@ -6,6 +6,8 @@ License: See LICENSE
 
 from myhdl import *
 
+from barrel_shifter import shift_pipelined
+
 # Constants
 c_add = 0b000
 
@@ -28,7 +30,7 @@ class AluBundle:
         self.res_o=Signal(modbv(0)[xlen:])
         # Control Signals
         self.en_i=Signal(bool(0))
-        self.busy_i=Signal(bool(0))
+        self.busy_o=Signal(bool(0))
         self.valid_o=Signal(bool(0))
 
         # Constants
@@ -37,91 +39,114 @@ class AluBundle:
 
 
     @block 
-    def alu(self,c_pipelined_shifter=True):
+    def alu(self,clock,reset, c_shifter_mode="none"):
+        """
+          c_shifter_mode:
+            "none" : Don't implement shifts
+            "comb" : Single cycle barrel shifter
+            "pipelined" : 2-cycle barrel shifter 
+            "behavioral" : Implement shift with Python operators 
+        """
 
+        assert ( c_shifter_mode=="none" or c_shifter_mode=="comb" or c_shifter_mode=="pipelined" or c_shifter_mode=="behavioral")
+        #assert ( c_shifter_mode=="none" or c_shifter_mode=="behavioral")
+
+        shifter_out = Signal(modbv(0)[self.xlen:])
+        shift_valid = Signal(bool(0))  
+        shift_busy = Signal(bool(0))
+
+        alu_valid = Signal(bool(0))
+
+        if c_shifter_mode=="behavioral":
+
+            @always_comb
+            def shift():
+                if self.funct3_i==c_sll:
+                    shifter_out.next = self.op1_i << self.op2_i[5:]
+                    shift_valid.next=True 
+                elif self.funct3_i==c_sr:
+                    shifter_out.next =  ( self.op1_i.signed() if self.funct7_6_i else self.op1_i ) >>  self.op2_i[5:]
+                    shift_valid.next=True 
+                else:
+                     shift_valid.next=False      
+
+        elif c_shifter_mode=="comb" or c_shifter_mode=="pipelined":
+            
+           
+            fill_v = Signal(bool(0))
+            shift_en = Signal(bool(0))
+            shift_ready = Signal(bool(0))
+            shift_right = Signal(bool(0))
+
+           
+            
+            shift_inst=shift_pipelined(clock,reset,self.op1_i,shifter_out,self.op2_i(5,0), \
+                       shift_right,fill_v,shift_en,shift_ready, 3 if c_shifter_mode=="pipelined" else 0 )
+
+            @always_comb
+            def shift_comb():
+                
+                shift_valid.next=shift_ready 
+
+                if self.funct3_i==c_sll:
+                    shift_right.next=False 
+                    fill_v.next=False
+                    shift_en.next=not shift_busy
+                elif self.funct3_i==c_sr:
+                    shift_right.next=True 
+                    fill_v.next=self.funct7_6_i and self.op1_i[self.xlen-1]
+                    shift_en.next=not shift_busy
+                else:
+                   shift_right.next=False 
+                   fill_v.next=False
+                   shift_en.next=not shift_busy
+
+            if c_shifter_mode=="pipelined":
+                @always_seq(clock.posedge,reset=reset)
+                def busy_proc():
+
+                    if shift_busy:
+                        shift_busy.next= not shift_ready
+                    else:
+                        shift_busy.next = shift_en
+
+  
+                   
        
         @always_comb
         def comb():
 
+            alu_valid.next=False 
+
             if self.funct3_i==c_add:
                 if self.funct7_6_i:
-                    self.res_o.next = self.op1_i - self.op2_i 
+                    self.res_o.next = self.op1_i - self.op2_i
                 else:
                     self.res_o.next = self.op1_i + self.op2_i      
-
+                alu_valid.next=self.en_i 
             elif self.funct3_i==c_or:
                 self.res_o.next = self.op1_i | self.op2_i 
+                alu_valid.next=self.en_i 
             elif self.funct3_i==c_and:
-                self.res_o.next = self.op1_i & self.op2_i  
+                self.res_o.next = self.op1_i & self.op2_i
+                alu_valid.next=self.en_i 
             elif self.funct3_i==c_xor:
                 self.res_o.next = self.op1_i ^ self.op2_i  
-            # elif self.funct3_i==c_sll:
-            #     self.res_o.next = self.op1_i << self.op2_i[5:]
-            # elif self.funct3_i==c_sr:
-            #     t =modbv(0)[self.xlen:]
-            #     if self.funct7_6_i:
-            #         t[self.xlen:] = self.op1_i.signed()
-            #     else:
-            #         t[self.xlen:] =  self.op1_i   
-
-            #     self.res_o.next = t  >> self.op2_i[5:]
+                alu_valid.next=self.en_i 
+            elif self.funct3_i==c_sll or self.funct3_i==c_sr:
+                self.res_o.next = shifter_out.val 
             else:
                 self.res_o.next = 0           
 
 
+        @always_comb
+        def pipe_control():
+            self.valid_o.next= alu_valid or shift_valid   
+            self.busy_o.next = shift_busy         
+    
 
         return instances()         
 
 
-# Dummy Test code
 
-alu=AluBundle()
-
-@block
-def tb():
-
-    
-    #inst=alu.alu()
-    inst=AluBundle.alu(alu)
-
-    inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen')
-
-    @instance 
-    def stimulus():
-
-        yield delay(10)
-        alu.funct3_i.next=c_add
-        alu.op1_i.next=5
-        alu.op2_i.next=10
-    
-        yield alu.res_o
-        print int(alu.res_o.signed())
-
-        alu.funct7_6_i.next=True 
-
-        yield alu.res_o
-
-        print int(alu.res_o.signed())
-
-        # Shift 
-        alu.op2_i.next=1
-        alu.funct3_i.next=c_sr
-        alu.funct7_6_i.next=False 
-        yield alu.res_o
-        print "srl",  alu.res_o
-
-        alu.funct7_6_i.next=True 
-
-        yield alu.res_o
-        print "sra", alu.res_o
-
-
-        #assert(alu.res_o==15)
-        
-    return instances()
-
-
-dut=tb()
-
-dut.run_sim()
 

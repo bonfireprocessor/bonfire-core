@@ -141,7 +141,6 @@ def shift_pipelined(clock,reset,d_i,d_o, shift_i, right_i, fill_i,en_i,ready_o, 
     temp_out = Signal(modbv(0)[len(d_i):])
     temp_in = Signal(modbv(0)[len(d_i):])
 
-    print "Fuck",c_pipe_stage
 
     barrel_inst=left_shift_pipelined(clock,reset,temp_in,temp_out, shift_i, fill_i,en_i,ready_o,c_pipe_stage) 
 
