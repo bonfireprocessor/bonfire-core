@@ -10,9 +10,6 @@ from barrel_shifter import shift_pipelined
 
 # Constants
 c_add = 0b000
-
-
-  
 c_sll = 0b001
 c_slt = 0b010
 c_sltu = 0b011
@@ -88,20 +85,25 @@ class AluBundle:
                 
                 shift_valid.next=shift_ready 
 
+                
                 if self.funct3_i==c_sll:
                     shift_right.next=False 
                     fill_v.next=False
-                    shift_en.next=not shift_busy
+                    shift_en.next=not shift_busy and self.en_i
                 elif self.funct3_i==c_sr:
                     shift_right.next=True 
                     fill_v.next=self.funct7_6_i and self.op1_i[self.xlen-1]
-                    shift_en.next=not shift_busy
+                    shift_en.next=not shift_busy and self.en_i
                 else:
                    shift_right.next=False 
                    fill_v.next=False
-                   shift_en.next=not shift_busy
+                   shift_en.next=False 
 
             if c_shifter_mode=="pipelined":
+                # @always_comb
+                # def shift_pipelined_comb():
+                #     shift_busy.next = shift_en and not shift_valid 
+
                 @always_seq(clock.posedge,reset=reset)
                 def busy_proc():
 
@@ -133,9 +135,16 @@ class AluBundle:
             elif self.funct3_i==c_xor:
                 self.res_o.next = self.op1_i ^ self.op2_i  
                 alu_valid.next=self.en_i 
+            elif self.funct3_i==c_slt:
+                self.res_o.next =  concat( modbv(0)[31:], self.op1_i.signed() < self.op2_i.signed() )
+                alu_valid.next=self.en_i 
+            elif self.funct3_i==c_sltu:
+                self.res_o.next =  concat( modbv(0)[31:], self.op1_i < self.op2_i )
+                alu_valid.next=self.en_i      
             elif self.funct3_i==c_sll or self.funct3_i==c_sr:
                 self.res_o.next = shifter_out.val 
             else:
+                assert False, "Invalid funct3_i"
                 self.res_o.next = 0           
 
 

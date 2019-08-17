@@ -26,7 +26,10 @@ test(tb_alu.tb(c_shifter_mode="behavioral"),trace=False)
 print 'Testing alu c_shifter_mode="comb"'
 test(tb_alu.tb(c_shifter_mode="comb"),trace=False)
 
-convert_tb(tb_barrel_shifter.tb_barrel_left_shift_comb(),hdl='VHDL',std_logic_ports=True,path='vhdl_gen_tb')
+print 'Testing alu c_shifter_mode="pipelined"'
+test(tb_alu.tb(c_shifter_mode="pipelined"),trace=True)
+
+#convert_tb(tb_barrel_shifter.tb_barrel_left_shift_comb(),hdl='VHDL',std_logic_ports=True,path='vhdl_gen_tb')
 
 
 
