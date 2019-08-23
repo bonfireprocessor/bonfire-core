@@ -35,8 +35,8 @@ def tb(c_shifter_mode="behavioral"):
     #inst=alu.alu()
     inst=AluBundle.alu(alu,clock,reset, c_shifter_mode)
 
-    #if c_shifter_mode!="behavioral":
-    #    inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen')
+    if c_shifter_mode!="behavioral":
+       inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="alu_" + c_shifter_mode )
 
 
     def test_op(cmd):
@@ -47,9 +47,9 @@ def tb(c_shifter_mode="behavioral"):
 
         alu.en_i.next=True
         yield clock.posedge
-        # if not alu.valid_o:
-        #     print(cmd["c"], "pipelined")
-        #     assert(alu.busy_o)
+        if not alu.valid_o:
+            print(cmd["c"], "pipelined")
+        
         alu.en_i.next=False
         while not alu.valid_o:
             yield clock.posedge
