@@ -75,11 +75,7 @@ class AluBundle:
             shift_ready = Signal(bool(0))
             shift_right = Signal(bool(0))
 
-            shift_amount=Signal(intbv(0)[5:])
-
-
-
-            shift_inst=shift_pipelined(clock,reset,self.op1_i,shifter_out,shift_amount, \
+            shift_inst=shift_pipelined(clock,reset,self.op1_i,shifter_out,self.op2_i(5,0), \
                        shift_right,fill_v,shift_en,shift_ready, 3 if c_shifter_mode=="pipelined" else 0 )
                       
 
@@ -87,7 +83,6 @@ class AluBundle:
             def shift_comb():
 
                 shift_valid.next = shift_ready
-                shift_amount.next = self.op2_i[5:0]
 
                 if self.funct3_i==c_sll:
                     shift_right.next=False
