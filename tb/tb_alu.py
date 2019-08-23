@@ -2,6 +2,7 @@
 
 from myhdl import *
 from rtl.alu import *
+from rtl.instructions import ArithmeticFunct3  as f3 
 from ClkDirver import *
 import types
 
@@ -12,18 +13,18 @@ reset = ResetSignal(0, active=1, isasync=False)
 alu=AluBundle()
 
 commands=[ \
-    {"f3":c_add,"f7":False, "a":5,"b":10,"r":lambda a,b: a + b ,"c":"add"}, \
-    {"f3":c_add,"f7":True,"a":5,"b":10,"r":lambda a,b: a - b,"c":"sub"}, \
-    {"f3":c_or,"f7":False,"a":0xff,"b":0xff00,"r":lambda a,b: a | b,"c":"or"}, \
-    {"f3":c_and,"f7":False,"a":0xff,"b":0xff00,"r":lambda a,b: a & b,"c":"and"}, \
-    {"f3":c_xor,"f7":False,"a":0xff,"b":0xffff,"r":lambda a,b: a ^ b,"c":"xor"}, \
-    {"f3":c_slt,"f7":False,"a":-5,"b":10,"r":1,"c":"slt"}, \
-    {"f3":c_sltu,"f7":False,"a":-5,"b":10,"r":0,"c":"sltu"}, \
-    {"f3":c_sltu,"f7":False,"a":1,"b":-1,"r":1,"c":"sltu"}, \
-    {"f3":c_slt,"f7":False,"a":1,"b":-1,"r":0,"c":"slt"}, \
-    {"f3":c_sll,"f7":False,"a":0x55,"b":8,"r": lambda a,b:  a << b,"c":"sll"}, \
-    {"f3":c_sr,"f7":True,"a":0x85000000,"b":8,"r": lambda a,b:  a.signed() >> b,"c":"sra"}, \
-    {"f3":c_sr,"f7":False,"a":0x85000000,"b":8,"r": lambda a,b:  a >> b,"c":"srl"}, \
+    {"f3":f3.RV32_F3_ADD_SUB,"f7":False, "a":5,"b":10,"r":lambda a,b: a + b ,"c":"add"}, \
+    {"f3":f3.RV32_F3_ADD_SUB,"f7":True,"a":5,"b":10,"r":lambda a,b: a - b,"c":"sub"}, \
+    {"f3":f3.RV32_F3_OR,"f7":False,"a":0xff,"b":0xff00,"r":lambda a,b: a | b,"c":"or"}, \
+    {"f3":f3.RV32_F3_AND,"f7":False,"a":0xff,"b":0xff00,"r":lambda a,b: a & b,"c":"and"}, \
+    {"f3":f3.RV32_F3_XOR,"f7":False,"a":0xff,"b":0xffff,"r":lambda a,b: a ^ b,"c":"xor"}, \
+    {"f3":f3.RV32_F3_SLT,"f7":False,"a":-5,"b":10,"r":1,"c":"slt"}, \
+    {"f3":f3.RV32_F3_SLTU,"f7":False,"a":-5,"b":10,"r":0,"c":"sltu"}, \
+    {"f3":f3.RV32_F3_SLTU,"f7":False,"a":1,"b":-1,"r":1,"c":"sltu"}, \
+    {"f3":f3.RV32_F3_SLT,"f7":False,"a":1,"b":-1,"r":0,"c":"slt"}, \
+    {"f3":f3.RV32_F3_SLL,"f7":False,"a":0x55,"b":8,"r": lambda a,b:  a << b,"c":"sll"}, \
+    {"f3":f3.RV32_F3_SRL_SRA,"f7":True,"a":0x85000000,"b":8,"r": lambda a,b:  a.signed() >> b,"c":"sra"}, \
+    {"f3":f3.RV32_F3_SRL_SRA,"f7":False,"a":0x85000000,"b":8,"r": lambda a,b:  a >> b,"c":"srl"}, \
 ]
 
 

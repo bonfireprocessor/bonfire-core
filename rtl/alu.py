@@ -7,6 +7,7 @@ License: See LICENSE
 from myhdl import *
 
 from barrel_shifter import shift_pipelined
+from instructions import ArithmeticFunct3  as f3 
 
 # Constants
 c_add = 0b000
@@ -113,28 +114,28 @@ class AluBundle:
 
             alu_valid.next=False
 
-            if self.funct3_i==c_add:
+            if self.funct3_i==f3.RV32_F3_ADD_SUB:
                 if self.funct7_6_i:
                     self.res_o.next = self.op1_i - self.op2_i
                 else:
                     self.res_o.next = self.op1_i + self.op2_i
                 alu_valid.next=self.en_i
-            elif self.funct3_i==c_or:
+            elif self.funct3_i==f3.RV32_F3_OR:
                 self.res_o.next = self.op1_i | self.op2_i
                 alu_valid.next=self.en_i
-            elif self.funct3_i==c_and:
+            elif self.funct3_i==f3.RV32_F3_AND:
                 self.res_o.next = self.op1_i & self.op2_i
                 alu_valid.next=self.en_i
-            elif self.funct3_i==c_xor:
+            elif self.funct3_i==f3.RV32_F3_XOR:
                 self.res_o.next = self.op1_i ^ self.op2_i
                 alu_valid.next=self.en_i
-            elif self.funct3_i==c_slt:
+            elif self.funct3_i==f3.RV32_F3_SLT:
                 self.res_o.next =  concat( modbv(0)[31:], self.op1_i.signed() < self.op2_i.signed() )
                 alu_valid.next=self.en_i
-            elif self.funct3_i==c_sltu:
+            elif self.funct3_i==f3.RV32_F3_SLTU:
                 self.res_o.next =  concat( modbv(0)[31:], self.op1_i < self.op2_i )
                 alu_valid.next=self.en_i
-            elif self.funct3_i==c_sll or self.funct3_i==c_sr:
+            elif self.funct3_i==f3.RV32_F3_SLL or self.funct3_i==f3.RV32_F3_SRL_SRA:
                 self.res_o.next = shifter_out.val
             else:
                 assert False, "Invalid funct3_i"
