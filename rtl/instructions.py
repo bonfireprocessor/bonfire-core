@@ -23,18 +23,18 @@ class Opcodes:
     """
     List all the RV32I opcodes
     """
-    RV32_NOP    = 0b0010011
-    RV32_LUI    = 0b0110111
-    RV32_AUIPC  = 0b0010111
-    RV32_JAL    = 0b1101111
-    RV32_JALR   = 0b1100111
-    RV32_BRANCH = 0b1100011
-    RV32_LOAD   = 0b0000011
-    RV32_STORE  = 0b0100011
-    RV32_IMM    = 0b0010011
-    RV32_OP     = 0b0110011
-    RV32_FENCE  = 0b0001111
-    RV32_SYSTEM = 0b1110011
+    RV32_NOP    = 0b00100
+    RV32_LUI    = 0b01101
+    RV32_AUIPC  = 0b00101
+    RV32_JAL    = 0b11011
+    RV32_JALR   = 0b11001
+    RV32_BRANCH = 0b11000
+    RV32_LOAD   = 0b00000
+    RV32_STORE  = 0b01000
+    RV32_IMM    = 0b00100
+    RV32_OP     = 0b01100
+    RV32_FENCE  = 0b00011
+    RV32_SYSTEM = 0b11100
 
 
 class BranchFunct3:

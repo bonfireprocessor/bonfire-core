@@ -9,15 +9,6 @@ from myhdl import *
 from barrel_shifter import shift_pipelined
 from instructions import ArithmeticFunct3  as f3 
 
-# Constants
-c_add = 0b000
-c_sll = 0b001
-c_slt = 0b010
-c_sltu = 0b011
-c_xor  = 0b100
-c_sr  =  0b101
-c_or  =  0b110
-c_and =  0b111
 
 class AluBundle:
     def __init__(self,xlen=32):
@@ -59,10 +50,10 @@ class AluBundle:
 
             @always_comb
             def shift():
-                if self.funct3_i==c_sll:
+                if self.funct3_i==f3.RV32_F3_SLL:
                     shifter_out.next = self.op1_i << self.op2_i[5:]
                     shift_valid.next=True
-                elif self.funct3_i==c_sr:
+                elif self.funct3_i==f3.RV32_F3_SRL_SRA:
                     shifter_out.next =  ( self.op1_i.signed() if self.funct7_6_i else self.op1_i ) >>  self.op2_i[5:]
                     shift_valid.next=True
                 else:
@@ -90,11 +81,11 @@ class AluBundle:
                 shift_valid.next = shift_ready
                 shift_amount.next = self.op2_i[5:0]
 
-                if self.funct3_i==c_sll:
+                if self.funct3_i==f3.RV32_F3_SLL:
                     shift_right.next=False
                     fill_v.next=False
                     shift_en.next=not shift_busy and self.en_i
-                elif self.funct3_i==c_sr:
+                elif self.funct3_i==f3.RV32_F3_SRL_SRA:
                     shift_right.next=True
                     fill_v.next=self.funct7_6_i and self.op1_i[self.xlen-1]
                     shift_en.next=not shift_busy and self.en_i
