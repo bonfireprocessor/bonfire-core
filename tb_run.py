@@ -1,4 +1,4 @@
-from tb import  tb_barrel_shifter, tb_alu
+from tb import  tb_barrel_shifter, tb_alu,tb_decode
 
 
 def test(inst,**kwagrs):
@@ -27,7 +27,10 @@ print 'Testing alu c_shifter_mode="comb"'
 test(tb_alu.tb(c_shifter_mode="comb"),trace=False)
 
 print 'Testing alu c_shifter_mode="pipelined"'
-test(tb_alu.tb(c_shifter_mode="pipelined"),trace=True)
+test(tb_alu.tb(c_shifter_mode="pipelined"),trace=False)
+
+print 'Testing decoder'
+test(tb_decode.tb(),trace=True)
 
 #convert_tb(tb_barrel_shifter.tb_barrel_left_shift_comb(),hdl='VHDL',std_logic_ports=True,path='vhdl_gen_tb')
 

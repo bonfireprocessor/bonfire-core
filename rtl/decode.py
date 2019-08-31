@@ -6,25 +6,27 @@ License: See LICENSE
 
 from myhdl import *
 from instructions import Opcodes as op
+from instructions import ArithmeticFunct3  as f3 
+
 
 def get_I_immediate(instr):
-    return instr[32:20]
+    return instr[32:20].signed()
 
 
 def get_U_immediate(instr):
-    return concat(instr[32:12],intbv(0)[12:])
+    return concat(instr[32:12],intbv(0)[12:]).signed()
 
 
 def get_UJ_immediate(instr):
-    return concat(instr[31],instr[20:12],instr[20],instr[31:21],intbv(0)[1:])
+    return concat(instr[31],instr[20:12],instr[20],instr[31:21],intbv(0)[1:]).signed()
 
 
 def get_S_immediate(instr):
-    return concat(instr[32:25],instr[12:7])
+    return concat(instr[32:25],instr[12:7]).signed()
 
 
 def get_SB_immediate(instr):
-    return concat(instr[31],instr[7],instr[31:25],instr[12:8],intbv(0)[1:])
+    return concat(instr[31],instr[7],instr[31:25],instr[12:8],intbv(0)[1:]).signed()
 
 
 
@@ -59,6 +61,7 @@ class Decoder:
         self.branch_cmd = Signal(bool(0))
         self.jump_cmd = Signal(bool(0))
         self.csr_cmd = Signal(bool(0))
+        self.invalid_opcode=Signal(bool(0))
 
         # Control Signals
         self.en_i=Signal(bool(0)) # Input enable / valid
@@ -73,30 +76,97 @@ class Decoder:
     def decoder(self,clock,reset):
         
         opcode=Signal(intbv(0)[5:])
+
+        rs2_immediate=Signal(bool(0)) # rs2 Operand is an immediate
+        rs2_imm_value=Signal(modbv(0)[self.xlen:])
+
+        rs1_immediate=Signal(bool(0)) # rs1 Operand is an immediate
+        rs1_imm_value=Signal(modbv(0)[self.xlen:])
         
         @always_comb
-        def comb()
+        def comb():
             self.rs1_adr_o.next = self.word_i[20:15]
             self.rs2_adr_o.next = self.word_i[25:20]
-            
-            opcode=self.word_i[7:2]
+
+            opcode.next=self.word_i[7:2]
             self.busy_o.next = self.stall_i
+
+            # Operand output side 
+           
+            if rs2_immediate:
+                self.op2_o.next = rs2_imm_value
+            else:  
+                self.op2_o.next = self.rs2_data_i
+            
+            if rs1_immediate:
+                self.op1_o.next = rs1_imm_value
+            else:  
+               self.op1_o.next = self.rs1_data_i    
 
 
         @always_seq(clock.posedge,reset=reset)
         def decode_op():
             
             if self.en_i and not self.stall_i:
+                inv=False 
+               
                 self.funct3_o.next = self.word_i[15:12]
                 self.funct7_o.next = self.word_i[32:25]
                 self.rd_adr_o.next = self.word_i[12:7]
 
-                if opcode==op.RV32_OP:
+                self.displacement_o.next = 0 
+                rs1_immediate.next = False 
+
+                if self.word_i[2:0]!=3:
+                    inv=True 
+
+                elif opcode==op.RV32_OP:
+                    print "RV32_OP"
                     self.alu_cmd.next = True
-                    self.op1_o.next = self.rs1_data_i
-                    self.op2_o.next = self.rs2_data_i
+                    rs2_immediate.next = False 
 
                 elif opcode==op.RV32_IMM:
                     self.alu_cmd.next = True
-                    self.op1_o.next = self.rs1_data_i
-                    self.op2_o.next = get_I_immediate(self.word_i)
+                    rs2_imm_value.next = get_I_immediate(self.word_i).signed()
+                    rs2_immediate.next = True 
+
+                elif opcode==op.RV32_BRANCH:
+                    self.branch_cmd.next = True 
+                    self.displacement_o.next = get_SB_immediate(self.word_i).signed()
+                    rs2_immediate.next = False
+
+                elif opcode==op.RV32_JAL:
+                    self.jump_cmd.next = True
+                    rs1_imm_value.next = get_UJ_immediate(self.word_i).signed()
+                    rs1_immediate.next = True
+                    rs2_imm_value.next = self.next_ip_i 
+                    rs1_immediate.next = True 
+
+                elif opcode==op.RV32_JALR:
+                    self.jump_cmd.next = True
+                    rs2_imm_value.next = self.next_ip_i 
+                    rs2_immediate.next = True  
+                    self.displacement_o.next = get_I_immediate(self.word_i).signed()
+                
+                elif opcode==op.RV32_LUI or opcode==op.RV32_AUIPC:
+                    self.alu_cmd.next = True
+                    rs1_immediate.next = True 
+                    rs1_imm_value.next = get_U_immediate(self.word_i)
+                    rs2_immediate.next = True
+                    if opcode==op.RV32_AUIPC:
+                        rs2_imm_value.next = self.next_ip_i
+                    else:
+                        rs2_imm_value.next=0 
+                    self.funct3_o.next =  f3.RV32_F3_ADD_SUB
+                    self.funct7_o.next = 0        
+
+
+                else:
+                    inv=True 
+
+            
+                self.valid_o.next = not inv
+                self.invalid_opcode.next= inv 
+
+
+        return instances()            

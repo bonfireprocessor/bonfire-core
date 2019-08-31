@@ -1,0 +1,11 @@
+
+basic_alu.elf:     file format elf32-littleriscv
+
+
+Disassembly of section .text:
+
+00000000 <_start>:
+   0:	00000513          	li	a0,0
+   4:	00500593          	li	a1,5
+   8:	00c586b3          	add	a3,a1,a2
+   c:	00461693          	slli	a3,a2,0x4
