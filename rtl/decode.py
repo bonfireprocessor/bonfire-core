@@ -7,26 +7,28 @@ License: See LICENSE
 from myhdl import *
 from instructions import Opcodes as op
 from instructions import ArithmeticFunct3  as f3 
+from util import signed_resize 
 
 
 def get_I_immediate(instr):
-    return instr[32:20].signed()
+    return concat(instr[32:20])
 
 
 def get_U_immediate(instr):
-    return concat(instr[32:12],intbv(0)[12:]).signed()
+    return concat(instr[32:12],intbv(0)[12:])
 
 
 def get_UJ_immediate(instr):
-    return concat(instr[31],instr[20:12],instr[20],instr[31:21],intbv(0)[1:]).signed()
+    return concat(instr[31],instr[20:12],instr[20],instr[31:21],intbv(0)[1:])
 
 
 def get_S_immediate(instr):
-    return concat(instr[32:25],instr[12:7]).signed()
+    return concat(instr[32:25],instr[12:7])
 
 
 def get_SB_immediate(instr):
-    return concat(instr[31],instr[7],instr[31:25],instr[12:8],intbv(0)[1:]).signed()
+    return concat(instr[31],instr[7],instr[31:25],instr[12:8],intbv(0)[1:])
+    
 
 
 
@@ -47,7 +49,7 @@ class Decoder:
         # Output to execute stage
         self.op1_o = Signal(modbv(0)[xlen:])
         self.op2_o = Signal(modbv(0)[xlen:])
-        self.op3_o = Signal(modbv(0)[xlen:])
+        #self.op3_o = Signal(modbv(0)[xlen:])
 
         self.rd_adr_o =  Signal(modbv(0)[5:])
 
@@ -106,6 +108,7 @@ class Decoder:
 
         @always_seq(clock.posedge,reset=reset)
         def decode_op():
+
             
             if self.en_i and not self.stall_i:
                 inv=False 
@@ -117,6 +120,11 @@ class Decoder:
                 self.displacement_o.next = 0 
                 rs1_immediate.next = False 
 
+                self.alu_cmd.next = False
+                self.branch_cmd.next = False
+                self.jump_cmd.next = False
+                
+
                 if self.word_i[2:0]!=3:
                     inv=True 
 
@@ -127,17 +135,20 @@ class Decoder:
 
                 elif opcode==op.RV32_IMM:
                     self.alu_cmd.next = True
-                    rs2_imm_value.next = get_I_immediate(self.word_i).signed()
+                    rs2_imm_value.next = signed_resize(get_I_immediate(self.word_i),self.xlen)
                     rs2_immediate.next = True 
 
                 elif opcode==op.RV32_BRANCH:
                     self.branch_cmd.next = True 
-                    self.displacement_o.next = get_SB_immediate(self.word_i).signed()
+                    # s=get_SB_immediate(self.word_i).signed()
+                    # print "Displacement:", s, int(s) 
+                    rs1_imm_value.next =  signed_resize(get_SB_immediate(self.word_i),self.xlen)
+                    rs1_immediate.next = True
                     rs2_immediate.next = False
 
                 elif opcode==op.RV32_JAL:
                     self.jump_cmd.next = True
-                    rs1_imm_value.next = get_UJ_immediate(self.word_i).signed()
+                    rs1_imm_value.next = signed_resize(get_UJ_immediate(self.word_i),self.xlen)
                     rs1_immediate.next = True
                     rs2_imm_value.next = self.next_ip_i 
                     rs1_immediate.next = True 
@@ -146,12 +157,12 @@ class Decoder:
                     self.jump_cmd.next = True
                     rs2_imm_value.next = self.next_ip_i 
                     rs2_immediate.next = True  
-                    self.displacement_o.next = get_I_immediate(self.word_i).signed()
+                    self.displacement_o.next = get_I_immediate(self.word_i)
                 
                 elif opcode==op.RV32_LUI or opcode==op.RV32_AUIPC:
                     self.alu_cmd.next = True
                     rs1_immediate.next = True 
-                    rs1_imm_value.next = get_U_immediate(self.word_i)
+                    rs1_imm_value.next = signed_resize(get_U_immediate(self.word_i),self.xlen) 
                     rs2_immediate.next = True
                     if opcode==op.RV32_AUIPC:
                         rs2_imm_value.next = self.next_ip_i

@@ -1,7 +1,7 @@
 
 
 from myhdl import *
-from rtl.decode import * 
+from rtl.decode import *
 from ClkDirver import *
 import types
 
@@ -12,8 +12,10 @@ reset = ResetSignal(0, active=1, isasync=False)
 dec=Decoder()
 
 commands=[ \
-    {"opcode":0x00000513,"source":"li a0,0"}, \
-    {"opcode":0x00c586b3,"source":"add	a3,a1,a2"}
+    {"opcode":0x00500593,"source":"li a1,5"}, \
+    {"opcode":0x00c586b3,"source":"add a3,a1,a2"}, \
+    {"opcode":0x00461693,"source":"slli	a3,a2,0x4"}, \
+    {"opcode":0xfec588e3,"source":"beq	a1,a2,0 <_start>"}
 ]
 
 
@@ -36,12 +38,12 @@ def tb():
         print cmd["source"], hex(cmd["opcode"])
         dec.en_i.next=True
         yield clock.posedge
-        
-        print dec.rs1_adr_o, dec.rs2_adr_o 
+
+        print dec.rs1_adr_o, dec.rs2_adr_o
         print dec.funct3_o,dec.funct7_o,dec.alu_cmd
         print dec.op1_o,dec.op2_o,dec.rd_adr_o
         yield clock.posedge
-        return 
+        return
         # alu.funct3_i.next=cmd["f3"]
         # alu.funct7_6_i.next=cmd["f7"]
         # alu.op1_i.next=cmd["a"]
@@ -51,7 +53,7 @@ def tb():
         # yield clock.posedge
         # if not alu.valid_o:
         #     print(cmd["c"], "pipelined")
-        
+
         # alu.en_i.next=False
         # while not alu.valid_o:
         #     yield clock.posedge

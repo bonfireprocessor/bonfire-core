@@ -104,6 +104,7 @@ class AluBundle:
         def comb():
 
             alu_valid.next=False
+            
 
             if self.funct3_i==f3.RV32_F3_ADD_SUB:
                 if self.funct7_6_i:
@@ -121,10 +122,12 @@ class AluBundle:
                 self.res_o.next = self.op1_i ^ self.op2_i
                 alu_valid.next=self.en_i
             elif self.funct3_i==f3.RV32_F3_SLT:
-                self.res_o.next =  concat( modbv(0)[31:], self.op1_i.signed() < self.op2_i.signed() )
+                t_comp = self.op1_i.signed() < self.op2_i.signed()
+                self.res_o.next =  concat( modbv(0)[31:], t_comp )
                 alu_valid.next=self.en_i
             elif self.funct3_i==f3.RV32_F3_SLTU:
-                self.res_o.next =  concat( modbv(0)[31:], self.op1_i < self.op2_i )
+                t_comp = self.op1_i < self.op2_i
+                self.res_o.next =  concat( modbv(0)[31:], t_comp  )
                 alu_valid.next=self.en_i
             elif self.funct3_i==f3.RV32_F3_SLL or self.funct3_i==f3.RV32_F3_SRL_SRA:
                 self.res_o.next = shifter_out.val
