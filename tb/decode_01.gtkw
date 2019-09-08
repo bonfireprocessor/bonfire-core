@@ -1,18 +1,18 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Sun Sep  1 19:26:48 2019
+[*] Sun Sep  8 16:52:49 2019
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/tb.vcd"
-[dumpfile_mtime] "Sun Sep  1 18:57:19 2019"
-[dumpfile_size] 1781
+[dumpfile_mtime] "Sun Sep  8 16:51:27 2019"
+[dumpfile_size] 2845
 [savefile] "/home/thomas/development/bonfire/bonfire-core/tb/decode_01.gtkw"
 [timestart] 0
 [size] 1920 1031
 [pos] -1 -1
-*-5.841147 30 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-4.841147 30 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [sst_width] 341
-[signals_width] 201
+[signals_width] 337
 [sst_expanded] 1
 [sst_vpaned_height] 304
 @28
@@ -24,20 +24,40 @@ tb.decode.self_word_i[31:0]
 @28
 tb.decode.self_en_i
 tb.decode.self_valid_o
+@23
+tb.decode.self_debug_word_o[31:0]
+@28
 tb.decode.self_stall_i
 @200
 -
 @28
+tb.decode.self_branch_cmd
 tb.decode.self_alu_cmd
 tb.decode.self_invalid_opcode
 tb.decode.opcode[4:0]
+tb.decode.self_funct3_o[2:0]
+@200
+-
+@22
+tb.dec_rs1_adr_o_reg[4:0]
+tb.dec_rs2_adr_o_reg[4:0]
 @24
 tb.decode.self_rd_adr_o[4:0]
+@200
+-
+@22
+tb.decode.self_op1_o[31:0]
+tb.decode.self_op2_o[31:0]
+tb.decode.self_displacement_o[11:0]
+@420
+tb.decode.self_op1_o[31:0]
+@22
+tb.decode.self_branch_displacement[12:0]
 @28
-tb.decode.self_funct3_o[2:0]
-@24
-tb.decode.self_rs1_adr_o[4:0]
-@25
-tb.decode.self_rs2_adr_o[4:0]
+tb.decode.rs2_immediate
+@22
+tb.decode.rs2_imm_value[31:0]
+@28
+tb.sync
 [pattern_trace] 1
 [pattern_trace] 0
