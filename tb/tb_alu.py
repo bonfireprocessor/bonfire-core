@@ -34,7 +34,7 @@ def tb(c_shifter_mode="behavioral"):
     clk_driver= ClkDriver(clock)
 
     #inst=alu.alu()
-    inst=AluBundle.alu(alu,clock,reset, c_shifter_mode)
+    inst=alu.alu(clock,reset, c_shifter_mode)
 
     if c_shifter_mode!="behavioral":
        inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="alu_" + c_shifter_mode )

@@ -34,7 +34,7 @@ def get_SB_immediate(instr):
 
 
 
-class Decoder:
+class DecodeBundle:
     def __init__(self,xlen=32):
         self.word_i = Signal(intbv(0)[xlen:]) # actual instruction to decode
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction

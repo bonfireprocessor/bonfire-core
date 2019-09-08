@@ -1,0 +1,43 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Sun Sep  8 22:12:02 2019
+[*]
+[dumpfile] "/home/thomas/development/bonfire/bonfire-core/tb.vcd"
+[dumpfile_mtime] "Sun Sep  8 22:09:57 2019"
+[dumpfile_size] 15997
+[savefile] "/home/thomas/development/bonfire/bonfire-core/tb/regfile.gtkw"
+[timestart] 632
+[size] 1920 1031
+[pos] -1 -1
+*-4.841147 650 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.RegisterFile0.
+[sst_width] 341
+[signals_width] 337
+[sst_expanded] 1
+[sst_vpaned_height] 304
+@28
+tb.RegisterFile0.clk
+@22
+tb.reg_portA_ra[4:0]
+tb.reg_portA_rd[31:0]
+tb.reg_portB_ra[4:0]
+tb.reg_portB_rd[31:0]
+@200
+-
+@22
+tb.reg_writePort_wa[4:0]
+tb.reg_writePort_wd[31:0]
+@28
+tb.reg_writePort_we
+@200
+-
+@22
+tb.RegisterFile0.read_b[31:0]
+tb.RegisterFile0.read_a[31:0]
+@28
+tb.RegisterFile0.collision_a
+@29
+tb.RegisterFile0.collision_b
+[pattern_trace] 1
+[pattern_trace] 0

@@ -10,7 +10,7 @@ from disassemble import *
 clock=Signal(bool(0))
 reset = ResetSignal(0, active=1, isasync=False)
 
-dec=Decoder()
+dec=DecodeBundle()
 
 commands=[ \
     {"opcode":0x00500593,"source":"li a1,5", "t": lambda d: d.op2_o==5 and d.alu_cmd and d.funct3_o==0 and abi_name(d.rd_adr_o)=="a1"  } , \
@@ -31,8 +31,7 @@ def tb():
 
     clk_driver= ClkDriver(clock)
 
-    #inst=alu.alu()
-    inst=Decoder.decoder(dec,clock,reset)
+    inst=DecodeBundle.decoder(dec,clock,reset)
 
     inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="decode" )
 
