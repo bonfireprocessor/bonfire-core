@@ -1,0 +1,56 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Sat Sep 14 20:20:37 2019
+[*]
+[dumpfile] "/home/thomas/development/bonfire/bonfire-core/tb.vcd"
+[dumpfile_mtime] "Sat Sep 14 20:17:15 2019"
+[dumpfile_size] 10915
+[savefile] "/home/thomas/development/bonfire/bonfire-core/tb/pipeline01.gtkw"
+[timestart] 0
+[size] 1920 1031
+[pos] -1 -1
+*-4.348588 15 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.backend.
+[treeopen] tb.backend.ExecuteBundle0_SimpleExecute0.
+[treeopen] tb.backend.RegisterFile0_0.
+[sst_width] 363
+[signals_width] 326
+[sst_expanded] 1
+[sst_vpaned_height] 304
+@28
+tb.backend.clock
+tb.backend.fetch_en_i
+@22
+tb.backend.fetch_next_ip_i[31:0]
+tb.backend.fetch_word_i[31:0]
+tb.backend.DecodeBundle1_decoder0.self_op1_o[31:0]
+tb.backend.DecodeBundle1_decoder0.self_op2_o[31:0]
+tb.result_o[31:0]
+@28
+tb.we_o
+@22
+tb.rd_o[4:0]
+@200
+-
+@28
+tb.backend.ExecuteBundle0_SimpleExecute0.self_alu_en_i
+@22
+tb.backend.ExecuteBundle0_SimpleExecute0.self_alu_op1_i[31:0]
+tb.backend.ExecuteBundle0_SimpleExecute0.self_alu_op2_i[31:0]
+@28
+tb.backend.ExecuteBundle0_SimpleExecute0.self_alu_funct3_i[2:0]
+@24
+tb.backend.ExecuteBundle0_SimpleExecute0.decode_rd_adr_o[4:0]
+@22
+tb.backend.ExecuteBundle0_SimpleExecute0.self_alu_res_o[31:0]
+@28
+tb.backend.ExecuteBundle0_SimpleExecute0.self_valid_o
+tb.backend.RegisterFile0_0.writePort_we
+tb.backend.ExecuteBundle0_SimpleExecute0.self_alu_valid_o
+@22
+tb.backend.RegisterFile0_0.registers.registers(11)[31:0]
+@23
+tb.backend.RegisterFile0_0.registers.registers(13)[31:0]
+[pattern_trace] 1
+[pattern_trace] 0

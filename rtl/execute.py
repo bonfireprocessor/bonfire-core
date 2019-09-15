@@ -44,10 +44,12 @@ class ExecuteBundle:
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
 
-        busy =  Signal(bool(0))
+        #busy =  Signal(bool(0))
 
         @always_comb
         def comb():
+
+
             # ALU Input wirings 
             self.alu.funct3_i.next = decode.funct3_o
             self.alu.funct7_6_i.next = decode.funct7_o[6]
@@ -58,17 +60,25 @@ class ExecuteBundle:
             self.alu.en_i.next = decode.alu_cmd
 
             # Stall handling
-            busy.next = decode.alu_cmd and self.alu.busy_o
+            b = decode.alu_cmd and self.alu.busy_o
+            #busy.next = _busy 
             #TODO : Add other functional units 
 
-            self.busy_o = busy
+            self.busy_o.next = b
 
-            self.valid_o.next = not busy and self.alu.valid_o
+            self.valid_o.next = not b and self.alu.valid_o
+
+            self.rd_adr_o.next = decode.rd_adr_o 
 
             # Output multiplexers 
 
             if self.alu.valid_o:
                 self.result_o.next = self.alu.res_o
+            else:
+                self.result_o.next = 0     
+                
+            self.reg_we_o.next = not b and  self.alu.valid_o  
+
             #TODO: Implement other functional units 
                 
 

@@ -12,7 +12,9 @@ from util import signed_resize
 
 def get_I_immediate(instr):
     #return concat(instr[32:20])
-    return modbv(instr[32:20])[12:]
+    res = intbv(0)[12:]
+    res[:] = instr[32:20]
+    return res 
 
 
 def get_U_immediate(instr):
@@ -30,8 +32,6 @@ def get_S_immediate(instr):
 def get_SB_immediate(instr):
     return concat(instr[31],instr[7],instr[31:25],instr[12:8],intbv(0)[1:])
     
-
-
 
 
 class DecodeBundle:

@@ -1,4 +1,4 @@
-from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile
+from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipeline
 
 
 def test(inst,**kwagrs):
@@ -33,7 +33,10 @@ print 'Testing decoder'
 test(tb_decode.tb(),trace=False)
 
 print 'Testing Regfile'
-test(tb_regfile.tb(),trace=True)
+test(tb_regfile.tb(),trace=False)
+
+print 'Testing SimplePipeline'
+test(tb_simple_pipeline.tb(),trace=True) 
 
 #convert_tb(tb_barrel_shifter.tb_barrel_left_shift_comb(),hdl='VHDL',std_logic_ports=True,path='vhdl_gen_tb')
 
