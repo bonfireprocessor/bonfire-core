@@ -83,21 +83,21 @@ class AluBundle:
 
                 if self.funct3_i==f3.RV32_F3_SLL:
                     shift_right.next=False
-                    fill_v.next=False
-                    shift_en.next=not shift_busy and self.en_i
+                    fill_v.next = False
+                    shift_en.next = self.en_i
                 elif self.funct3_i==f3.RV32_F3_SRL_SRA:
-                    shift_right.next=True
-                    fill_v.next=self.funct7_6_i and self.op1_i[self.xlen-1]
-                    shift_en.next=not shift_busy and self.en_i
+                    shift_right.next = True
+                    fill_v.next = self.funct7_6_i and self.op1_i[self.xlen-1]
+                    shift_en.next = self.en_i
                 else:
-                   shift_right.next=False
-                   fill_v.next=False
-                   shift_en.next=False
+                   shift_right.next = False
+                   fill_v.next = False
+                   shift_en.next = False
 
             if c_shifter_mode=="pipelined":
                 @always_comb
                 def shift_pipelined_comb():
-                    shift_busy.next = shift_ready
+                    shift_busy.next = shift_en and not shift_ready
 
 
         @always_comb

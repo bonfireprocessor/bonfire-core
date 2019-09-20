@@ -2,8 +2,8 @@
 .global _start
 _start:
 
-li a0,0 
-li a1,5
+li a1,10 
+li a2,5
 add a3,a1,a2
-slli a3,a2,4
+slli a3,a3,4
 beq a1,a2, _start 

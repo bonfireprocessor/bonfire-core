@@ -61,6 +61,8 @@ class SimpleBackend:
 
             busy_o.next = self.decode.busy_o 
 
+            self.decode.stall_i.next = self.execute.busy_o 
+
             # Instruction fetch interface 
 
             self.decode.en_i.next = fetch.en_i
