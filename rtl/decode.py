@@ -47,9 +47,6 @@ class DecodeBundle:
         self.rs1_adr_o = Signal(modbv(0)[5:])
         self.rs2_adr_o = Signal(modbv(0)[5:])
 
-        self.rs1_adr_o_reg = Signal(modbv(0)[5:])
-        self.rs2_adr_o_reg = Signal(modbv(0)[5:])
-
         # Output to execute stage
         self.op1_o = Signal(modbv(0)[xlen:])
         self.op2_o = Signal(modbv(0)[xlen:])
@@ -85,21 +82,38 @@ class DecodeBundle:
     @block
     def decoder(self,clock,reset):
         
-        opcode=Signal(intbv(0)[5:])
+        opcode = Signal(intbv(0)[5:])
 
-        rs2_immediate=Signal(bool(0)) # rs2 Operand is an immediate
-        rs2_imm_value=Signal(modbv(0)[self.xlen:])
+        rs2_immediate = Signal(bool(0)) # rs2 Operand is an immediate
+        rs2_imm_value = Signal(modbv(0)[self.xlen:])
 
-        rs1_immediate=Signal(bool(0)) # rs1 Operand is an immediate
-        rs1_imm_value=Signal(modbv(0)[self.xlen:])
+        rs1_immediate = Signal(bool(0)) # rs1 Operand is an immediate
+        rs1_imm_value = Signal(modbv(0)[self.xlen:])
+
+        rs1_adr_o_reg = Signal(modbv(0)[5:])
+        rs2_adr_o_reg = Signal(modbv(0)[5:])
+
+        downstream_busy = Signal(bool(0))
+
+        @always_comb
+        def busy_control():
+            downstream_busy.next = self.valid_o and self.stall_i
+
         
         @always_comb
         def comb():
-            self.rs1_adr_o.next = self.word_i[20:15]
-            self.rs2_adr_o.next = self.word_i[25:20]
+
+            if not downstream_busy:
+                self.rs1_adr_o.next = self.word_i[20:15]
+                self.rs2_adr_o.next = self.word_i[25:20]
+            else:
+                self.rs1_adr_o.next = rs1_adr_o_reg
+                self.rs2_adr_o.next = rs2_adr_o_reg 
 
             opcode.next=self.word_i[7:2]
-            self.busy_o.next = self.stall_i
+            self.busy_o.next = downstream_busy
+
+            
 
             # Operand output side 
            
@@ -118,7 +132,7 @@ class DecodeBundle:
         def decode_op():
 
             
-            if self.en_i and not self.stall_i:
+            if self.en_i and not downstream_busy:
                 inv=False 
 
                 self.debug_word_o.next = self.word_i 
@@ -127,8 +141,9 @@ class DecodeBundle:
                 self.funct7_o.next = self.word_i[32:25]
                 self.rd_adr_o.next = self.word_i[12:7]
 
-                self.rs1_adr_o_reg.next = self.word_i[20:15]
-                self.rs2_adr_o_reg.next = self.word_i[25:20]
+                
+                rs1_adr_o_reg.next = self.word_i[20:15]
+                rs2_adr_o_reg.next = self.word_i[25:20]
 
                 self.displacement_o.next = 0 
                 rs1_immediate.next = False 
