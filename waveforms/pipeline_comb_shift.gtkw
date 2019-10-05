@@ -1,0 +1,37 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Sat Oct  5 14:52:38 2019
+[*]
+[dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_simple_pipeline_comb_shift.vcd"
+[dumpfile_mtime] "Sat Oct  5 14:48:12 2019"
+[dumpfile_size] 22700
+[savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/pipeline_comb_shift.gtkw"
+[timestart] 0
+[size] 1920 1031
+[pos] -1 -1
+*-5.631515 94 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.SimpleBackend1_backend0.
+[sst_width] 363
+[signals_width] 326
+[sst_expanded] 1
+[sst_vpaned_height] 304
+@28
+tb.SimpleBackend1_backend0.clock
+@200
+-
+@22
+tb.SimpleBackend1_backend0.fetch_next_ip_i[31:0]
+tb.SimpleBackend1_backend0.fetch_word_i[31:0]
+@28
+tb.SimpleBackend1_backend0.self_decode_en_i
+tb.SimpleBackend1_backend0.self_decode_busy_o
+tb.we_o
+@22
+tb.result_o[31:0]
+@421
+tb.result_o[31:0]
+@22
+tb.rd_o[4:0]
+[pattern_trace] 1
+[pattern_trace] 0

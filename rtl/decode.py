@@ -187,7 +187,7 @@ class DecodeBundle:
                 elif opcode==op.RV32_LUI or opcode==op.RV32_AUIPC:
                     self.alu_cmd.next = True
                     rs1_immediate.next = True 
-                    rs1_imm_value.next = signed_resize(get_U_immediate(self.word_i),self.xlen) 
+                    rs1_imm_value.next = get_U_immediate(self.word_i)
                     rs2_immediate.next = True
                     if opcode==op.RV32_AUIPC:
                         rs2_imm_value.next = self.next_ip_i

@@ -6,16 +6,7 @@ from ClkDirver import *
 import types
 from disassemble import *
 
-
-clock=Signal(bool(0))
-reset = ResetSignal(0, active=1, isasync=False)
-
-
-backend = SimpleBackend()
-
-fetch = FetchInputBundle()
-
-busy = Signal(bool(0))
+from rtl import config
 
 result_o = Signal(intbv(0)[32:])
 rd_o = Signal(intbv(0)[5:])
@@ -38,16 +29,22 @@ commands=[ \
 ]
 
 @block
-def tb():
-
+def tb(config=config.BonfireConfig(),test_conversion=False):
+    clock=Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+    busy = Signal(bool(0))
     cmd_index = Signal(intbv(0)[32:])
 
-    clk_driver= ClkDriver(clock)
+    
+    backend = SimpleBackend(config=config)
+    fetch = FetchInputBundle(config=config)
+
+    clk_driver= ClkDriver(clock) 
     dut = backend.backend(fetch,busy,clock,reset)
 
 
-
-    dut.convert(hdl='VHDL',std_logic_ports=False,path='vhdl_gen', name="backend" )
+    if test_conversion:
+        dut.convert(hdl='VHDL',std_logic_ports=False,path='vhdl_gen', name="backend" )
 
     @always_comb
     def tb_comb():

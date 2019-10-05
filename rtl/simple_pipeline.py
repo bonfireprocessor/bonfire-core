@@ -12,7 +12,6 @@ from execute import *
 from regfile import * 
 
 import config
-
 def_config= config.BonfireConfig()
 
 class FetchInputBundle:

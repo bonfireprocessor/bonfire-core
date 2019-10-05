@@ -17,6 +17,7 @@ class AluBundle:
         self.op1_i=Signal(modbv(0)[xlen:])
         self.op2_i=Signal(modbv(0)[xlen:])
         self.res_o=Signal(modbv(0)[xlen:])
+        self.compare_i=Signal(bool(0)) # Switch ALU to subtract /compare 
         # Control Signals
         self.en_i=Signal(bool(0))
         self.busy_o=Signal(bool(0))
@@ -25,6 +26,42 @@ class AluBundle:
         # Constants
         self.xlen = xlen
 
+
+    @block
+    def adder(self,subtract_i,result_o,ge_o,uge_o):
+        """
+        subrtact_i : bool     do subtract
+        result_o : modbv[32:] add/subtract result
+        ge_o : bool    output signed greater or equal
+        uge_o : bool   output, unsgined greater or equal
+        """
+
+        res = Signal(modbv(0)[self.xlen+1:]) ## accomodate for carry bit
+
+        @always_comb
+        def do_add(): 
+            op_b = modbv(0)[self.xlen:]
+
+            if subtract_i: 
+                op_b[:] = ~self.op2_i
+            else:
+                op_b[:] = self.op2_i
+
+            # for i in range(self.xlen):
+            #     op_b[i] = self.op2_i[i] ^ subtract_i 
+
+            res.next = self.op1_i + op_b + subtract_i
+
+        @always_comb
+        def adder_output():
+            result_o.next = res[self.xlen:]
+            carry = res[len(res)-1]
+            s1 = self.op1_i[len(self.op1_i)-1]
+            s2 = self.op2_i[len(self.op2_i)-1]
+            uge_o.next = carry
+            ge_o.next = (s1 and s2 and carry) or (not s1 and not s2 and carry ) or ( not s1 and s2 )
+
+        return instances()
 
 
     @block
@@ -45,6 +82,15 @@ class AluBundle:
         shift_busy = Signal(bool(0))
 
         alu_valid = Signal(bool(0))
+
+        # Adder interface
+        subtract = Signal(bool(0))
+        adder_out = Signal(modbv(0)[self.xlen:])
+        flag_ge = Signal(bool(0))
+        flag_uge = Signal(bool(0))
+
+        add_inst=self.adder(subtract,adder_out,flag_ge,flag_uge)
+
 
         if c_shifter_mode=="behavioral":
 
@@ -104,13 +150,15 @@ class AluBundle:
         def comb():
 
             alu_valid.next=False
-            
+            subtract.next=False 
 
             if self.funct3_i==f3.RV32_F3_ADD_SUB:
-                if self.funct7_6_i:
-                    self.res_o.next = self.op1_i - self.op2_i
-                else:
-                    self.res_o.next = self.op1_i + self.op2_i
+                subtract.next = self.funct7_6_i
+                self.res_o.next = adder_out 
+                # if self.funct7_6_i:
+                #     self.res_o.next = self.op1_i - self.op2_i
+                # else:
+                #     self.res_o.next = self.op1_i + self.op2_i
                 alu_valid.next=self.en_i
             elif self.funct3_i==f3.RV32_F3_OR:
                 self.res_o.next = self.op1_i | self.op2_i
@@ -122,12 +170,17 @@ class AluBundle:
                 self.res_o.next = self.op1_i ^ self.op2_i
                 alu_valid.next=self.en_i
             elif self.funct3_i==f3.RV32_F3_SLT:
-                t_comp = self.op1_i.signed() < self.op2_i.signed()
-                self.res_o.next =  concat( modbv(0)[31:], t_comp )
+                subtract.next=True
+                self.res_o.next = not flag_ge
+                #t_comp = self.op1_i.signed() < self.op2_i.signed()
+                #self.res_o.next =  concat( modbv(0)[31:], t_comp )
+               
                 alu_valid.next=self.en_i
             elif self.funct3_i==f3.RV32_F3_SLTU:
-                t_comp = self.op1_i < self.op2_i
-                self.res_o.next =  concat( modbv(0)[31:], t_comp  )
+                subtract.next=True
+                self.res_o.next = not flag_uge
+                #t_comp = self.op1_i < self.op2_i
+                #self.res_o.next =  concat( modbv(0)[31:], t_comp  )
                 alu_valid.next=self.en_i
             elif self.funct3_i==f3.RV32_F3_SLL or self.funct3_i==f3.RV32_F3_SRL_SRA:
                 self.res_o.next = shifter_out.val
