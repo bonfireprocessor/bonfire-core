@@ -26,8 +26,14 @@ commands=[ \
     {"opcode":0x00a00593,"source":"li a1,10", "t": lambda: abi_name(rd_o)=="a1" and result_o == 10  } , \
     {"opcode":0x00500613,"source":"li a2,5", "t": lambda: abi_name(rd_o)=="a2" and result_o == 5 } , \
     {"opcode":0x00c586b3,"source":"add a3,a1,a2", "t": lambda: abi_name(rd_o)=="a3" and result_o == 15 }, \
-    {"opcode":0x00469693,"source":"slli	a3,a3,0x4", "t": lambda: abi_name(rd_o)=="a3" and result_o == 0xf0 }, \
-    {"opcode":0x0056e693,"source":"ori	a3,a3,5", "t": lambda: abi_name(rd_o)=="a3" and result_o == 0xf5 }, \
+    {"opcode":0x00469713,"source":"slli	a4,a3,0x4", "t": lambda: abi_name(rd_o)=="a4" and result_o == 0xf0 }, \
+    {"opcode":0x00576713,"source":"ori	a4,a4,5", "t": lambda: abi_name(rd_o)=="a4" and result_o == 0xf5 }, \
+    {"opcode":0x40c00633,"source":"neg	a2,a2", "t": lambda: abi_name(rd_o)=="a2" and result_o.signed() == -5 }, \
+    {"opcode":0x000627b3,"source":"sltz	a5,a2", "t": lambda: abi_name(rd_o)=="a5" and result_o == 1 }, \
+    {"opcode":0x00063793,"source":"sltiu	a5,a2,0", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0 }, \
+    {"opcode":0x800007b7,"source":"lui a5,0x80000", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0x80000000 }, \
+    {"opcode":0x4187d793,"source":"srai a5,a5,0x18", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0xffffff80 }, \
+    {"opcode":0x00078493,"source":"mv	s1,a5", "t": lambda: abi_name(rd_o)=="s1" and result_o == 0xffffff80 }, \
     {"opcode":0xfec588e3,"source":"beq	a1,a2,0 <_start>", "t": lambda: True }
 ]
 
@@ -82,7 +88,7 @@ def tb():
         if not backend.decode.busy_o:
             if fetch_index < len(commands):
                 cmd = commands[fetch_index]
-                fetch.word_i.next=cmd["opcode"]
+                fetch.word_i.next = cmd["opcode"]
                 fetch.next_ip_i.next  = fetch_index * 4
                 fetch.current_ip_i.next = fetch.next_ip_i
                 fetch.en_i.next=True

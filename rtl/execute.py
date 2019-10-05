@@ -52,7 +52,7 @@ class ExecuteBundle:
 
             # ALU Input wirings 
             self.alu.funct3_i.next = decode.funct3_o
-            self.alu.funct7_6_i.next = decode.funct7_o[6]
+            self.alu.funct7_6_i.next = decode.funct7_o[5]
             self.alu.op1_i.next = decode.op1_o
             self.alu.op2_i.next = decode.op2_o 
 
