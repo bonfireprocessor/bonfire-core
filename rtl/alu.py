@@ -145,43 +145,43 @@ class AluBundle:
                 def shift_pipelined_comb():
                     shift_busy.next = shift_en and not shift_ready
 
+        @always_comb
+        def set_subtract():
+            """
+            The only case the ALU is not subtracting is when there is really an add instruction
+            """
+            subtract.next = not (self.funct3_i==f3.RV32_F3_ADD_SUB and not self.funct7_6_i)
 
         @always_comb
         def comb():
 
             alu_valid.next=False
-            subtract.next=False 
+           
 
             if self.funct3_i==f3.RV32_F3_ADD_SUB:
-                subtract.next = self.funct7_6_i
                 self.res_o.next = adder_out 
-                # if self.funct7_6_i:
-                #     self.res_o.next = self.op1_i - self.op2_i
-                # else:
-                #     self.res_o.next = self.op1_i + self.op2_i
-                alu_valid.next=self.en_i
+                alu_valid.next = self.en_i
+
             elif self.funct3_i==f3.RV32_F3_OR:
                 self.res_o.next = self.op1_i | self.op2_i
-                alu_valid.next=self.en_i
+                alu_valid.next = self.en_i
+
             elif self.funct3_i==f3.RV32_F3_AND:
                 self.res_o.next = self.op1_i & self.op2_i
                 alu_valid.next=self.en_i
+
             elif self.funct3_i==f3.RV32_F3_XOR:
                 self.res_o.next = self.op1_i ^ self.op2_i
                 alu_valid.next=self.en_i
+
             elif self.funct3_i==f3.RV32_F3_SLT:
-                subtract.next=True
                 self.res_o.next = not flag_ge
-                #t_comp = self.op1_i.signed() < self.op2_i.signed()
-                #self.res_o.next =  concat( modbv(0)[31:], t_comp )
-               
                 alu_valid.next=self.en_i
+
             elif self.funct3_i==f3.RV32_F3_SLTU:
-                subtract.next=True
                 self.res_o.next = not flag_uge
-                #t_comp = self.op1_i < self.op2_i
-                #self.res_o.next =  concat( modbv(0)[31:], t_comp  )
                 alu_valid.next=self.en_i
+                
             elif self.funct3_i==f3.RV32_F3_SLL or self.funct3_i==f3.RV32_F3_SRL_SRA:
                 self.res_o.next = shifter_out.val
             else:
