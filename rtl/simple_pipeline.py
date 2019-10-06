@@ -66,6 +66,7 @@ class SimpleBackend:
 
             self.decode.en_i.next = fetch.en_i
             self.decode.word_i.next = fetch.word_i
+            self.decode.current_ip_i.next = fetch.current_ip_i
             self.decode.next_ip_i.next  = fetch.next_ip_i 
             
 

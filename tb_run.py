@@ -33,7 +33,7 @@ print 'Testing alu c_shifter_mode="pipelined"'
 test(tb_alu.tb(c_shifter_mode="pipelined"),trace=False)
 
 print 'Testing decoder'
-test(tb_decode.tb(),trace=False)
+test(tb_decode.tb(True),trace=False)
 
 print 'Testing Regfile'
 test(tb_regfile.tb(),trace=False)

@@ -12,12 +12,18 @@ from instructions import ArithmeticFunct3  as f3
 
 class AluBundle:
     def __init__(self,xlen=32):
-        self.funct3_i=Signal(intbv(0)[3:])
-        self.funct7_6_i=Signal(bool(0))
-        self.op1_i=Signal(modbv(0)[xlen:])
-        self.op2_i=Signal(modbv(0)[xlen:])
-        self.res_o=Signal(modbv(0)[xlen:])
-        self.compare_i=Signal(bool(0)) # Switch ALU to subtract /compare 
+        # ALU Inputs
+        self.funct3_i = Signal(intbv(0)[3:])
+        self.funct7_6_i = Signal(bool(0))
+        #self.compare_i = Signal(bool(0)) # Switch ALU to subtract /compare most likely not needed...
+        # ALU Outputs
+        self.op1_i = Signal(modbv(0)[xlen:])
+        self.op2_i = Signal(modbv(0)[xlen:])
+        self.res_o = Signal(modbv(0)[xlen:])
+        self.flag_ge = Signal(bool(0)) # Only valid when ALU is subtracting : op1>=op2 (signed)
+        self.flag_uge = Signal(bool(0)) # Only valid when when ALU is subtracting : op1>=op2 (unsigned)
+        self.flag_equal = Signal(bool(0)) # op1==op2 
+        
         # Control Signals
         self.en_i=Signal(bool(0))
         self.busy_o=Signal(bool(0))
@@ -115,8 +121,6 @@ class AluBundle:
 
             shift_amount=Signal(intbv(0)[5:])
 
-
-
             shift_inst=shift_pipelined(clock,reset,self.op1_i,shifter_out,shift_amount, \
                        shift_right,fill_v,shift_en,shift_ready, 3 if c_shifter_mode=="pipelined" else 0 )
                       
@@ -150,7 +154,7 @@ class AluBundle:
             """
             The only case the ALU is not subtracting is when there is really an add instruction
             """
-            subtract.next = not (self.funct3_i==f3.RV32_F3_ADD_SUB and not self.funct7_6_i)
+            subtract.next = not (self.en_i and self.funct3_i==f3.RV32_F3_ADD_SUB and not self.funct7_6_i)
 
         @always_comb
         def comb():
@@ -187,6 +191,11 @@ class AluBundle:
             else:
                 assert False, "Invalid funct3_i"
                 self.res_o.next = 0
+
+            # Comparator outputs 
+            self.flag_ge.next = flag_ge
+            self.flag_uge.next = flag_uge
+            self.flag_equal.next = self.op1_i == self.op2_i 
 
 
         @always_comb
