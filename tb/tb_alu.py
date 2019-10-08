@@ -41,7 +41,8 @@ def tb(c_shifter_mode="behavioral"):
 
 
     def test_op(cmd):
-        alu.funct3_i.next=cmd["f3"]
+        #alu.funct3_i.next=cmd["f3"]
+        alu.funct3_onehot_i.next = 2**cmd["f3"]
         alu.funct7_6_i.next=cmd["f7"]
         alu.op1_i.next=cmd["a"]
         alu.op2_i.next=cmd["b"]

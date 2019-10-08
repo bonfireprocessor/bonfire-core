@@ -10,10 +10,12 @@ from barrel_shifter import shift_pipelined
 from instructions import ArithmeticFunct3  as f3 
 
 
+
 class AluBundle:
     def __init__(self,xlen=32):
         # ALU Inputs
-        self.funct3_i = Signal(intbv(0)[3:])
+        #self.funct3_i = Signal(intbv(0)[3:])
+        self.funct3_onehot_i = Signal(intbv(1)[8:])
         self.funct7_6_i = Signal(bool(0))
         #self.compare_i = Signal(bool(0)) # Switch ALU to subtract /compare most likely not needed...
         # ALU Outputs
@@ -102,10 +104,10 @@ class AluBundle:
 
             @always_comb
             def shift():
-                if self.funct3_i==f3.RV32_F3_SLL:
+                if self.funct3_onehot_i[f3.RV32_F3_SLL]:
                     shifter_out.next = self.op1_i << self.op2_i[5:]
                     shift_valid.next=True
-                elif self.funct3_i==f3.RV32_F3_SRL_SRA:
+                elif self.funct3_onehot_i[f3.RV32_F3_SRL_SRA]:
                     shifter_out.next =  ( self.op1_i.signed() if self.funct7_6_i else self.op1_i ) >>  self.op2_i[5:]
                     shift_valid.next=True
                 else:
@@ -131,11 +133,11 @@ class AluBundle:
                 shift_valid.next = shift_ready
                 shift_amount.next = self.op2_i[5:0]
 
-                if self.funct3_i==f3.RV32_F3_SLL:
+                if self.funct3_onehot_i[f3.RV32_F3_SLL]:
                     shift_right.next=False
                     fill_v.next = False
                     shift_en.next = self.en_i
-                elif self.funct3_i==f3.RV32_F3_SRL_SRA:
+                elif self.funct3_onehot_i[f3.RV32_F3_SRL_SRA]:
                     shift_right.next = True
                     fill_v.next = self.funct7_6_i and self.op1_i[self.xlen-1]
                     shift_en.next = self.en_i
@@ -154,7 +156,7 @@ class AluBundle:
             """
             The only case the ALU is not subtracting is when there is really an add instruction
             """
-            subtract.next = not (self.en_i and self.funct3_i==f3.RV32_F3_ADD_SUB and not self.funct7_6_i)
+            subtract.next = not (self.en_i and self.funct3_onehot_i[f3.RV32_F3_ADD_SUB] and not self.funct7_6_i)
 
         @always_comb
         def comb():
@@ -162,31 +164,31 @@ class AluBundle:
             alu_valid.next=False
            
 
-            if self.funct3_i==f3.RV32_F3_ADD_SUB:
+            if self.funct3_onehot_i[f3.RV32_F3_ADD_SUB]:
                 self.res_o.next = adder_out 
                 alu_valid.next = self.en_i
 
-            elif self.funct3_i==f3.RV32_F3_OR:
+            elif self.funct3_onehot_i[f3.RV32_F3_OR]:
                 self.res_o.next = self.op1_i | self.op2_i
                 alu_valid.next = self.en_i
 
-            elif self.funct3_i==f3.RV32_F3_AND:
+            elif self.funct3_onehot_i[f3.RV32_F3_AND]:
                 self.res_o.next = self.op1_i & self.op2_i
                 alu_valid.next=self.en_i
 
-            elif self.funct3_i==f3.RV32_F3_XOR:
+            elif self.funct3_onehot_i[f3.RV32_F3_XOR]:
                 self.res_o.next = self.op1_i ^ self.op2_i
                 alu_valid.next=self.en_i
 
-            elif self.funct3_i==f3.RV32_F3_SLT:
+            elif self.funct3_onehot_i[f3.RV32_F3_SLT]:
                 self.res_o.next = not flag_ge
                 alu_valid.next=self.en_i
 
-            elif self.funct3_i==f3.RV32_F3_SLTU:
+            elif self.funct3_onehot_i[f3.RV32_F3_SLTU]:
                 self.res_o.next = not flag_uge
                 alu_valid.next=self.en_i
                 
-            elif self.funct3_i==f3.RV32_F3_SLL or self.funct3_i==f3.RV32_F3_SRL_SRA:
+            elif self.funct3_onehot_i[f3.RV32_F3_SLL] or self.funct3_onehot_i[f3.RV32_F3_SRL_SRA]:
                 self.res_o.next = shifter_out.val
             else:
                 assert False, "Invalid funct3_i"

@@ -13,9 +13,9 @@ from instructions import BranchFunct3  as b3
 class ExecuteBundle:
     def __init__(self,config):
         #config
-        self.config = config 
+        self.config = config
 
-        xlen = config.xlen 
+        xlen = config.xlen
 
         #functional units
         self.alu=alu.AluBundle(xlen)
@@ -23,12 +23,12 @@ class ExecuteBundle:
         #output
         self.result_o = Signal(intbv(0)[xlen:])
         self.reg_we_o = Signal(bool(0)) # Register File Write Enable
-        self.rd_adr_o =  Signal(modbv(0)[5:]) # Target register 
+        self.rd_adr_o =  Signal(modbv(0)[5:]) # Target register
 
         self.jump_o = Signal(bool(0)) # Branch/jump
         self.jump_dest_o = Signal(intbv(0)[xlen:])
 
-        #pipeline control 
+        #pipeline control
 
         self.en_i = Signal(bool(0)) # Input enable / valid
         self.busy_o = Signal(bool(0)) # unit busy (stall previous stage)
@@ -41,7 +41,7 @@ class ExecuteBundle:
     @block
     def SimpleExecute(self,decode,clock,reset):
         """
-        Simple execution Unit designed for single stage in-order execution 
+        Simple execution Unit designed for single stage in-order execution
         decode : DecodeBundle class instance
         clock : clock
         reset : reset
@@ -55,39 +55,40 @@ class ExecuteBundle:
         def comb():
 
 
-            # ALU Input wirings 
-            self.alu.funct3_i.next = decode.funct3_o
+            # ALU Input wirings
+
+            self.alu.funct3_onehot_i.next = decode.funct3_onehot_o
             self.alu.funct7_6_i.next = decode.funct7_o[5]
             self.alu.op1_i.next = decode.op1_o
-            self.alu.op2_i.next = decode.op2_o 
-            
+            self.alu.op2_i.next = decode.op2_o
 
-            # Functional Unit selection   
+
+            # Functional Unit selection
             self.alu.en_i.next = decode.alu_cmd
 
             # Stall handling
             busy = decode.alu_cmd and self.alu.busy_o
-           
-            #TODO : Add other functional units 
+
+            #TODO : Add other functional units
 
             self.busy_o.next = busy
             self.valid_o.next = not busy and self.alu.valid_o
 
-            self.rd_adr_o.next = decode.rd_adr_o 
+            self.rd_adr_o.next = decode.rd_adr_o
 
-            # Output multiplexers 
+            # Output multiplexers
 
             if self.alu.valid_o:
                 self.result_o.next = self.alu.res_o
             elif decode.jump_cmd or decode.jumpr_cmd:
                 self.result_o.next = decode.next_ip_o
             else:
-                self.result_o.next = 0     
-                
+                self.result_o.next = 0
+
             self.reg_we_o.next = not busy and  self.alu.valid_o
 
             if decode.branch_cmd:
-                f3 = decode.funct3_onehot
+                f3 = decode.funct3_onehot_o
                 if f3[b3.RV32_F3_BEQ]:
                     b = self.alu.flag_equal
                 if f3[b3.RV32_F3_BGE]:
@@ -99,24 +100,17 @@ class ExecuteBundle:
                 if f3[b3.RV32_F3_BLTU]:
                     b = not self.alu.flag_uge
                 if f3[b3.RV32_F3_BNE]:
-                    b = not self.alu.flag_equal 
+                    b = not self.alu.flag_equal
 
-                self.jump_o.next = b 
+                self.jump_o.next = b
                 self.jump_dest_o.next = decode.jump_dest_o
             elif decode.jump_cmd:
                 self.jump_dest_o.next = decode.jump_dest_o
-                self.jump_o.next = True 
+                self.jump_o.next = True
             elif decode.jumpr_cmd:
-                self.jump_dest_o = self.alu.res_o                              
+                self.jump_dest_o = self.alu.res_o
 
-            #TODO: Implement other functional units 
-                
+            #TODO: Implement other functional units
+
 
         return instances()
-            
-
-        
-
-
-
-
