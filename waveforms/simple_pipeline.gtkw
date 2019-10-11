@@ -1,56 +1,45 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Sat Oct  5 15:04:11 2019
+[*] Tue Oct  8 23:26:57 2019
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_simple_pipeline.vcd"
-[dumpfile_mtime] "Sat Oct  5 14:55:14 2019"
-[dumpfile_size] 22886
+[dumpfile_mtime] "Tue Oct  8 23:23:23 2019"
+[dumpfile_size] 30389
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/simple_pipeline.gtkw"
 [timestart] 0
 [size] 1920 1031
 [pos] -1 -1
-*-5.817327 94 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.683627 218 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
-[treeopen] tb.SimpleBackend1_backend0.
-[sst_width] 363
-[signals_width] 326
+[treeopen] tb.backend.
+[treeopen] tb.backend.ExecuteBundle1_SimpleExecute0.
+[sst_width] 389
+[signals_width] 293
 [sst_expanded] 1
-[sst_vpaned_height] 304
-@28
-tb.SimpleBackend1_backend0.clock
-tb.SimpleBackend1_backend0.fetch_en_i
-@22
-tb.SimpleBackend1_backend0.fetch_next_ip_i[31:0]
-tb.SimpleBackend1_backend0.fetch_word_i[31:0]
-@28
-tb.SimpleBackend1_backend0.self_decode_busy_o
+[sst_vpaned_height] 371
 @200
 -
-@22
-tb.result_o[31:0]
-@420
-tb.result_o[31:0]
-@24
-tb.rd_o[4:0]
 @28
-tb.we_o
+tb.backend.clock
+tb.backend.fetch_en_i
+@22
+tb.backend.fetch_next_ip_i[31:0]
+tb.backend.fetch_word_i[31:0]
 @200
 -
--
-@24
-tb.SimpleBackend1_backend0.self_decode_rs1_adr_o[4:0]
-@420
-tb.SimpleBackend1_backend0.self_decode_rs2_adr_o[4:0]
-@24
-tb.SimpleBackend1_backend0.self_execute_rd_adr_o[4:0]
-@22
-tb.SimpleBackend1_backend0.DecodeBundle2_decoder0.self_op1_o[31:0]
-tb.SimpleBackend1_backend0.DecodeBundle2_decoder0.self_op2_o[31:0]
-@28
-tb.SimpleBackend1_backend0.DecodeBundle2_decoder0.self_funct3_o[2:0]
-tb.SimpleBackend1_backend0.DecodeBundle2_decoder0.self_funct7_o[6:0]
-tb.SimpleBackend1_backend0.DecodeBundle2_decoder0.self_alu_cmd
 @29
-tb.SimpleBackend1_backend0.DecodeBundle2_decoder0.self_branch_cmd
+tb.backend.debugport_reg_we_o
+@24
+tb.backend.debugport_rd_adr_o[4:0]
+@22
+tb.backend.debugport_result_o[31:0]
+@420
+tb.backend.debugport_result_o[31:0]
+@200
+-
+@22
+tb.backend.out_jump_dest_o[31:0]
+@28
+tb.backend.out_jump_o
 [pattern_trace] 1
 [pattern_trace] 0

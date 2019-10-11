@@ -56,8 +56,8 @@ class DecodeBundle:
 
         self.rd_adr_o =  Signal(modbv(0)[5:])
 
+        self.funct3_onehot_o = Signal(intbv(1)[8:])
         self.funct3_o = Signal(intbv(0)[3:])
-        self.funct3_onehot = Signal(intbv(0)[8:])
         self.funct7_o = Signal(intbv(0)[7:])
         self.displacement_o = Signal(intbv(0)[12:])
         self.jump_dest_o = Signal(modbv(0)[xlen:])
@@ -143,15 +143,12 @@ class DecodeBundle:
                 self.debug_word_o.next = self.word_i
 
                 self.funct3_o.next = self.word_i[15:12]
-                #self.funct3_onehot.next = one_hot(self.word_i(15,12))
-                
-                self.funct3_onehot.next=0 
-                index=int(self.word_i[15:12])
-                self.funct3_onehot.next[index]=True 
+                self.funct3_onehot_o.next = 0 
+                index = int(self.word_i[15:12])
+                self.funct3_onehot_o.next[index] = True 
                 
                 self.funct7_o.next = self.word_i[32:25]
                 self.rd_adr_o.next = self.word_i[12:7]
-
 
                 rs1_adr_o_reg.next = self.word_i[20:15]
                 rs2_adr_o_reg.next = self.word_i[25:20]
@@ -196,8 +193,7 @@ class DecodeBundle:
                     self.jumpr_cmd.next = True
                      # Use ALU to calculate target 
                     self.alu_cmd.next = True
-                    self.funct3_o.next =  f3.RV32_F3_ADD_SUB
-                    self.funct3_onehot.next = 2**f3.RV32_F3_ADD_SUB   
+                    self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB   
                     rs2_imm_value.next =  get_I_immediate(self.word_i).signed()
                     rs2_immediate.next = True
                     
@@ -211,8 +207,7 @@ class DecodeBundle:
                     else:
                         rs2_imm_value.next=0
 
-                    self.funct3_o.next =  f3.RV32_F3_ADD_SUB
-                    self.funct3_onehot.next = 2**f3.RV32_F3_ADD_SUB   
+                    self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB   
                     self.funct7_o.next = 0
 
                 else:
