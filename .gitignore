@@ -1,6 +1,9 @@
 *.pyc
 *.vcd
 *.ghw
+*.lst
+*.hex
+*.bin
 
 *.v 
 /work-obj93.cf
