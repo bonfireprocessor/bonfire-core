@@ -23,7 +23,25 @@ class FetchInputBundle:
         self.word_i = Signal(intbv(0)[xlen:]) # actual instruction to decode
         self.current_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of current instruction 
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction 
-        
+
+class BackendOutputBundle:
+    def __init__(self,config=def_config):
+        self.config=config
+        xlen=config.xlen
+
+        self.jump_o =  Signal(bool(0))
+        self.jump_dest_o =  Signal(intbv(0)[xlen:])
+
+       
+class DebugOutputBundle:
+   def __init__(self,config=def_config):
+       self.config=config
+       xlen=config.xlen 
+
+       self.result_o = Signal(intbv(0)[xlen:])
+       self.rd_adr_o = Signal(intbv(0)[5:])
+       self.reg_we_o =  Signal(bool(0))
+
 
 class SimpleBackend:
     def __init__(self,config=def_config):
@@ -38,7 +56,7 @@ class SimpleBackend:
         
 
     @block
-    def backend(self,fetch,busy_o,clock,reset):
+    def backend(self,fetch,busy_o,clock,reset,out,debugport ):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset)
@@ -68,7 +86,20 @@ class SimpleBackend:
             self.decode.word_i.next = fetch.word_i
             self.decode.current_ip_i.next = fetch.current_ip_i
             self.decode.next_ip_i.next  = fetch.next_ip_i 
-            
+
+
+        @always_comb
+        def debugout():
+            debugport.result_o.next = self.execute.result_o
+            debugport.rd_adr_o.next = self.execute.rd_adr_o
+            debugport.reg_we_o.next = self.execute.reg_we_o
+
+
+        @always_comb
+        def proc_out():
+            out.jump_o.next = self.execute.jump_o
+            out.jump_dest_o.next = self.execute.jump_dest_o
+
 
         return instances()
 

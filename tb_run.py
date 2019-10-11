@@ -46,7 +46,7 @@ conf.shifter_mode="comb"
 test(tb_simple_pipeline.tb(config=conf),trace=False,filename="tb_simple_pipeline_comb_shift")
 
 print 'Testing SimplePipeline with staged shifter'
-test(tb_simple_pipeline.tb(),trace=True,filename="tb_simple_pipeline")
+test(tb_simple_pipeline.tb(test_conversion=True),trace=True,filename="tb_simple_pipeline")
 
 #convert_tb(tb_barrel_shifter.tb_barrel_left_shift_comb(),hdl='VHDL',std_logic_ports=True,path='vhdl_gen_tb')
 

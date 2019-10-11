@@ -28,6 +28,8 @@ class ExecuteBundle:
         self.jump_o = Signal(bool(0)) # Branch/jump
         self.jump_dest_o = Signal(intbv(0)[xlen:])
 
+        self.invalid_opcode_fault = Signal(bool(0))
+
         #pipeline control
 
         self.en_i = Signal(bool(0)) # Input enable / valid
@@ -54,6 +56,10 @@ class ExecuteBundle:
         @always_comb
         def comb():
 
+            # Init
+            self.invalid_opcode_fault.next = False 
+            self.jump_o.next=False
+            self.jump_dest_o.next=0
 
             # ALU Input wirings
 
@@ -88,27 +94,29 @@ class ExecuteBundle:
             self.reg_we_o.next = not busy and  self.alu.valid_o
 
             if decode.branch_cmd:
+                
                 f3 = decode.funct3_onehot_o
                 if f3[b3.RV32_F3_BEQ]:
-                    b = self.alu.flag_equal
-                if f3[b3.RV32_F3_BGE]:
-                    b = self.alu.flag_ge
-                if f3[b3.RV32_F3_BGEU]:
-                    b = self.alu.flag_uge
-                if f3[b3.RV32_F3_BLT]:
-                    b = not self.alu.flag_ge
-                if f3[b3.RV32_F3_BLTU]:
-                    b = not self.alu.flag_uge
-                if f3[b3.RV32_F3_BNE]:
-                    b = not self.alu.flag_equal
+                    self.jump_o.next = self.alu.flag_equal
+                elif f3[b3.RV32_F3_BGE]:
+                    self.jump_o.next = self.alu.flag_ge
+                elif f3[b3.RV32_F3_BGEU]:
+                    self.jump_o.next = self.alu.flag_uge
+                elif f3[b3.RV32_F3_BLT]:
+                    self.jump_o.next = not self.alu.flag_ge
+                elif f3[b3.RV32_F3_BLTU]:
+                    self.jump_o.next = not self.alu.flag_uge
+                elif f3[b3.RV32_F3_BNE]:
+                    self.jump_o.next = not self.alu.flag_equal
+                else:
+                    self.invalid_opcode_fault.next = True
 
-                self.jump_o.next = b
                 self.jump_dest_o.next = decode.jump_dest_o
             elif decode.jump_cmd:
                 self.jump_dest_o.next = decode.jump_dest_o
                 self.jump_o.next = True
             elif decode.jumpr_cmd:
-                self.jump_dest_o = self.alu.res_o
+                self.jump_dest_o.next = self.alu.res_o
 
             #TODO: Implement other functional units
 

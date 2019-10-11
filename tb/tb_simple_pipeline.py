@@ -41,12 +41,14 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     busy = Signal(bool(0))
     cmd_index = Signal(intbv(0)[32:])
 
+    debug=DebugOutputBundle()
+    out = BackendOutputBundle()
 
     backend = SimpleBackend(config=config)
     fetch = FetchInputBundle(config=config)
 
     clk_driver= ClkDriver(clock)
-    dut = backend.backend(fetch,busy,clock,reset)
+    dut = backend.backend(fetch,busy,clock,reset,out,debug)
 
 
     if test_conversion:
