@@ -12,6 +12,9 @@ result_o = Signal(intbv(0)[32:])
 rd_o = Signal(intbv(0)[5:])
 we_o =  Signal(bool(0))
 
+jump_o =  Signal(bool(0))
+jump_dest_o =  Signal(intbv(0)[32:])
+
 
 commands=[ \
     {"opcode":0x00a00593,"source":"li a1,10", "t": lambda: abi_name(rd_o)=="a1" and result_o == 10  } , \
@@ -25,7 +28,10 @@ commands=[ \
     {"opcode":0x800007b7,"source":"lui a5,0x80000", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0x80000000 }, \
     {"opcode":0x4187d793,"source":"srai a5,a5,0x18", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0xffffff80 }, \
     {"opcode":0x00078493,"source":"mv	s1,a5", "t": lambda: abi_name(rd_o)=="s1" and result_o == 0xffffff80 }, \
-    {"opcode":0xfec588e3,"source":"beq	a1,a2,0 <_start>", "t": lambda: True }
+    {"opcode":0xfcc58ee3,"source":"beq	a1,a2,0 <test>", "t": lambda: jump_o==False }, \
+    {"opcode":0xfcc59ce3,"source":"bne	a1,a2,0 <test>", "t": lambda: jump_o==True and jump_dest_o==0x8 }, \
+    {"opcode":0xfcb64ae3,"source":"blt	a1,a2,0 <test>", "t": lambda: jump_o==True and jump_dest_o==0x8 }, \
+    {"opcode":0xfcb668e3,"source":"bltu	a1,a2,0 <test>", "t": lambda: jump_o==False }
 ]
 
 @block
@@ -53,6 +59,19 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         result_o.next = backend.execute.result_o
         rd_o.next = backend.execute.rd_adr_o
         we_o.next = backend.execute.reg_we_o
+        jump_o.next = backend.execute.jump_o
+        jump_dest_o.next = backend.execute.jump_dest_o
+
+
+    def check(cmd):
+        t=cmd["t"]
+        if type(t) == types.FunctionType:
+            if t():
+                print "OK"
+            else:
+                print "FAIL"
+        print "----"
+
 
     @always_seq(clock.posedge,reset=reset)
     def commit_check():
@@ -64,18 +83,13 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         if we_o:
             cmd = commands[cmd_index]
             print "at {}ns {}:  commmit to reg {} value {}".format(now(), cmd["source"], abi_name(rd_o), result_o)
-            t=cmd["t"]
-            if type(t) == types.FunctionType:
-                if t():
-                    print "OK"
-                else:
-                    print "FAIL"
-            print "----"
+            check(cmd)
 
             cmd_index.next = cmd_index + 1
-        elif backend.decode.branch_cmd or backend.decode.jump_cmd:
+        elif backend.decode.branch_cmd or backend.decode.jump_cmd or backend.decode.jumpr_cmd:
             cmd = commands[cmd_index]
-            print "at {}ns: {}".format(now(),cmd["source"])
+            print "at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],jump_o, jump_dest_o )
+            check(cmd)
             cmd_index.next = cmd_index + 1
 
 
@@ -88,8 +102,9 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
             if fetch_index < len(commands):
                 cmd = commands[fetch_index]
                 fetch.word_i.next = cmd["opcode"]
-                fetch.next_ip_i.next  = fetch_index * 4
-                fetch.current_ip_i.next = fetch.next_ip_i
+                fetch.current_ip_i.next = fetch_index * 4
+                fetch.next_ip_i.next  = fetch_index * 4  + 4
+
                 fetch.en_i.next=True
                 fetch_index.next = fetch_index + 1
             else:
