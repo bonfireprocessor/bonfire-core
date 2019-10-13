@@ -57,12 +57,12 @@ class ExecuteBundle:
         def comb():
 
             # Init
-            self.invalid_opcode_fault.next = False 
+            self.invalid_opcode_fault.next = False
             self.jump_o.next=False
             self.jump_dest_o.next=0
 
             # ALU Input wirings
-            self.alu.funct3_i.next = decode.funct3_o 
+            self.alu.funct3_i.next = decode.funct3_o
             self.alu.funct7_6_i.next = decode.funct7_o[5]
             self.alu.op1_i.next = decode.op1_o
             self.alu.op2_i.next = decode.op2_o
@@ -93,19 +93,19 @@ class ExecuteBundle:
             self.reg_we_o.next = not busy and  self.alu.valid_o
 
             if decode.branch_cmd:
-                
-                f3 = decode.funct3_onehot_o
-                if f3[b3.RV32_F3_BEQ]:
+
+                f3 = decode.funct3_o
+                if f3==b3.RV32_F3_BEQ:
                     self.jump_o.next = self.alu.flag_equal
-                elif f3[b3.RV32_F3_BGE]:
+                elif f3==b3.RV32_F3_BGE:
                     self.jump_o.next = self.alu.flag_ge
-                elif f3[b3.RV32_F3_BGEU]:
+                elif f3==b3.RV32_F3_BGEU:
                     self.jump_o.next = self.alu.flag_uge
-                elif f3[b3.RV32_F3_BLT]:
+                elif f3==b3.RV32_F3_BLT:
                     self.jump_o.next = not self.alu.flag_ge
-                elif f3[b3.RV32_F3_BLTU]:
+                elif f3==b3.RV32_F3_BLTU:
                     self.jump_o.next = not self.alu.flag_uge
-                elif f3[b3.RV32_F3_BNE]:
+                elif f3==b3.RV32_F3_BNE:
                     self.jump_o.next = not self.alu.flag_equal
                 else:
                     self.invalid_opcode_fault.next = True
