@@ -1,0 +1,31 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Sun Oct 27 23:19:19 2019
+[*]
+[dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_loadstore.vcd"
+[dumpfile_mtime] "Sun Oct 27 23:18:14 2019"
+[dumpfile_size] 19400
+[savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/loadstore.gtkw"
+[timestart] 0
+[size] 1628 897
+[pos] -1 -1
+*-4.480721 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.LoadStoreBundle0_LoadStoreUnit0.
+[sst_width] 225
+[signals_width] 271
+[sst_expanded] 1
+[sst_vpaned_height] 256
+@28
+tb.clock
+tb.bus_ack_i
+@22
+tb.bus_adr_o[31:0]
+tb.bus_db_rd[31:0]
+tb.bus_db_wr[31:0]
+@28
+tb.bus_en_o
+@29
+tb.bus_we_o[3:0]
+[pattern_trace] 1
+[pattern_trace] 0

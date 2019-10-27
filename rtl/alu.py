@@ -13,12 +13,13 @@ from instructions import ArithmeticFunct3  as f3
 class AluBundle:
     def __init__(self,xlen=32):
         # ALU Inputs
-        self.funct3_i = Signal(intbv(0)[3:])
+        self.funct3_i = Signal(modbv(0)[3:])
         self.funct7_6_i = Signal(bool(0))
-        #self.compare_i = Signal(bool(0)) # Switch ALU to subtract /compare most likely not needed...
-        # ALU Outputs
+       
         self.op1_i = Signal(modbv(0)[xlen:])
         self.op2_i = Signal(modbv(0)[xlen:])
+
+        # ALU Outputs
         self.res_o = Signal(modbv(0)[xlen:])
         self.flag_ge = Signal(bool(0)) # Only valid when ALU is subtracting : op1>=op2 (signed)
         self.flag_uge = Signal(bool(0)) # Only valid when when ALU is subtracting : op1>=op2 (unsigned)

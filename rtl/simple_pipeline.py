@@ -40,7 +40,7 @@ class DebugOutputBundle:
 
        self.result_o = Signal(intbv(0)[xlen:])
        self.rd_adr_o = Signal(intbv(0)[5:])
-       self.reg_we_o =  Signal(bool(0))
+       self.reg_we_o = Signal(bool(0))
 
 
 class SimpleBackend:
