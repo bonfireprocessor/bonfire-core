@@ -1,7 +1,7 @@
 from myhdl import *
 
 from rtl.simple_pipeline import *
-from ClkDirver import *
+from ClkDriver import *
 
 import types
 from disassemble import *

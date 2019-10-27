@@ -2,7 +2,7 @@
 
 from myhdl import *
 from rtl.decode import *
-from ClkDirver import *
+from ClkDriver import *
 import types
 from disassemble import *
 

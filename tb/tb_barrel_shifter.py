@@ -1,6 +1,6 @@
 from myhdl import *
 from rtl import barrel_shifter
-from ClkDirver import * 
+from ClkDriver import *
 
 d_in=Signal(intbv(1)[32:])
 d_o=Signal(intbv(0)[32:])

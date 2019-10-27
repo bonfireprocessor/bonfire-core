@@ -1,7 +1,7 @@
 from myhdl import *
 
 from rtl.regfile import * 
-from ClkDirver import *
+from ClkDriver import *
 
 
 clock=Signal(bool(0))

@@ -3,7 +3,7 @@
 from myhdl import *
 from rtl.alu import *
 from rtl.instructions import ArithmeticFunct3  as f3 
-from ClkDirver import *
+from ClkDriver import *
 import types
 
 
