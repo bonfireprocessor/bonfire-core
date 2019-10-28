@@ -3,6 +3,7 @@ RISC-V load/store module
 (c) 2019 The Bonfire Project
 License: See LICENSE
 """
+from __future__ import print_function
 
 from myhdl import *
 
@@ -194,5 +195,6 @@ class LoadStoreBundle:
         @always_comb
         def comb():
             self.busy_o.next = outstanding == max_outstanding
+                              
 
         return instances()

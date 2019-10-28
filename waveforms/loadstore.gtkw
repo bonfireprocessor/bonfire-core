@@ -1,31 +1,51 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Sun Oct 27 23:19:19 2019
+[*] Mon Oct 28 01:00:44 2019
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_loadstore.vcd"
-[dumpfile_mtime] "Sun Oct 27 23:18:14 2019"
-[dumpfile_size] 19400
+[dumpfile_mtime] "Mon Oct 28 00:59:59 2019"
+[dumpfile_size] 21991
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/loadstore.gtkw"
 [timestart] 0
-[size] 1628 897
+[size] 1920 1031
 [pos] -1 -1
-*-4.480721 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-6.163716 75 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.LoadStoreBundle0_LoadStoreUnit0.
-[sst_width] 225
-[signals_width] 271
+[sst_width] 324
+[signals_width] 216
 [sst_expanded] 1
-[sst_vpaned_height] 256
+[sst_vpaned_height] 303
 @28
 tb.clock
+tb.bus_en_o
 tb.bus_ack_i
 @22
 tb.bus_adr_o[31:0]
 tb.bus_db_rd[31:0]
 tb.bus_db_wr[31:0]
 @28
-tb.bus_en_o
-@29
 tb.bus_we_o[3:0]
+@200
+-
+@28
+tb.ls_en_i
+tb.ls_funct3_i[2:0]
+@22
+tb.ls_displacement_i[11:0]
+tb.ls_op1_i[31:0]
+tb.ls_op2_i[31:0]
+tb.ls_rd_i[4:0]
+@28
+tb.ls_store_i
+tb.LoadStoreBundle0_LoadStoreUnit0.self_busy_o
+tb.LoadStoreBundle0_LoadStoreUnit0.outstanding
+tb.fetch_index
+@22
+tb.ram.ram(0)[31:0]
+tb.ram.ram(1)[31:0]
+tb.ram.ram(2)[31:0]
+tb.ram.ram(3)[31:0]
+tb.ram.ram(4)[31:0]
 [pattern_trace] 1
 [pattern_trace] 0
