@@ -6,7 +6,7 @@ from rtl import config
 def test(inst,**kwagrs):
     kwagrs["directory"]="./waveforms"
     inst.config_sim(**kwagrs)
-    inst.run_sim()
+    inst.run_sim(duration=1000)
     inst.quit_sim()
 
 def convert_tb(inst,**kwargs):
@@ -50,7 +50,13 @@ test(tb_simple_pipeline.tb(test_conversion=True),trace=False,filename="tb_simple
 
 
 print 'Testing Loadstore'
-test(tb_loadstore.tb(test_conversion=False),trace=True,filename="tb_loadstore")
+conf=config.BonfireConfig()
+conf.loadstore_outstanding=1
+test(tb_loadstore.tb(config=conf,test_conversion=False),trace=True,filename="tb_loadstore")
+conf.loadstore_outstanding=2
+test(tb_loadstore.tb(config=conf,test_conversion=False),trace=False,filename="tb_loadstore")
+conf.loadstore_outstanding=3
+test(tb_loadstore.tb(config=conf,test_conversion=False),trace=False,filename="tb_loadstore")
 
 #convert_tb(tb_barrel_shifter.tb_barrel_left_shift_comb(),hdl='VHDL',std_logic_ports=True,path='vhdl_gen_tb')
 

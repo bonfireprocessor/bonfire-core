@@ -58,6 +58,9 @@ class LoadStoreBundle:
         self.bus_error_o = Signal(bool(0))
         self.invalid_op_o = Signal(bool(0))
 
+        #debug signals
+        self.debug_empty=Signal(bool(0))
+
 
 
     @block
@@ -86,10 +89,13 @@ class LoadStoreBundle:
 
             next_outstanding = outstanding.val
 
+            if self.valid_o:
+                 self.valid_o.next=False
+
             if self.en_i and outstanding<max_outstanding and not bus.stall_i:
                 adr = modbv(self.op1_i + self.displacement_i.signed())[self.config.xlen:]
 
-                byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LH
+                byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LB
                 word_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LW
                 hword_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LH
                 signed_ld = self.funct3_i[3]
@@ -132,7 +138,10 @@ class LoadStoreBundle:
                     pipe_misalign[i].next = pipe_misalign[i-1]
                     pipe_invalid_op[i].next = pipe_invalid_op[i-1]
 
-                pipe_rd[0].next = self.rd_i
+                if self.store_i:
+                    pipe_rd[0].next=0
+                else:    
+                    pipe_rd[0].next = self.rd_i
                 pipe_byte_mode[0].next = byte_mode
                 pipe_hword_mode[0].next = hword_mode
                 pipe_store[0].next = self.store_i
@@ -147,7 +156,7 @@ class LoadStoreBundle:
             # Cycle Termination
             if bus.ack_i or bus.error_i and outstanding > 0:
                 next_outstanding = next_outstanding - 1
-                self.valid_o =  bus.ack_i and not \
+                self.valid_o.next =  bus.ack_i and not \
                   (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])
 
                 self.bus_error_o.next = bus.error_i
@@ -195,6 +204,7 @@ class LoadStoreBundle:
         @always_comb
         def comb():
             self.busy_o.next = outstanding == max_outstanding
+            self.debug_empty.next = outstanding == 0
                               
 
         return instances()

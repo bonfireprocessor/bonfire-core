@@ -12,14 +12,12 @@ ram_size=256
 
 store_words= (0xdeadbeef,0x55aaeeff,0x12345678,0x0055ff00,0xaabbccdd)
 
-stop_condition = len(store_words)*2
 
 
 @block
 def tb(config=config.BonfireConfig(),test_conversion=False):
 
-    config.loadstore_outstanding=1
-
+    print("loadstore with outstanding=",config.loadstore_outstanding)
     clock=Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
 
@@ -61,32 +59,34 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
                 print("Write: mask: {}, adr: {}, value {}".format(bin(bus.we_o),bus.adr_o,bus.db_wr))
             bus.ack_i.next = True
            
-            if cnt == stop_condition:
-                raise StopSimulation
-            else:
-                cnt.next = cnt + 1   
           
 
-    # @always_seq(clock.posedge,reset=reset)
-    # def collect():
-    #     if ls.valid_o:
-    #         print("Cycle Terminated")
-    #         raise StopSimulation
     
-
-    fetch_index=Signal(intbv(0))
+    fetch_index = Signal(intbv(0))
     write_feed = Signal(bool(0))
 
+    
     @always_seq(clock.posedge,reset=reset)
-    def feed():
-        if write_feed and not ls.busy_o:
+    def do_write_feed():
+        if write_feed and fetch_index<len(store_words):
             ls.en_i.next = True
-            ls.displacement_i.next = fetch_index * 4
-            ls.op2_i.next = store_words[fetch_index]
-            if fetch_index<len(store_words)-1:
+            if not ls.busy_o:
+                ls.displacement_i.next = fetch_index * 4
+                ls.op2_i.next = store_words[fetch_index]
                 fetch_index.next = fetch_index + 1
-            else:
-                fetch_index.next = 0     
+
+        else:
+            if not ls.busy_o:   
+                ls.en_i.next=False
+
+
+
+
+    @always_seq(clock.posedge,reset=reset)
+    def stop_sim():
+        if ram[4]==store_words[len(store_words)-1]:
+            raise StopSimulation
+
 
 
     @instance
