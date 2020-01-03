@@ -116,6 +116,8 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     @instance
     def stimulus():
        yield write_test()
+       while ls.valid_o:
+           yield clock.posedge
        yield lw_test()
        raise StopSimulation
          

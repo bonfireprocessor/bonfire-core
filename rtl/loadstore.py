@@ -84,17 +84,12 @@ class LoadStoreBundle:
         rdmux_out = Signal(modbv(0)[self.config.xlen:])
 
         valid_comb = Signal(bool(0))
+       
 
         bus_en = Signal(bool(0))
         en_r = Signal(bool(0))
         busy = Signal(bool(0))
        
-
-
-        @always_comb
-        def valid_proc():
-            valid_comb.next = bus.ack_i and not \
-                             (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])
 
         @always_seq(clock.posedge,reset=reset)
         def drive_bus():
@@ -182,7 +177,7 @@ class LoadStoreBundle:
                 self.misalign_store_o.next =  pipe_misalign[max_outstanding-1] and  pipe_store[max_outstanding-1]
                
                 if next_outstanding == 0:
-                    bus_en.next = False
+                    #bus_en.next = False
                     en_r.next=False
 
             outstanding.next = next_outstanding
@@ -219,14 +214,19 @@ class LoadStoreBundle:
             else:
                 rdmux_out.next = bus.db_rd
 
+
         @always_comb
         def comb():
             l_busy =  outstanding == max_outstanding
             busy.next = l_busy
             self.busy_o.next = l_busy
+
             self.debug_empty.next = outstanding == 0
             self.rd_o.next = pipe_rd[max_outstanding-1]
             bus.en_o.next = bus_en
+
+            valid_comb.next = bus.ack_i and not \
+                             (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])            
                               
 
         if self.config.loadstore_combi:
@@ -235,14 +235,23 @@ class LoadStoreBundle:
             def ls_out():
                 self.result_o.next=rdmux_out
                 self.valid_o.next=valid_comb
-                #self.rd_o.next = pipe_rd[max_outstanding-1]
+                
         else:
+
+            valid_reg = Signal(bool(0))
+
             @always_seq(clock.posedge,reset=reset)
             def ls_out():
                 self.result_o.next=rdmux_out
-                self.valid_o.next=valid_comb
-                #self.rd_o.next = pipe_rd[max_outstanding-1]         
-
+                valid_reg.next=valid_comb
+                         
+            @always_comb
+            def ls_valid_out():
+                if pipe_store[max_outstanding-1]:
+                    # Writes can be terminated early 
+                    self.valid_o.next = valid_comb
+                else:
+                    self.valid_o.next = valid_reg    
 
 
         return instances()
