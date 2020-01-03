@@ -81,18 +81,47 @@ class LoadStoreBundle:
         pipe_misalign= [Signal(bool(0)) for i in range(max_outstanding) ]
         pipe_invalid_op= [Signal(bool(0)) for i in range(max_outstanding) ]
 
+        rdmux_out = Signal(modbv(0)[self.config.xlen:])
+
+        valid_comb = Signal(bool(0))
+
+        bus_en = Signal(bool(0))
+        en_r = Signal(bool(0))
+        busy = Signal(bool(0))
+       
+
+
+        @always_comb
+        def valid_proc():
+            valid_comb.next = bus.ack_i and not \
+                             (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])
+
         @always_seq(clock.posedge,reset=reset)
         def drive_bus():
 
             invalid_op=False
-           
-
             next_outstanding = outstanding.val
+            # Deassert en if bus is not stalled 
+            if not bus.stall_i:
+                bus_en.next = False
 
-            if self.valid_o:
-                 self.valid_o.next=False
+            new_request = self.en_i and not bus.stall_i
 
-            if self.en_i and outstanding<max_outstanding and not bus.stall_i:
+            if (new_request or en_r) and not busy:
+                # Advance Pipeline 
+                for i in range(1,max_outstanding):
+                    pipe_rd[i].next = pipe_rd[i-1]
+                    pipe_adr_lo[i].next = pipe_adr_lo[i-1]
+                    pipe_byte_mode[i].next = pipe_byte_mode[i-1]
+                    pipe_hword_mode[i].next = pipe_hword_mode[i-1]
+                    pipe_store[i].next = pipe_store[i-1]
+                    pipe_signed[i].next = pipe_signed[i-1]
+                    pipe_misalign[i].next = pipe_misalign[i-1]
+                    pipe_invalid_op[i].next = pipe_invalid_op[i-1]
+
+
+            if new_request and not busy:
+                en_r.next=True 
                 adr = modbv(self.op1_i + self.displacement_i.signed())[self.config.xlen:]
 
                 byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LB
@@ -112,7 +141,7 @@ class LoadStoreBundle:
                 if not misalign:
                     print("Start cycle:",now())
                     bus.adr_o.next = adr
-                    bus.en_o.next = True
+                    bus_en.next = True
                     if self.store_i:
                         if word_mode:
                             bus.we_o.next = 0b1111
@@ -127,17 +156,6 @@ class LoadStoreBundle:
                     else: # read
                         bus.we_o.next = 0     
 
-                # Pipeline mangement
-                for i in range(1,max_outstanding):
-                    pipe_rd[i].next = pipe_rd[i-1]
-                    pipe_adr_lo[i].next = pipe_adr_lo[i-1]
-                    pipe_byte_mode[i].next = pipe_byte_mode[i-1]
-                    pipe_hword_mode[i].next = pipe_hword_mode[i-1]
-                    pipe_store[i].next = pipe_store[i-1]
-                    pipe_signed[i].next = pipe_signed[i-1]
-                    pipe_misalign[i].next = pipe_misalign[i-1]
-                    pipe_invalid_op[i].next = pipe_invalid_op[i-1]
-
                 if self.store_i:
                     pipe_rd[0].next=0
                 else:    
@@ -150,27 +168,27 @@ class LoadStoreBundle:
                 pipe_invalid_op[0].next = invalid_op
 
                 next_outstanding = next_outstanding + 1
-            else:
-                bus.en_o.next = False 
+             
 
             # Cycle Termination
             if bus.ack_i or bus.error_i and outstanding > 0:
+               
                 next_outstanding = next_outstanding - 1
-                self.valid_o.next =  bus.ack_i and not \
-                  (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])
-
+                # self.valid_o.next =  bus.ack_i and not \
+                #   (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])
                 self.bus_error_o.next = bus.error_i
                 self.invalid_op_o.next = pipe_invalid_op[max_outstanding-1]
                 self.misalign_load_o.next = pipe_misalign[max_outstanding-1] and not pipe_store[max_outstanding-1]
                 self.misalign_store_o.next =  pipe_misalign[max_outstanding-1] and  pipe_store[max_outstanding-1]
-                self.rd_o.next = pipe_rd[max_outstanding-1]
+               
                 if next_outstanding == 0:
-                    bus.en_o.next = False
+                    bus_en.next = False
+                    en_r.next=False
 
             outstanding.next = next_outstanding
 
 
-        @always(clock.posedge)
+        @always_comb
         def rd_mux():
             a = pipe_adr_lo[max_outstanding-1]
             if pipe_byte_mode[max_outstanding-1]:
@@ -183,9 +201,9 @@ class LoadStoreBundle:
                 elif a== 0b11:
                     byte = bus.db_rd(32,24)
                 if pipe_signed[max_outstanding-1]:
-                    self.result_o.next = byte.signed()
+                    rdmux_out.next = byte.signed()
                 else:
-                    self.result_o.next = byte
+                    rdmux_out.next = byte
 
             elif pipe_hword_mode[max_outstanding-1]:
                 if a == 0b00:
@@ -195,16 +213,36 @@ class LoadStoreBundle:
                 else:
                     hword = bus.db_rd(32,16)
                 if pipe_signed[max_outstanding-1]:
-                    self.result_o.next = hword.signed()
+                    rdmux_out.next = hword.signed()
                 else:
-                    self.result_o.next = hword
+                    rdmux_out.next = hword
             else:
-                self.result_o.next = bus.db_rd
+                rdmux_out.next = bus.db_rd
 
         @always_comb
         def comb():
-            self.busy_o.next = outstanding == max_outstanding
+            l_busy =  outstanding == max_outstanding
+            busy.next = l_busy
+            self.busy_o.next = l_busy
             self.debug_empty.next = outstanding == 0
+            self.rd_o.next = pipe_rd[max_outstanding-1]
+            bus.en_o.next = bus_en
                               
+
+        if self.config.loadstore_combi:
+
+            @always_comb
+            def ls_out():
+                self.result_o.next=rdmux_out
+                self.valid_o.next=valid_comb
+                #self.rd_o.next = pipe_rd[max_outstanding-1]
+        else:
+            @always_seq(clock.posedge,reset=reset)
+            def ls_out():
+                self.result_o.next=rdmux_out
+                self.valid_o.next=valid_comb
+                #self.rd_o.next = pipe_rd[max_outstanding-1]         
+
+
 
         return instances()

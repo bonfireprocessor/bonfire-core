@@ -63,42 +63,62 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
     
     fetch_index = Signal(intbv(0))
-    write_feed = Signal(bool(0))
-
     
-    @always_seq(clock.posedge,reset=reset)
-    def do_write_feed():
-        if write_feed and fetch_index<len(store_words):
-            ls.en_i.next = True
+    def write_test():
+        yield clock.posedge
+        ls.funct3_i.next = StoreFunct3.RV32_F3_SW
+        ls.store_i.next = True
+        ls.op1_i.next = 0
+        ls.rd_i.next = 5
+        while not (ls.valid_o and ram[4]==store_words[len(store_words)-1]):
+
+            if fetch_index<len(store_words):
+                ls.en_i.next = True
+                if not ls.busy_o:
+                    ls.displacement_i.next = fetch_index * 4
+                    ls.op2_i.next = store_words[fetch_index]
+                    fetch_index.next = fetch_index + 1
+
+            else:
+                if not ls.busy_o:   
+                    ls.en_i.next=False    
+
+            yield clock.posedge
+
+    i=Signal(intbv(0))
+
+    def lw_test():
+        yield clock.posedge
+        ls.funct3_i.next = LoadFunct3.RV32_F3_LW
+        ls.store_i.next= False
+        ls.op1_i.next=0
+       
+        count=len(store_words)
+        finish=False
+
+        while not finish:
             if not ls.busy_o:
-                ls.displacement_i.next = fetch_index * 4
-                ls.op2_i.next = store_words[fetch_index]
-                fetch_index.next = fetch_index + 1
+                ls.displacement_i.next= i*4
+                ls.rd_i.next= i # "Misuse" rd register as index into test data
+                i.next = i + 1
+                ls.en_i.next = i<count 
+                
+                if ls.valid_o:
+                    print("read check x{}: {} == {}".format(ls.rd_o,ls.result_o,hex(store_words[ls.rd_o])))
+                    assert(ls.result_o==store_words[ls.rd_o])
+                    finish = ls.rd_o==count-1
+            
+            yield clock.posedge            
 
-        else:
-            if not ls.busy_o:   
-                ls.en_i.next=False
-
-
-
-
-    @always_seq(clock.posedge,reset=reset)
-    def stop_sim():
-        if ram[4]==store_words[len(store_words)-1]:
-            raise StopSimulation
 
 
 
     @instance
     def stimulus():
-        yield clock.posedge
-       
-        ls.funct3_i.next = StoreFunct3.RV32_F3_SW
-        ls.store_i.next = True
-        ls.op1_i.next = 0
-        #ls.op2_i.next = 0xdeadbeef
-        ls.rd_i.next = 5
-        write_feed.next=True 
+       yield write_test()
+       yield lw_test()
+       raise StopSimulation
+         
 
        
 
