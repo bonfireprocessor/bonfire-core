@@ -17,7 +17,7 @@ store_words= (0xdeadbeef,0x55aaeeff,0x12345678,0x0055ff00,0xaabbccdd)
 @block
 def tb(config=config.BonfireConfig(),test_conversion=False):
 
-    print("loadstore with outstanding=",config.loadstore_outstanding)
+    print("Testing LSU with loadstore_outstanding={}, registered_read_stage={} ".format(config.loadstore_outstanding,config.registered_read_stage))
     clock=Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
 
@@ -40,10 +40,10 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         bus.ack_i.next=False 
         
         if bus.en_o:
-            print("Ack Cycle:",now())
+            #print("Ack Cycle:",now())
             if bus.we_o==0:
                 bus.db_rd.next = ram[bus.adr_o[32:2]]
-                print("Read from {} : {}".format(bus.adr_o,ram[bus.adr_o[32:2]]) )
+                #print("Read from {} : {}".format(bus.adr_o,ram[bus.adr_o[32:2]]) )
             else:
                 wd=modbv(0)[32:]
                 wd[:] = ram[bus.adr_o[32:2]]
@@ -56,7 +56,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
                 ram[bus.adr_o[32:2]].next = wd 
 
-                print("Write: mask: {}, adr: {}, value {}".format(bin(bus.we_o),bus.adr_o,bus.db_wr))
+                #print("Write: mask: {}, adr: {}, value {}".format(bin(bus.we_o),bus.adr_o,bus.db_wr))
             bus.ack_i.next = True
            
           
@@ -70,7 +70,13 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         ls.store_i.next = True
         ls.op1_i.next = 0
         ls.rd_i.next = 5
-        while not (ls.valid_o and ram[4]==store_words[len(store_words)-1]):
+
+        countdown=len(store_words)
+
+        while countdown>0:
+
+            if ls.valid_o:
+                countdown = countdown - 1
 
             if fetch_index<len(store_words):
                 ls.en_i.next = True
@@ -85,7 +91,14 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
             yield clock.posedge
 
-    i=Signal(intbv(0))
+        # Verify memory content 
+        i=0
+        for v in store_words:
+            print("write check ram[{}]: {}=={} ".format(i,ram[i],hex(v)))
+            assert(ram[i]==v)
+            i=i+1
+
+   
 
     def lw_test():
         yield clock.posedge
@@ -95,6 +108,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
        
         count=len(store_words)
         finish=False
+        i=Signal(intbv(0))
 
         while not finish:
             if not ls.busy_o:

@@ -1,51 +1,69 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Mon Nov 18 10:13:18 2019
+[*] Fri Jan  3 15:15:24 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_loadstore.vcd"
-[dumpfile_mtime] "Mon Oct 28 00:59:59 2019"
-[dumpfile_size] 21991
+[dumpfile_mtime] "Fri Jan  3 15:14:22 2020"
+[dumpfile_size] 22187
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/loadstore.gtkw"
-[timestart] 0
-[size] 1920 1031
+[timestart] 159
+[size] 1680 1025
 [pos] -1 -1
-*-6.163716 75 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.662715 270 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.LoadStoreBundle0_LoadStoreUnit0.
-[sst_width] 324
-[signals_width] 216
+[sst_width] 225
+[signals_width] 315
 [sst_expanded] 1
 [sst_vpaned_height] 303
 @28
 tb.clock
+tb.LoadStoreBundle0_LoadStoreUnit0.self_en_i
+@22
+tb.LoadStoreBundle0_LoadStoreUnit0.self_displacement_i[11:0]
+@28
+tb.LoadStoreBundle0_LoadStoreUnit0.self_busy_o
+@22
+tb.LoadStoreBundle0_LoadStoreUnit0.self_rd_i[4:0]
+@28
+tb.LoadStoreBundle0_LoadStoreUnit0.en_r
+@200
+-
+@29
 tb.bus_en_o
+@28
 tb.bus_ack_i
 @22
 tb.bus_adr_o[31:0]
-tb.bus_db_rd[31:0]
-tb.bus_db_wr[31:0]
 @28
 tb.bus_we_o[3:0]
+@22
+tb.bus_db_wr[31:0]
+tb.bus_db_rd[31:0]
 @200
 -
+-
 @28
-tb.ls_en_i
-tb.ls_funct3_i[2:0]
+tb.LoadStoreBundle0_LoadStoreUnit0.bus_en
+tb.LoadStoreBundle0_LoadStoreUnit0.valid_comb
+tb.LoadStoreBundle0_LoadStoreUnit0.self_valid_o
 @22
-tb.ls_displacement_i[11:0]
-tb.ls_op1_i[31:0]
-tb.ls_op2_i[31:0]
-tb.ls_rd_i[4:0]
-@28
-tb.ls_store_i
-tb.LoadStoreBundle0_LoadStoreUnit0.self_busy_o
-tb.LoadStoreBundle0_LoadStoreUnit0.outstanding
-tb.fetch_index
+tb.LoadStoreBundle0_LoadStoreUnit0.self_rd_o[4:0]
+tb.LoadStoreBundle0_LoadStoreUnit0.self_result_o[31:0]
+@200
+-
 @22
 tb.ram.ram(0)[31:0]
 tb.ram.ram(1)[31:0]
 tb.ram.ram(2)[31:0]
 tb.ram.ram(3)[31:0]
 tb.ram.ram(4)[31:0]
+@28
+tb.LoadStoreBundle0_LoadStoreUnit0.self_debug_empty
+@22
+tb.LoadStoreBundle0_LoadStoreUnit0.pipe_rd.pipe_rd(0)[4:0]
+tb.LoadStoreBundle0_LoadStoreUnit0.pipe_rd.pipe_rd(1)[4:0]
+@24
+tb.LoadStoreBundle0_LoadStoreUnit0.outstanding
 [pattern_trace] 1
 [pattern_trace] 0

@@ -9,6 +9,7 @@ from myhdl import *
 
 from instructions import LoadFunct3, StoreFunct3
 
+write_pipe_index = 0 # Declaration 
 
 class DbusBundle:
     """
@@ -66,7 +67,28 @@ class LoadStoreBundle:
     @block
     def LoadStoreUnit(self,bus,clock,reset):
 
+        """
+           max_outstanding cannot larger than the minimum latency of the LSU. 
+           The minimum latency is 3 cycles in case of a registered data bus read stage (config.registered_read_stage==True)
+           The minimum latency is 2 cycles without a registered data bus read stage 
+
+        """
         max_outstanding = self.config.loadstore_outstanding
+        if self.config.registered_read_stage:
+            assert(max_outstanding>0 and max_outstanding <=3)
+        else:    
+            assert(max_outstanding>0 and max_outstanding <=2)
+
+        """
+                  Write cycles will always complete combinatorical on db.ack_i, wich happens after two cylces
+                  For this reason on writes the pipleline is one stage shorter.
+                  The right pipeline index to use on write cycles is stored on write_pipe_index
+        """
+        if max_outstanding==3:
+            write_pipe_index = 1
+        else:
+            write_pipe_index = max_outstanding-1    
+
         outstanding = Signal(intbv(0,max=max_outstanding+1))
 
         pipe_rd = [Signal(modbv(0)[5:]) for i in range(max_outstanding) ]
@@ -134,7 +156,7 @@ class LoadStoreBundle:
 
 
                 if not misalign:
-                    print("Start cycle:",now())
+                    #print("Start cycle:",now())
                     bus.adr_o.next = adr
                     bus_en.next = True
                     if self.store_i:
@@ -155,6 +177,7 @@ class LoadStoreBundle:
                     pipe_rd[0].next=0
                 else:    
                     pipe_rd[0].next = self.rd_i
+
                 pipe_byte_mode[0].next = byte_mode
                 pipe_hword_mode[0].next = hword_mode
                 pipe_store[0].next = self.store_i
@@ -217,7 +240,7 @@ class LoadStoreBundle:
 
         @always_comb
         def comb():
-            l_busy =  outstanding == max_outstanding
+            l_busy =  outstanding == max_outstanding and not (not self.config.registered_read_stage and bus.ack_i)
             busy.next = l_busy
             self.busy_o.next = l_busy
 
@@ -229,7 +252,7 @@ class LoadStoreBundle:
                              (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])            
                               
 
-        if self.config.loadstore_combi:
+        if not self.config.registered_read_stage:
 
             @always_comb
             def ls_out():
@@ -247,7 +270,8 @@ class LoadStoreBundle:
                          
             @always_comb
             def ls_valid_out():
-                if pipe_store[max_outstanding-1]:
+
+                if pipe_store[write_pipe_index]:
                     # Writes can be terminated early 
                     self.valid_o.next = valid_comb
                 else:
