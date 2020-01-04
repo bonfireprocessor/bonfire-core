@@ -6,7 +6,15 @@ from rtl import config
 def test(inst,**kwagrs):
     kwagrs["directory"]="./waveforms"
     inst.config_sim(**kwagrs)
-    inst.run_sim(duration=1000)
+
+    try: 
+        inst.run_sim(duration=10000)
+    except AssertionError as a:
+        print("Test failure: " + a.message)
+        inst.quit_sim()
+        print("stopping simulation run because of test failure")
+        exit()
+
     inst.quit_sim()
 
 def convert_tb(inst,**kwargs):

@@ -64,7 +64,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     
     fetch_index = Signal(intbv(0))
     
-    def write_test():
+    def sw_test():
         yield clock.posedge
         ls.funct3_i.next = StoreFunct3.RV32_F3_SW
         ls.store_i.next = True
@@ -95,7 +95,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         i=0
         for v in store_words:
             print("write check ram[{}]: {}=={} ".format(i,ram[i],hex(v)))
-            assert(ram[i]==v)
+            assert ram[i]==v, "loadstore sw test failed"
             i=i+1
 
    
@@ -119,23 +119,140 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
                 
                 if ls.valid_o:
                     print("read check x{}: {} == {}".format(ls.rd_o,ls.result_o,hex(store_words[ls.rd_o])))
-                    assert(ls.result_o==store_words[ls.rd_o])
+                    assert(ls.result_o==store_words[ls.rd_o]), "loadstore lw test failed"
                     finish = ls.rd_o==count-1
             
             yield clock.posedge            
 
 
+    def sb_test():
+        yield clock.posedge
+        ls.funct3_i.next = StoreFunct3.RV32_F3_SB
+        ls.store_i.next = True
+        ls.op1_i.next = 5<<2 # Base Memory address for test
+        ls.rd_i.next = 5
+
+        countdown=8
+        displacement=0
+
+        while countdown>0:
+
+            if ls.valid_o:
+                countdown = countdown - 1
+
+            if displacement<8:
+                ls.en_i.next = True
+                if not ls.busy_o:
+                    ls.displacement_i.next = displacement
+                    # Extract next byte from store_words 
+                    ls.op2_i.next = store_words[displacement>>2] >> (displacement % 4* 8)
+                    displacement = displacement + 1
+
+            else:
+                if not ls.busy_o:   
+                    ls.en_i.next=False    
+
+            yield clock.posedge
+
+        print("Store Byte result: {} {}".format(ram[5],ram[6]))
+        assert (ram[5]==store_words[0] and ram[6]==store_words[1]), "loadstore sb test failed"
 
 
-    @instance
-    def stimulus():
-       yield write_test()
-       while ls.valid_o:
+    def sh_test():
+        yield clock.posedge
+        ls.funct3_i.next = StoreFunct3.RV32_F3_SH
+        ls.store_i.next = True
+        ls.op1_i.next = 7<<2 # Base Memory address for test
+        ls.rd_i.next = 5
+
+        countdown=4
+        displacement=0
+
+        while countdown>0:
+
+            if ls.valid_o:
+                countdown = countdown - 1
+
+            if displacement<8:
+                ls.en_i.next = True
+                if not ls.busy_o:
+                    ls.displacement_i.next = displacement
+                    # Extract next half word from store_words 
+                    ls.op2_i.next = store_words[displacement>>2] >> ((displacement >> 1 & 1)  * 16)
+                    displacement = displacement + 2
+
+            else:
+                if not ls.busy_o:   
+                    ls.en_i.next=False    
+
+            yield clock.posedge
+
+        print("Store word result: {} {}".format(ram[7],ram[8]))
+        assert(ram[7]==store_words[0] and ram[8]==store_words[1]), "loadstore sh test failed"
+
+
+    def load_single(base,displacement,funct3): 
+        ls.funct3_i.next = funct3
+        ls.store_i.next = False
+        ls.op1_i.next = base 
+        ls.rd_i.next = 5
+        ls.displacement_i.next = displacement
+        ls.en_i.next = True
+        yield clock.posedge
+        while ls.busy_o:
+            yield clock.posedge
+        ls.en_i.next = False 
+
+        while not ls.valid_o:
+            yield clock.posedge
+        print(now())
+
+    def wait_valid():
+         while ls.valid_o:
            yield clock.posedge
-       yield lw_test()
-       raise StopSimulation
-         
 
        
+
+    def _check(a,b,message):
+       s= "{}: checking {}=={}".format(message,hex(a),hex(b))
+       assert a==b, s + " failed"
+       print(s," OK")
+
+
+    def load_other_test():
+        """
+        Test lb,lbu,lh,lhu
+        """
+        assert ram[3]==0x0055ff00, "load_other:  ram[3] does not contain the expected content"
+        yield clock.posedge
+
+        print("Testing lbu")
+        yield load_single(3<<2,1,LoadFunct3.RV32_F3_LBU) ## Should read the ff byte 
+        _check(ls.result_o,0xff,"lbu test" )
+       
+        print("Testing lb")
+        yield load_single(3<<2,1,LoadFunct3.RV32_F3_LB) ## Should read the ff byte 
+        _check(ls.result_o,0xffffffff,"lbu test" )
+       
+        print("Testing lb")
+        yield load_single(3<<2,2,LoadFunct3.RV32_F3_LB) ## Should read the 55 byte 
+        _check(ls.result_o,0x55,"lbu test" )
+
+        
+    
+    @instance
+    def stimulus():
+       yield sw_test()
+       yield wait_valid()
+      
+       yield lw_test()
+       yield wait_valid()
+       yield sb_test()   
+       yield wait_valid() 
+       yield sh_test()
+       yield wait_valid()
+       yield load_other_test()
+       raise StopSimulation
+         
 
     return instances()

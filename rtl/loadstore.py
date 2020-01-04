@@ -97,7 +97,7 @@ class LoadStoreBundle:
 
         pipe_byte_mode =  [Signal(bool(0)) for i in range(max_outstanding) ]
         pipe_hword_mode =  [Signal(bool(0)) for i in range(max_outstanding) ]
-        pipe_signed = [Signal(bool(0)) for i in range(max_outstanding) ]
+        pipe_unsigned = [Signal(bool(0)) for i in range(max_outstanding) ]
 
         pipe_store= [Signal(bool(0)) for i in range(max_outstanding) ]
         pipe_misalign= [Signal(bool(0)) for i in range(max_outstanding) ]
@@ -132,7 +132,7 @@ class LoadStoreBundle:
                     pipe_byte_mode[i].next = pipe_byte_mode[i-1]
                     pipe_hword_mode[i].next = pipe_hword_mode[i-1]
                     pipe_store[i].next = pipe_store[i-1]
-                    pipe_signed[i].next = pipe_signed[i-1]
+                    pipe_unsigned[i].next = pipe_unsigned[i-1]
                     pipe_misalign[i].next = pipe_misalign[i-1]
                     pipe_invalid_op[i].next = pipe_invalid_op[i-1]
 
@@ -144,9 +144,8 @@ class LoadStoreBundle:
                 byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LB
                 word_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LW
                 hword_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LH
-                signed_ld = self.funct3_i[3]
-
-                invalid_op = signed_ld and self.store_i or \
+          
+                invalid_op = self.funct3_i[2] and self.store_i or \
                              not ( byte_mode or word_mode or hword_mode )
 
                 # Misalign check
@@ -181,9 +180,10 @@ class LoadStoreBundle:
                 pipe_byte_mode[0].next = byte_mode
                 pipe_hword_mode[0].next = hword_mode
                 pipe_store[0].next = self.store_i
-                pipe_signed[0].next = signed_ld
+                pipe_unsigned[0].next = self.funct3_i[2]
                 pipe_misalign[0].next = misalign
                 pipe_invalid_op[0].next = invalid_op
+                pipe_adr_lo[0].next = adr_lo
 
                 next_outstanding = next_outstanding + 1
              
@@ -218,10 +218,10 @@ class LoadStoreBundle:
                     byte = bus.db_rd(24,16)
                 elif a== 0b11:
                     byte = bus.db_rd(32,24)
-                if pipe_signed[max_outstanding-1]:
-                    rdmux_out.next = byte.signed()
-                else:
+                if pipe_unsigned[max_outstanding-1]:
                     rdmux_out.next = byte
+                else:
+                    rdmux_out.next = byte.signed()
 
             elif pipe_hword_mode[max_outstanding-1]:
                 if a == 0b00:
@@ -230,10 +230,10 @@ class LoadStoreBundle:
                     hword = bus.db_rd(24,8)
                 else:
                     hword = bus.db_rd(32,16)
-                if pipe_signed[max_outstanding-1]:
-                    rdmux_out.next = hword.signed()
-                else:
+                if pipe_unsigned[max_outstanding-1]:
                     rdmux_out.next = hword
+                else:
+                    rdmux_out.next = hword.signed()
             else:
                 rdmux_out.next = bus.db_rd
 
