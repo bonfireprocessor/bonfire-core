@@ -12,6 +12,8 @@ ram_size=256
 
 store_words= (0xdeadbeef,0x55aaeeff,0x12345678,0x0055ff00,0xaabbccdd)
 
+ram_latency = 1 
+
 
 
 @block
@@ -34,38 +36,73 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
     cnt = Signal(intbv(0))
 
+    # Signal for simulating wait state logic 
+    wait_states = Signal(intbv(0))
+    adr_reg = Signal(modbv(0)[32:0])
+    write_reg = Signal(modbv(0)[32:0])
+    we_reg = Signal(modbv(0)[4:])
+   
+    @always_comb
+    def bus_stall():
+        if ram_latency>1:
+            bus.stall_i.next = bus.en_o and wait_states>0
+        else:
+            bus.stall_i.next = False     
+
     @always_seq(clock.posedge,reset=reset)
     def bus_slave():
 
-        bus.ack_i.next=False 
-        
-        if bus.en_o:
-            #print("Ack Cycle:",now())
-            if bus.we_o==0:
-                bus.db_rd.next = ram[bus.adr_o[32:2]]
-                #print("Read from {} : {}".format(bus.adr_o,ram[bus.adr_o[32:2]]) )
+        bus.ack_i.next=False
+
+        must_wait = ram_latency > 1
+
+        if bus.en_o and must_wait and wait_states==0:
+            wait_states.next = ram_latency-1
+            adr_reg.next = bus.adr_o
+            write_reg.next = bus.db_wr
+            we_reg.next = bus.we_o
+            
+        elif ( not must_wait and bus.en_o ) or wait_states != 0:
+
+            if must_wait: 
+                w = wait_states - 1
+                wait_states.next = w
             else:
-                wd=modbv(0)[32:]
-                wd[:] = ram[bus.adr_o[32:2]]
-                for i in range(len(bus.we_o)):         
-                   
-                    if bus.we_o[i]:
-                        low = i * 8
-                        high = low+8
-                        wd[high:low] = bus.db_wr[high:low]
+                w = 0    
 
-                ram[bus.adr_o[32:2]].next = wd 
+            if w==0: # When all wait states consumed ack bus cycle
+                if must_wait:
+                    adr_temp = adr_reg[32:2]
+                    wr_temp = write_reg
+                    we_temp = we_reg
+                else:
+                    adr_temp = bus.adr_o[32:2]
+                    wr_temp = bus.db_wr
+                    we_temp = bus.we_o
+                if bus.we_o==0:
+                    bus.db_rd.next = ram[adr_temp]
+                else:
+                    wd=modbv(0)[32:]
+                    wd[:] = ram[adr_temp]
+                    for i in range(len(we_temp)):         
+                       
+                        if we_temp[i]:
+                            low = i * 8
+                            high = low+8
+                            wd[high:low] = wr_temp[high:low]
 
-                #print("Write: mask: {}, adr: {}, value {}".format(bin(bus.we_o),bus.adr_o,bus.db_wr))
-            bus.ack_i.next = True
+                    ram[adr_temp].next = wd 
+
+                bus.ack_i.next = True    
            
           
-
     
     fetch_index = Signal(intbv(0))
     
     def sw_test():
+        fetch_index.next = 0
         yield clock.posedge
+
         ls.funct3_i.next = StoreFunct3.RV32_F3_SW
         ls.store_i.next = True
         ls.op1_i.next = 0
@@ -76,14 +113,14 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         while countdown>0:
 
             if ls.valid_o:
-                countdown = countdown - 1
+                countdown -= 1
 
             if fetch_index<len(store_words):
                 ls.en_i.next = True
                 if not ls.busy_o:
                     ls.displacement_i.next = fetch_index * 4
                     ls.op2_i.next = store_words[fetch_index]
-                    fetch_index.next = fetch_index + 1
+                    fetch_index.next += 1
 
             else:
                 if not ls.busy_o:   
@@ -96,7 +133,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         for v in store_words:
             print("write check ram[{}]: {}=={} ".format(i,ram[i],hex(v)))
             assert ram[i]==v, "loadstore sw test failed"
-            i=i+1
+            i += 1
 
    
 
@@ -114,7 +151,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
             if not ls.busy_o:
                 ls.displacement_i.next= i*4
                 ls.rd_i.next= i # "Misuse" rd register as index into test data
-                i.next = i + 1
+                i.next +=  1
                 ls.en_i.next = i<count 
                 
                 if ls.valid_o:
@@ -138,7 +175,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         while countdown>0:
 
             if ls.valid_o:
-                countdown = countdown - 1
+                countdown -=  1
 
             if displacement<8:
                 ls.en_i.next = True
@@ -146,7 +183,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
                     ls.displacement_i.next = displacement
                     # Extract next byte from store_words 
                     ls.op2_i.next = store_words[displacement>>2] >> (displacement % 4* 8)
-                    displacement = displacement + 1
+                    displacement += 1
 
             else:
                 if not ls.busy_o:   
@@ -171,7 +208,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         while countdown>0:
 
             if ls.valid_o:
-                countdown = countdown - 1
+                countdown -= 1
 
             if displacement<8:
                 ls.en_i.next = True
@@ -179,7 +216,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
                     ls.displacement_i.next = displacement
                     # Extract next half word from store_words 
                     ls.op2_i.next = store_words[displacement>>2] >> ((displacement >> 1 & 1)  * 16)
-                    displacement = displacement + 2
+                    displacement +=  2
 
             else:
                 if not ls.busy_o:   
@@ -251,10 +288,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         _check(ls.result_o,0x55,"lh positive test" )
 
 
-        
-    
-    @instance
-    def stimulus():
+    def run_all():
        yield sw_test()
        yield wait_valid()
       
@@ -265,6 +299,26 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
        yield sh_test()
        yield wait_valid()
        yield load_other_test()
+
+
+    def clear_ram():
+        for m in ram:
+           m.next = 0
+        yield clock.posedge
+
+
+        
+    
+    @instance
+    def stimulus():
+       global ram_latency
+
+       ram_latency=1 
+       yield run_all()
+       yield clear_ram()
+       print("Run with RAM wait state")
+       ram_latency=2
+       yield run_all()
        raise StopSimulation
          
 

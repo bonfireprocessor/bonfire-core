@@ -122,9 +122,8 @@ class LoadStoreBundle:
             if not bus.stall_i:
                 bus_en.next = False
 
-            new_request = self.en_i and not bus.stall_i
-
-            if (new_request or en_r) and not busy:
+           
+            if (self.en_i or en_r) and not busy:
                 # Advance Pipeline 
                 for i in range(1,max_outstanding):
                     pipe_rd[i].next = pipe_rd[i-1]
@@ -137,7 +136,7 @@ class LoadStoreBundle:
                     pipe_invalid_op[i].next = pipe_invalid_op[i-1]
 
 
-            if new_request and not busy:
+            if self.en_i and not busy:
                 en_r.next=True 
                 adr = modbv(self.op1_i + self.displacement_i.signed())[self.config.xlen:]
 
@@ -246,7 +245,7 @@ class LoadStoreBundle:
 
         @always_comb
         def comb():
-            l_busy =  outstanding == max_outstanding and not (not self.config.registered_read_stage and bus.ack_i)
+            l_busy =  bus.stall_i or ( outstanding == max_outstanding and not (not self.config.registered_read_stage and bus.ack_i) )
             busy.next = l_busy
             self.busy_o.next = l_busy
 
