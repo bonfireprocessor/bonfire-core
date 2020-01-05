@@ -230,13 +230,26 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         yield load_single(3<<2,1,LoadFunct3.RV32_F3_LBU) ## Should read the ff byte 
         _check(ls.result_o,0xff,"lbu test" )
        
-        print("Testing lb")
-        yield load_single(3<<2,1,LoadFunct3.RV32_F3_LB) ## Should read the ff byte 
-        _check(ls.result_o,0xffffffff,"lbu test" )
+        print("Testing lb negative")
+        yield load_single(3<<2,1,LoadFunct3.RV32_F3_LB) ## Should read and sign extend the ff byte 
+        _check(ls.result_o,0xffffffff,"lb negative test" )
        
-        print("Testing lb")
-        yield load_single(3<<2,2,LoadFunct3.RV32_F3_LB) ## Should read the 55 byte 
-        _check(ls.result_o,0x55,"lbu test" )
+        print("Testing lb positive")
+        yield load_single(3<<2,2,LoadFunct3.RV32_F3_LB) ## Should read and sign extend the 55 byte 
+        _check(ls.result_o,0x55,"lb positive test" )
+
+        print("Testing lhu")
+        yield load_single(3<<2,0,LoadFunct3.RV32_F3_LHU) ## Should read the ff00 hword 
+        _check(ls.result_o,0xff00,"lhu test" )
+
+        print("Testing lh negative")
+        yield load_single(3<<2,0,LoadFunct3.RV32_F3_LH) ## Should read and sign extend the ff00 hword 
+        _check(ls.result_o,0xffffff00,"lh negative test" )
+
+        print("Testing lh positive")
+        yield load_single(3<<2,2,LoadFunct3.RV32_F3_LH) ## Should read and sign extend the 0055 hword 
+        _check(ls.result_o,0x55,"lh positive test" )
+
 
         
     

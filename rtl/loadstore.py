@@ -208,8 +208,14 @@ class LoadStoreBundle:
 
         @always_comb
         def rd_mux():
-            a = pipe_adr_lo[max_outstanding-1]
-            if pipe_byte_mode[max_outstanding-1]:
+
+            if max_outstanding==3:
+                mux_index=1
+            else:
+                mux_index=max_outstanding-1
+
+            a = pipe_adr_lo[mux_index]
+            if pipe_byte_mode[mux_index]:
                 if a == 0b00:
                     byte = bus.db_rd(8,0)
                 elif a == 0b01:
@@ -218,19 +224,19 @@ class LoadStoreBundle:
                     byte = bus.db_rd(24,16)
                 elif a== 0b11:
                     byte = bus.db_rd(32,24)
-                if pipe_unsigned[max_outstanding-1]:
+                if pipe_unsigned[mux_index]:
                     rdmux_out.next = byte
                 else:
                     rdmux_out.next = byte.signed()
 
-            elif pipe_hword_mode[max_outstanding-1]:
+            elif pipe_hword_mode[mux_index]:
                 if a == 0b00:
                     hword = bus.db_rd(16,0)
                 elif a == 0b01:
                     hword = bus.db_rd(24,8)
                 else:
                     hword = bus.db_rd(32,16)
-                if pipe_unsigned[max_outstanding-1]:
+                if pipe_unsigned[mux_index]:
                     rdmux_out.next = hword
                 else:
                     rdmux_out.next = hword.signed()
