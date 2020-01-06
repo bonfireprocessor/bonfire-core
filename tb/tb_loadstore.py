@@ -29,7 +29,10 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     bus = DbusBundle(config)
     ls = LoadStoreBundle(config)
 
-    dut=ls.LoadStoreUnit(bus,clock,reset)
+    dut=LoadStoreBundle.LoadStoreUnit(ls,bus,clock,reset)
+
+    if test_conversion:
+        dut.convert(hdl='VHDL',std_logic_ports=False,path='vhdl_gen', name="loadstore" )
 
 
     ram = [Signal(modbv(0)[32:]) for ii in range(0, ram_size)]

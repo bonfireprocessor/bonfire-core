@@ -9,6 +9,8 @@ from myhdl import *
 
 from instructions import LoadFunct3, StoreFunct3
 
+from util import signed_resize
+
 write_pipe_index = 0 # Declaration 
 
 class DbusBundle:
@@ -87,9 +89,12 @@ class LoadStoreBundle:
         if max_outstanding==3:
             write_pipe_index = 1
         else:
-            write_pipe_index = max_outstanding-1    
+            write_pipe_index = max_outstanding-1
 
-        outstanding = Signal(intbv(0,max=max_outstanding+1))
+        max_pipe_index = max_outstanding-1
+        outstanding_counter_len = 1 if max_outstanding==1 else 2
+
+        outstanding = Signal(intbv(0)[outstanding_counter_len:])
 
         pipe_rd = [Signal(modbv(0)[5:]) for i in range(max_outstanding) ]
 
@@ -117,7 +122,10 @@ class LoadStoreBundle:
         def drive_bus():
 
             invalid_op=False
-            next_outstanding = outstanding.val
+           
+            next_outstanding=intbv(0)[outstanding_counter_len:]
+            next_outstanding[:] = outstanding.val
+
             # Deassert en if bus is not stalled 
             if not bus.stall_i:
                 bus_en.next = False
@@ -163,7 +171,7 @@ class LoadStoreBundle:
                         elif hword_mode:
                             bus.we_o.next = 0b0011 << adr_lo
                         elif byte_mode:
-                            bus.we_o.next = 2 ** adr_lo
+                            bus.we_o.next = 1 << adr_lo
                         else:
                             bus.we_o.next = 0
 
@@ -184,19 +192,19 @@ class LoadStoreBundle:
                 pipe_invalid_op[0].next = invalid_op
                 pipe_adr_lo[0].next = adr_lo
 
-                next_outstanding = next_outstanding + 1
+                next_outstanding[:] = next_outstanding + 1
              
 
             # Cycle Termination
             if bus.ack_i or bus.error_i and outstanding > 0:
                
-                next_outstanding = next_outstanding - 1
+                next_outstanding[:] = next_outstanding - 1
                 # self.valid_o.next =  bus.ack_i and not \
                 #   (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])
                 self.bus_error_o.next = bus.error_i
-                self.invalid_op_o.next = pipe_invalid_op[max_outstanding-1]
-                self.misalign_load_o.next = pipe_misalign[max_outstanding-1] and not pipe_store[max_outstanding-1]
-                self.misalign_store_o.next =  pipe_misalign[max_outstanding-1] and  pipe_store[max_outstanding-1]
+                self.invalid_op_o.next = pipe_invalid_op[max_pipe_index]
+                self.misalign_load_o.next = pipe_misalign[max_pipe_index] and not pipe_store[max_pipe_index]
+                self.misalign_store_o.next =  pipe_misalign[max_pipe_index] and  pipe_store[max_pipe_index]
                
                 if next_outstanding == 0:
                     #bus_en.next = False
@@ -204,41 +212,45 @@ class LoadStoreBundle:
 
             outstanding.next = next_outstanding
 
+        # Design time code
+        if max_outstanding==3:
+            mux_index=1
+        else:
+            mux_index=max_pipe_index
+        # end design time code 
 
         @always_comb
         def rd_mux():
 
-            if max_outstanding==3:
-                mux_index=1
-            else:
-                mux_index=max_outstanding-1
-
             a = pipe_adr_lo[mux_index]
+            pos = 0
+          
             if pipe_byte_mode[mux_index]:
-                if a == 0b00:
-                    byte = bus.db_rd(8,0)
-                elif a == 0b01:
-                    byte = bus.db_rd(16,8)
-                elif a == 0b10:
-                    byte = bus.db_rd(24,16)
-                elif a== 0b11:
-                    byte = bus.db_rd(32,24)
+                pos = a * 8
+                # if a == 0b00:
+                #     pos = 0
+                # elif a == 0b01:
+                #     pos = 8
+                # elif a == 0b10:
+                #     pos = 16
+                # elif a== 0b11:
+                #     pos = 24
+
                 if pipe_unsigned[mux_index]:
-                    rdmux_out.next = byte
+                    rdmux_out.next = bus.db_rd[pos+8:pos]
                 else:
-                    rdmux_out.next = byte.signed()
+                    rdmux_out.next = signed_resize(bus.db_rd[pos+8:pos],self.config.xlen)
 
             elif pipe_hword_mode[mux_index]:
-                if a == 0b00:
-                    hword = bus.db_rd(16,0)
-                elif a == 0b01:
-                    hword = bus.db_rd(24,8)
+                if a[1]:
+                    pos = 16
                 else:
-                    hword = bus.db_rd(32,16)
+                    pos = 0    
+
                 if pipe_unsigned[mux_index]:
-                    rdmux_out.next = hword
+                    rdmux_out.next = bus.db_rd[pos+16:pos]
                 else:
-                    rdmux_out.next = hword.signed()
+                    rdmux_out.next = signed_resize(bus.db_rd[pos+16:pos],self.config.xlen)
             else:
                 rdmux_out.next = bus.db_rd
 
@@ -250,11 +262,11 @@ class LoadStoreBundle:
             self.busy_o.next = l_busy
 
             self.debug_empty.next = outstanding == 0
-            self.rd_o.next = pipe_rd[max_outstanding-1]
+            self.rd_o.next = pipe_rd[max_pipe_index]
             bus.en_o.next = bus_en
 
             valid_comb.next = bus.ack_i and not \
-                             (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])            
+                             (pipe_misalign[max_pipe_index] or  pipe_invalid_op[max_pipe_index])            
                               
 
         if not self.config.registered_read_stage:
