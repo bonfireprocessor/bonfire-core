@@ -142,8 +142,8 @@ class LoadStoreBundle:
 
 
             if self.en_i and not busy:
-              
-                adr = modbv(self.op1_i + self.displacement_i.signed())[self.config.xlen:]
+                adr = modbv(0)[self.config.xlen:]
+                adr[:] = self.op1_i + self.displacement_i.signed()
 
                 byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LB
                 word_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LW
@@ -153,10 +153,9 @@ class LoadStoreBundle:
                              not ( byte_mode or word_mode or hword_mode )
 
                 # Misalign check
-                adr_lo = adr[2:]
-                misalign =  hword_mode and adr_lo == 0b11 or \
-                            word_mode and adr_lo != 0b00
-
+               
+                misalign =  hword_mode and adr[0] == True or \
+                            word_mode and adr[2:0] != 0
 
                 if not misalign:
                     #print("Start cycle:",now())
@@ -166,16 +165,28 @@ class LoadStoreBundle:
                         if word_mode:
                             bus.we_o.next = 0b1111
                         elif hword_mode:
-                            bus.we_o.next = 0b0011 << adr_lo
+                            if adr[1]==0: # All other cases are already excluded with the misalign check
+                                bus.we_o.next = 0b0011
+                            else:
+                                bus.we_o.next = 0b1100     
                         elif byte_mode:
-                            bus.we_o.next = 1 << adr_lo
+                            # convertible construct ;-)
+                            if adr[2:0]==0:
+                                bus.we_o.next = 0b0001
+                            elif adr[2:0]==1:
+                                bus.we_o.next = 0b0010
+                            elif adr[2:0]==2:
+                                bus.we_o.next = 0b0100
+                            else:
+                                bus.we_o.next = 0b1000     
                         else:
                             bus.we_o.next = 0
 
-                        bus.db_wr.next = self.op2_i << adr_lo * 8 # Shift to right position on data bus
+                        bus.db_wr.next = self.op2_i << adr[2:0] * 8 # Shift to right position on data bus
                     else: # read
                         bus.we_o.next = 0     
-
+                else:
+                    print("loadstore misalign occured")
                 if self.store_i:
                     pipe_rd[0].next=0
                 else:    
@@ -187,7 +198,7 @@ class LoadStoreBundle:
                 pipe_unsigned[0].next = self.funct3_i[2]
                 pipe_misalign[0].next = misalign
                 pipe_invalid_op[0].next = invalid_op
-                pipe_adr_lo[0].next = adr_lo
+                pipe_adr_lo[0].next = adr[2:0]
 
                
             # Cycle Termination
@@ -245,21 +256,22 @@ class LoadStoreBundle:
                 # elif a== 0b11:
                 #     pos = 24
 
-                if pipe_unsigned[mux_index]:
-                    rdmux_out.next = bus.db_rd[pos+8:pos]
-                else:
-                    rdmux_out.next = signed_resize(bus.db_rd[pos+8:pos],self.config.xlen)
+                rdmux_out.next = bus.db_rd[pos+8:pos]
+                if not pipe_unsigned[mux_index]:
+                    for i in range(8,self.config.xlen):
+                        rdmux_out.next[i] = bus.db_rd[pos+7]
 
             elif pipe_hword_mode[mux_index]:
                 if a[1]:
                     pos = 16
                 else:
-                    pos = 0    
+                    pos = 0
 
-                if pipe_unsigned[mux_index]:
-                    rdmux_out.next = bus.db_rd[pos+16:pos]
-                else:
-                    rdmux_out.next = signed_resize(bus.db_rd[pos+16:pos],self.config.xlen)
+                rdmux_out.next = bus.db_rd[pos+16:pos]
+                if not pipe_unsigned[mux_index]:
+                    for i in range(16,self.config.xlen):
+                        rdmux_out.next[i] = bus.db_rd[pos+16]    
+
             else:
                 rdmux_out.next = bus.db_rd
 

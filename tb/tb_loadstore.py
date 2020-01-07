@@ -10,7 +10,7 @@ from rtl import config
 
 ram_size=256
 
-store_words= (0xdeadbeef,0x55aaeeff,0x12345678,0x0055ff00,0xaabbccdd)
+store_words= (0xdeadbeef,0x55aaeeff,0x12345678,0x00558000,0xaabbccdd)
 
 ram_latency = 1 
 
@@ -263,16 +263,16 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         """
         Test lb,lbu,lh,lhu
         """
-        assert ram[3]==0x0055ff00, "load_other:  ram[3] does not contain the expected content"
+        assert ram[3]==0x00558000, "load_other:  ram[3] does not contain the expected content"
         yield clock.posedge
 
         print("Testing lbu")
         yield load_single(3<<2,1,LoadFunct3.RV32_F3_LBU) ## Should read the ff byte 
-        _check(ls.result_o,0xff,"lbu test" )
+        _check(ls.result_o,0x80,"lbu test" )
        
         print("Testing lb negative")
         yield load_single(3<<2,1,LoadFunct3.RV32_F3_LB) ## Should read and sign extend the ff byte 
-        _check(ls.result_o,0xffffffff,"lb negative test" )
+        _check(ls.result_o,0xffffff80,"lb negative test" )
        
         print("Testing lb positive")
         yield load_single(3<<2,2,LoadFunct3.RV32_F3_LB) ## Should read and sign extend the 55 byte 
@@ -280,11 +280,11 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
         print("Testing lhu")
         yield load_single(3<<2,0,LoadFunct3.RV32_F3_LHU) ## Should read the ff00 hword 
-        _check(ls.result_o,0xff00,"lhu test" )
+        _check(ls.result_o,0x8000,"lhu test" )
 
         print("Testing lh negative")
         yield load_single(3<<2,0,LoadFunct3.RV32_F3_LH) ## Should read and sign extend the ff00 hword 
-        _check(ls.result_o,0xffffff00,"lh negative test" )
+        _check(ls.result_o,0xffff8000,"lh negative test" )
 
         print("Testing lh positive")
         yield load_single(3<<2,2,LoadFunct3.RV32_F3_LH) ## Should read and sign extend the 0055 hword 
