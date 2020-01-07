@@ -92,7 +92,7 @@ class LoadStoreBundle:
             write_pipe_index = max_outstanding-1
 
         max_pipe_index = max_outstanding-1
-        outstanding_counter_len = 1 if max_outstanding==1 else 2
+        outstanding_counter_len =  2
 
         outstanding = Signal(intbv(0)[outstanding_counter_len:])
 
@@ -123,29 +123,26 @@ class LoadStoreBundle:
 
             invalid_op=False
            
-            next_outstanding=intbv(0)[outstanding_counter_len:]
-            next_outstanding[:] = outstanding.val
-
             # Deassert en if bus is not stalled 
             if not bus.stall_i:
                 bus_en.next = False
 
-           
-            if (self.en_i or en_r) and not busy:
-                # Advance Pipeline 
-                for i in range(1,max_outstanding):
-                    pipe_rd[i].next = pipe_rd[i-1]
-                    pipe_adr_lo[i].next = pipe_adr_lo[i-1]
-                    pipe_byte_mode[i].next = pipe_byte_mode[i-1]
-                    pipe_hword_mode[i].next = pipe_hword_mode[i-1]
-                    pipe_store[i].next = pipe_store[i-1]
-                    pipe_unsigned[i].next = pipe_unsigned[i-1]
-                    pipe_misalign[i].next = pipe_misalign[i-1]
-                    pipe_invalid_op[i].next = pipe_invalid_op[i-1]
+            if max_outstanding>1:           
+                if (self.en_i or en_r) and not busy:
+                    # Advance Pipeline 
+                    for i in range(1,max_outstanding):
+                        pipe_rd[i].next = pipe_rd[i-1]
+                        pipe_adr_lo[i].next = pipe_adr_lo[i-1]
+                        pipe_byte_mode[i].next = pipe_byte_mode[i-1]
+                        pipe_hword_mode[i].next = pipe_hword_mode[i-1]
+                        pipe_store[i].next = pipe_store[i-1]
+                        pipe_unsigned[i].next = pipe_unsigned[i-1]
+                        pipe_misalign[i].next = pipe_misalign[i-1]
+                        pipe_invalid_op[i].next = pipe_invalid_op[i-1]
 
 
             if self.en_i and not busy:
-                en_r.next=True 
+              
                 adr = modbv(self.op1_i + self.displacement_i.signed())[self.config.xlen:]
 
                 byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LB
@@ -192,13 +189,11 @@ class LoadStoreBundle:
                 pipe_invalid_op[0].next = invalid_op
                 pipe_adr_lo[0].next = adr_lo
 
-                next_outstanding[:] = next_outstanding + 1
-             
-
+               
             # Cycle Termination
             if bus.ack_i or bus.error_i and outstanding > 0:
                
-                next_outstanding[:] = next_outstanding - 1
+               
                 # self.valid_o.next =  bus.ack_i and not \
                 #   (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])
                 self.bus_error_o.next = bus.error_i
@@ -206,11 +201,25 @@ class LoadStoreBundle:
                 self.misalign_load_o.next = pipe_misalign[max_pipe_index] and not pipe_store[max_pipe_index]
                 self.misalign_store_o.next =  pipe_misalign[max_pipe_index] and  pipe_store[max_pipe_index]
                
+                
+
+        @always_seq(clock.posedge,reset=reset)
+        def calc_outstanding():
+
+            next_outstanding=intbv(0)[outstanding_counter_len:]
+            next_outstanding[:] = outstanding.val
+
+            if self.en_i and not busy:
+                en_r.next=True 
+                next_outstanding[:] = next_outstanding + 1
+
+            if  bus.ack_i or bus.error_i and outstanding > 0:
+                next_outstanding[:] = next_outstanding - 1
                 if next_outstanding == 0:
-                    #bus_en.next = False
                     en_r.next=False
 
-            outstanding.next = next_outstanding
+            outstanding.next = next_outstanding       
+
 
         # Design time code
         if max_outstanding==3:
