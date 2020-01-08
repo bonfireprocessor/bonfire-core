@@ -126,7 +126,7 @@ class LoadStoreBundle:
         Use Barrel shifter to implement left shift of operand 2 for byte and hword writes
         Logic below will check for invalid (misaligned) writes 
         """
-        wr_shift_instance= left_shift_comb(self.op2_i,op2_shifted,adr(2,0),0,5,3)
+        wr_shift_instance= left_shift_comb(self.op2_i,op2_shifted,adr,0,5,3)
 
 
         @always_seq(clock.posedge,reset=reset)
@@ -248,30 +248,44 @@ class LoadStoreBundle:
             mux_index=max_pipe_index
         # end design time code 
 
+       
+
         @always_comb
         def rd_mux():
 
             a = pipe_adr_lo[mux_index]
-            pos = 0
+            sign = False 
           
             if pipe_byte_mode[mux_index]:
 
-                pos = a * 8
-                rdmux_out.next = bus.db_rd[pos+8:pos]
-                if not pipe_unsigned[mux_index]:
-                    for i in range(8,self.config.xlen):
-                        rdmux_out.next[i] = bus.db_rd[pos+7]
+                if a==0:
+                    rdmux_out.next[8:0] = bus.db_rd[8:]
+                    sign = bus.db_rd[7]
+                elif a==1:
+                    rdmux_out.next[8:0] = bus.db_rd[16:8]
+                    sign = bus.db_rd[15]
+                elif a==2:
+                    rdmux_out.next[8:0] = bus.db_rd[24:16]
+                    sign = bus.db_rd[23]
+                else:
+                    rdmux_out.next[8:0] = bus.db_rd[32:24] 
+                    sign = bus.db_rd[31]           
+ 
+                for i in range(8,self.config.xlen):
+                    rdmux_out.next[i] = sign and not pipe_unsigned[mux_index]
 
             elif pipe_hword_mode[mux_index]:
 
                 if a[1]:
-                    pos = 16
+                    sign = bus.db_rd[31] and not pipe_unsigned[mux_index]
+                    rdmux_out.next[16:0] = bus.db_rd[32:16]
                 else:
-                    pos = 0
-                rdmux_out.next = bus.db_rd[pos+16:pos]
-                if not pipe_unsigned[mux_index]:
-                    for i in range(16,self.config.xlen):
-                        rdmux_out.next[i] = bus.db_rd[pos+15]    
+                    sign = bus.db_rd[15] and not pipe_unsigned[mux_index]
+                    rdmux_out.next[16:0] = bus.db_rd[16:0]
+                
+               
+                for i in range(16,self.config.xlen):
+                    rdmux_out.next[i] = sign    
 
             else:
                 rdmux_out.next = bus.db_rd
