@@ -1,40 +1,29 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Mon Jan  6 18:52:07 2020
+[*] Wed Jan  8 00:37:22 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_loadstore.vcd"
-[dumpfile_mtime] "Sun Jan  5 20:29:53 2020"
-[dumpfile_size] 39663
+[dumpfile_mtime] "Wed Jan  8 00:36:42 2020"
+[dumpfile_size] 45555
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/loadstore.gtkw"
-[timestart] 1428
+[timestart] 0
 [size] 1680 1025
 [pos] -1 -1
-*-5.662715 2150 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.662715 590 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
-[treeopen] tb.LoadStoreBundle0_LoadStoreUnit0.
-[sst_width] 225
+[treeopen] tb.loadstore.
+[sst_width] 361
 [signals_width] 315
 [sst_expanded] 1
 [sst_vpaned_height] 303
 @28
 tb.clock
-tb.LoadStoreBundle0_LoadStoreUnit0.self_en_i
-tb.LoadStoreBundle0_LoadStoreUnit0.self_funct3_i[2:0]
-@22
-tb.LoadStoreBundle0_LoadStoreUnit0.self_displacement_i[11:0]
-tb.LoadStoreBundle0_LoadStoreUnit0.self_op2_i[31:0]
-@28
-tb.LoadStoreBundle0_LoadStoreUnit0.self_busy_o
-@22
-tb.LoadStoreBundle0_LoadStoreUnit0.self_rd_i[4:0]
 @200
 -
 @28
 tb.bus_en_o
-@29
-tb.LoadStoreBundle0_LoadStoreUnit0.bus_stall_i
-@28
 tb.bus_ack_i
+tb.bus_stall_i
 @22
 tb.bus_adr_o[31:0]
 @28
@@ -46,13 +35,29 @@ tb.bus_db_rd[31:0]
 -
 -
 @28
-tb.LoadStoreBundle0_LoadStoreUnit0.en_r
-tb.LoadStoreBundle0_LoadStoreUnit0.valid_comb
-tb.LoadStoreBundle0_LoadStoreUnit0.self_valid_o
+tb.loadstore.self_en_i
+tb.loadstore.en_r
+tb.loadstore.self_funct3_i[2:0]
+tb.loadstore.self_store_i
 @22
-tb.LoadStoreBundle0_LoadStoreUnit0.self_rd_o[4:0]
-tb.LoadStoreBundle0_LoadStoreUnit0.self_result_o[31:0]
+tb.loadstore.self_op1_i[31:0]
+@24
+tb.loadstore.self_displacement_i[11:0]
+tb.loadstore.self_rd_i[4:0]
+@28
+tb.loadstore.self_busy_o
+@22
+tb.loadstore.adr[31:0]
 @200
+-
+@28
+tb.loadstore.self_valid_o
+@22
+tb.loadstore.self_result_o[31:0]
+@420
+tb.loadstore.self_rd_o[4:0]
+@200
+-
 -
 @22
 tb.ram.ram(0)[31:0]
@@ -63,21 +68,13 @@ tb.ram.ram(4)[31:0]
 tb.ram.ram(5)[31:0]
 tb.ram.ram(6)[31:0]
 @28
-tb.LoadStoreBundle0_LoadStoreUnit0.self_debug_empty
+tb.loadstore.outstanding[1:0]
+@201
+-
 @22
-tb.LoadStoreBundle0_LoadStoreUnit0.pipe_rd.pipe_rd(0)[4:0]
+tb.loadstore.left_shift_comb0.d_i[31:0]
+tb.loadstore.left_shift_comb0.d_o[31:0]
 @24
-tb.LoadStoreBundle0_LoadStoreUnit0.outstanding
-@200
--
-@28
-tb.LoadStoreBundle0_LoadStoreUnit0.pipe_store.pipe_store(0)
-tb.LoadStoreBundle0_LoadStoreUnit0.pipe_byte_mode.pipe_byte_mode(0)
-tb.LoadStoreBundle0_LoadStoreUnit0.pipe_adr_lo.pipe_adr_lo(0)[1:0]
-@200
--
-@28
-tb.LoadStoreBundle0_LoadStoreUnit0.pipe_unsigned.pipe_unsigned(0)
-tb.wait_states
+tb.loadstore.left_shift_comb0.shift_i[1:0]
 [pattern_trace] 1
 [pattern_trace] 0

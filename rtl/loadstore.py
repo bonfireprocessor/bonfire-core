@@ -11,6 +11,8 @@ from instructions import LoadFunct3, StoreFunct3
 
 from util import signed_resize
 
+from barrel_shifter import left_shift_comb
+
 write_pipe_index = 0 # Declaration 
 
 class DbusBundle:
@@ -116,7 +118,16 @@ class LoadStoreBundle:
         bus_en = Signal(bool(0))
         en_r = Signal(bool(0))
         busy = Signal(bool(0))
-       
+
+        adr = Signal(modbv(0)[self.config.xlen:])
+        op2_shifted = Signal(modbv(0)[self.config.xlen:])
+
+        """
+        Use Barrel shifter to implement left shift of operand 2 for byte and hword writes
+        Logic below will check for invalid (misaligned) writes 
+        """
+        wr_shift_instance= left_shift_comb(self.op2_i,op2_shifted,adr(2,0),0,5,3)
+
 
         @always_seq(clock.posedge,reset=reset)
         def drive_bus():
@@ -142,9 +153,7 @@ class LoadStoreBundle:
 
 
             if self.en_i and not busy:
-                adr = modbv(0)[self.config.xlen:]
-                adr[:] = self.op1_i + self.displacement_i.signed()
-
+               
                 byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LB
                 word_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LW
                 hword_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LH
@@ -182,7 +191,7 @@ class LoadStoreBundle:
                         else:
                             bus.we_o.next = 0
 
-                        bus.db_wr.next = self.op2_i << adr[2:0] * 8 # Shift to right position on data bus
+                        bus.db_wr.next = op2_shifted
                     else: # read
                         bus.we_o.next = 0     
                 else:
@@ -246,31 +255,23 @@ class LoadStoreBundle:
             pos = 0
           
             if pipe_byte_mode[mux_index]:
-                pos = a * 8
-                # if a == 0b00:
-                #     pos = 0
-                # elif a == 0b01:
-                #     pos = 8
-                # elif a == 0b10:
-                #     pos = 16
-                # elif a== 0b11:
-                #     pos = 24
 
+                pos = a * 8
                 rdmux_out.next = bus.db_rd[pos+8:pos]
                 if not pipe_unsigned[mux_index]:
                     for i in range(8,self.config.xlen):
                         rdmux_out.next[i] = bus.db_rd[pos+7]
 
             elif pipe_hword_mode[mux_index]:
+
                 if a[1]:
                     pos = 16
                 else:
                     pos = 0
-
                 rdmux_out.next = bus.db_rd[pos+16:pos]
                 if not pipe_unsigned[mux_index]:
                     for i in range(16,self.config.xlen):
-                        rdmux_out.next[i] = bus.db_rd[pos+16]    
+                        rdmux_out.next[i] = bus.db_rd[pos+15]    
 
             else:
                 rdmux_out.next = bus.db_rd
@@ -278,6 +279,9 @@ class LoadStoreBundle:
 
         @always_comb
         def comb():
+
+            adr.next = self.op1_i + self.displacement_i.signed()
+
             l_busy =  bus.stall_i or ( outstanding == max_outstanding and not (not self.config.registered_read_stage and bus.ack_i) )
             busy.next = l_busy
             self.busy_o.next = l_busy
