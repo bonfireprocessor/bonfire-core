@@ -72,6 +72,8 @@ class LoadStoreBundle:
     def LoadStoreUnit(self,bus,clock,reset):
 
         """
+           Design time code 
+
            max_outstanding cannot larger than the minimum latency of the LSU. 
            The minimum latency is 3 cycles in case of a registered data bus read stage (config.registered_read_stage==True)
            The minimum latency is 2 cycles without a registered data bus read stage 
@@ -94,7 +96,14 @@ class LoadStoreBundle:
             write_pipe_index = max_outstanding-1
 
         max_pipe_index = max_outstanding-1
-        outstanding_counter_len =  2
+        if max_outstanding > 1:
+            outstanding_counter_len =  2
+        else:
+            outstanding_counter_len = 1 
+
+        """
+        End Design time code 
+        """        
 
         outstanding = Signal(intbv(0)[outstanding_counter_len:])
 
@@ -118,6 +127,9 @@ class LoadStoreBundle:
         bus_en = Signal(bool(0))
         en_r = Signal(bool(0))
         busy = Signal(bool(0))
+
+        request = Signal(bool(0))
+        confirm = Signal(bool(0))
 
         adr = Signal(modbv(0)[self.config.xlen:])
         op2_shifted = Signal(modbv(0)[self.config.xlen:])
@@ -194,8 +206,7 @@ class LoadStoreBundle:
                         bus.db_wr.next = op2_shifted
                     else: # read
                         bus.we_o.next = 0     
-                else:
-                    print("loadstore misalign occured")
+                
                 if self.store_i:
                     pipe_rd[0].next=0
                 else:    
@@ -220,25 +231,30 @@ class LoadStoreBundle:
                 self.invalid_op_o.next = pipe_invalid_op[max_pipe_index]
                 self.misalign_load_o.next = pipe_misalign[max_pipe_index] and not pipe_store[max_pipe_index]
                 self.misalign_store_o.next =  pipe_misalign[max_pipe_index] and  pipe_store[max_pipe_index]
-               
+
+
+        """
+        Signals new request or confirmation of existing request 
+        """
+        @always_comb
+        def req_confirm():
+            request.next =  self.en_i and not busy 
+            confirm.next =  bus.ack_i or bus.error_i and outstanding > 0      
                 
 
         @always_seq(clock.posedge,reset=reset)
         def calc_outstanding():
 
-            next_outstanding=intbv(0)[outstanding_counter_len:]
-            next_outstanding[:] = outstanding.val
-
-            if self.en_i and not busy:
+            if request:
                 en_r.next=True 
-                next_outstanding[:] = next_outstanding + 1
-
-            if  bus.ack_i or bus.error_i and outstanding > 0:
-                next_outstanding[:] = next_outstanding - 1
-                if next_outstanding == 0:
+               
+            if request and not confirm:
+                outstanding.next = outstanding + 1
+            elif not request and confirm:
+                o_next = outstanding - 1  
+                outstanding.next = o_next  
+                if o_next == 0:
                     en_r.next=False
-
-            outstanding.next = next_outstanding       
 
 
         # Design time code
@@ -247,8 +263,6 @@ class LoadStoreBundle:
         else:
             mux_index=max_pipe_index
         # end design time code 
-
-       
 
         @always_comb
         def rd_mux():
