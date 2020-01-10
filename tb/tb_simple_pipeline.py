@@ -6,7 +6,7 @@ from ClkDriver import *
 import types
 from disassemble import *
 
-from rtl import config
+from rtl import config,loadstore
 
 result_o = Signal(intbv(0)[32:])
 rd_o = Signal(intbv(0)[5:])
@@ -43,12 +43,13 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
     debug=DebugOutputBundle()
     out = BackendOutputBundle()
+    datatbus = loadstore.DbusBundle(config=config) 
 
     backend = SimpleBackend(config=config)
     fetch = FetchInputBundle(config=config)
 
     clk_driver= ClkDriver(clock)
-    dut = backend.backend(fetch,busy,clock,reset,out,debug)
+    dut = backend.backend(fetch,busy,datatbus,clock,reset,out,debug)
 
 
     if test_conversion:

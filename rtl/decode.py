@@ -65,7 +65,8 @@ class DecodeBundle:
 
         # Functional unit control
         self.alu_cmd = Signal(bool(0))
-        self.load_store_cmd = Signal(bool(0))
+        self.load_cmd = Signal(bool(0))
+        self.store_cmd = Signal(bool(0))
         self.branch_cmd = Signal(bool(0))
         self.jump_cmd = Signal(bool(0))
         self.jumpr_cmd = Signal(bool(0))
@@ -163,7 +164,8 @@ class DecodeBundle:
                 self.branch_cmd.next = False
                 self.jump_cmd.next = False
                 self.jumpr_cmd.next = False
-                self.load_store_cmd.next = False
+                self.load_cmd.next = False
+                self.store_cmd.next = False
                 self.csr_cmd.next = False
 
                 if self.word_i[2:0]!=3:
@@ -209,7 +211,12 @@ class DecodeBundle:
 
                     self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB   
                     self.funct7_o.next = 0
-
+                elif opcode==op.RV32_STORE:
+                    self.store_cmd.next = True
+                    self.displacement_o.next = get_S_immediate(self.word_i)
+                elif opcode==op.RV32_LOAD:
+                    self.load_cmd.next = True
+                    self.displacement_o.next = get_S_immediate(self.word_i) 
                 else:
                     inv=True
 
