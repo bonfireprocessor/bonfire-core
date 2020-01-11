@@ -1,22 +1,21 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Tue Oct  8 23:26:57 2019
+[*] Sat Jan 11 18:23:15 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_simple_pipeline.vcd"
-[dumpfile_mtime] "Tue Oct  8 23:23:23 2019"
-[dumpfile_size] 30389
+[dumpfile_mtime] "Sat Jan 11 18:18:58 2020"
+[dumpfile_size] 70319
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/simple_pipeline.gtkw"
-[timestart] 0
+[timestart] 223
 [size] 1920 1031
-[pos] -1 -1
-*-5.683627 218 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -1921 -1
+*-5.884193 470 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.backend.
-[treeopen] tb.backend.ExecuteBundle1_SimpleExecute0.
-[sst_width] 389
+[sst_width] 329
 [signals_width] 293
 [sst_expanded] 1
-[sst_vpaned_height] 371
+[sst_vpaned_height] 374
 @200
 -
 @28
@@ -27,7 +26,8 @@ tb.backend.fetch_next_ip_i[31:0]
 tb.backend.fetch_word_i[31:0]
 @200
 -
-@29
+@28
+tb.backend.debugport_valid_o
 tb.backend.debugport_reg_we_o
 @24
 tb.backend.debugport_rd_adr_o[4:0]
@@ -41,5 +41,23 @@ tb.backend.debugport_result_o[31:0]
 tb.backend.out_jump_dest_o[31:0]
 @28
 tb.backend.out_jump_o
+tb.backend.busy_o
+@200
+-
+@22
+tb.ram.ram(0)[31:0]
+tb.ram.ram(1)[31:0]
+@200
+-
+@28
+tb.sim_ram1_ram_interface0.bus_en_o
+@22
+tb.sim_ram1_ram_interface0.bus_adr_o[31:0]
+tb.sim_ram1_ram_interface0.bus_db_wr[31:0]
+@28
+tb.sim_ram1_ram_interface0.bus_we_o[3:0]
+tb.sim_ram1_ram_interface0.bus_ack_i
+@23
+tb.sim_ram1_ram_interface0.bus_db_rd[31:0]
 [pattern_trace] 1
 [pattern_trace] 0

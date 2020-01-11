@@ -172,15 +172,15 @@ class DecodeBundle:
                     inv=True
 
                 elif opcode==op.RV32_OP:
-                    print "RV32_OP"
                     self.alu_cmd.next = True
-                   
-
                 elif opcode==op.RV32_IMM:
                     self.alu_cmd.next = True
+                    # Workaround for ADDI...
+                    if self.word_i[15:12]==f3.RV32_F3_ADD_SUB:
+                        self.funct7_o.next[5] = False  
                     rs2_imm_value.next = signed_resize(get_I_immediate(self.word_i),self.xlen)
                     rs2_immediate.next = True
-
+                    
                 elif opcode==op.RV32_BRANCH:
                     self.branch_cmd.next = True
                     self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(self.word_i).signed()
@@ -216,7 +216,7 @@ class DecodeBundle:
                     self.displacement_o.next = get_S_immediate(self.word_i)
                 elif opcode==op.RV32_LOAD:
                     self.load_cmd.next = True
-                    self.displacement_o.next = get_S_immediate(self.word_i) 
+                    self.displacement_o.next = get_I_immediate(self.word_i) 
                 else:
                     inv=True
 

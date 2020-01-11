@@ -46,23 +46,12 @@ test(tb_decode.tb(True),trace=False)
 print 'Testing Regfile'
 test(tb_regfile.tb(),trace=False)
 
-
-
-print 'Testing SimplePipeline with comb shifter'
-conf=config.BonfireConfig()
-conf.shifter_mode="comb"
-test(tb_simple_pipeline.tb(config=conf),trace=False,filename="tb_simple_pipeline_comb_shift")
-
-print 'Testing SimplePipeline with staged shifter'
-test(tb_simple_pipeline.tb(test_conversion=True),trace=False,filename="tb_simple_pipeline")
-
-
 print 'Testing Loadstore'
 conf=config.BonfireConfig()
 # Waveform tracing test variant
 conf.loadstore_outstanding=1
 conf.registered_read_stage=False
-test(tb_loadstore.tb(config=conf,test_conversion=True),trace=True,filename="tb_loadstore")
+test(tb_loadstore.tb(config=conf,test_conversion=True),trace=False,filename="tb_loadstore")
 
 # Other variants
 for i in range(1,3):
@@ -74,7 +63,13 @@ for i in range(1,4):
     conf.loadstore_outstanding=i
     test(tb_loadstore.tb(config=conf,test_conversion=False),trace=False)
 
+print 'Testing SimplePipeline with comb shifter'
+conf=config.BonfireConfig()
+conf.shifter_mode="comb"
+test(tb_simple_pipeline.tb(config=conf),trace=False,filename="tb_simple_pipeline_comb_shift")
 
+print 'Testing SimplePipeline with staged shifter'
+test(tb_simple_pipeline.tb(test_conversion=True),trace=True,filename="tb_simple_pipeline")
 
 
 

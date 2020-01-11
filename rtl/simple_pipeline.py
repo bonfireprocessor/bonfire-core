@@ -38,6 +38,7 @@ class DebugOutputBundle:
        self.config=config
        xlen=config.xlen 
 
+       self.valid_o =  Signal(bool(0))
        self.result_o = Signal(intbv(0)[xlen:])
        self.rd_adr_o = Signal(intbv(0)[5:])
        self.reg_we_o = Signal(bool(0))
@@ -78,7 +79,8 @@ class SimpleBackend:
 
             busy_o.next = self.decode.busy_o 
 
-            self.decode.stall_i.next = self.execute.busy_o 
+            self.decode.stall_i.next = self.execute.busy_o
+            self.execute.en_i.next = self.decode.valid_o
 
             # Instruction fetch interface 
 
@@ -90,6 +92,7 @@ class SimpleBackend:
 
         @always_comb
         def debugout():
+            debugport.valid_o.next = self.execute.valid_o
             debugport.result_o.next = self.execute.result_o
             debugport.rd_adr_o.next = self.execute.rd_adr_o
             debugport.reg_we_o.next = self.execute.reg_we_o

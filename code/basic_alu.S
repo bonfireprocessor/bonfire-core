@@ -21,4 +21,9 @@ bne a1,a2, test // yes
 blt a2,a1, test // yes 
 bltu a2,a1,test // no 
 
+// Load store unit 
+li s1, 0
+li s2, 0xdeadbeef
+sw s2,4(s1)
+lbu a1,5(s1) # should load 0xbe  
 

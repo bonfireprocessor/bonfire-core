@@ -50,6 +50,7 @@ class LoadStoreBundle:
         #Output
         self.result_o = Signal(modbv(0)[xlen:])
         self.rd_o = Signal(modbv(0)[5:])
+        self.we_o = Signal(bool(0))
 
 
         # Control Signals
@@ -344,8 +345,10 @@ class LoadStoreBundle:
                 if pipe_store[write_pipe_index]:
                     # Writes can be terminated early 
                     self.valid_o.next = valid_comb
+                    self.we_o.next = False
                 else:
-                    self.valid_o.next = valid_reg    
+                    self.valid_o.next = valid_reg
+                    self.we_o.next = valid_reg    
 
 
         return instances()
