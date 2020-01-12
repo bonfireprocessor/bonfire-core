@@ -1,4 +1,4 @@
-from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipeline,tb_loadstore
+from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipeline,tb_loadstore,tb_fetch
 
 from rtl import config
 
@@ -69,7 +69,10 @@ conf.shifter_mode="comb"
 test(tb_simple_pipeline.tb(config=conf),trace=False,filename="tb_simple_pipeline_comb_shift")
 
 print 'Testing SimplePipeline with staged shifter'
-test(tb_simple_pipeline.tb(test_conversion=True),trace=True,filename="tb_simple_pipeline")
+test(tb_simple_pipeline.tb(test_conversion=True),trace=False,filename="tb_simple_pipeline")
+
+print 'Testing Fetch unit'
+test(tb_fetch.tb(test_conversion=False),trace=True,filename="tb_fetch")
 
 
 

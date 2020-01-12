@@ -36,7 +36,7 @@ class sim_ram:
                 bus.stall_i.next = False     
 
 
-        @always_seq(clock.posedge,reset=reset)
+        @always(clock.posedge)
         def bus_slave():
 
             bus.ack_i.next=False

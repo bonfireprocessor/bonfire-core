@@ -36,7 +36,7 @@ def get_SB_immediate(instr):
 
 class DecodeBundle:
     def __init__(self,xlen=32):
-        self.word_i = Signal(intbv(0)[xlen:]) # actual instruction to decode
+        self.word_i = Signal(modbv(0)[xlen:]) # actual instruction to decode
         self.current_ip_i = Signal(modbv(0)[xlen:])
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
 
@@ -156,7 +156,7 @@ class DecodeBundle:
 
                 self.next_ip_o.next = self.next_ip_i 
 
-                self.displacement_o.next = 0
+                #self.displacement_o.next = 0
                 rs1_immediate.next = False
                 rs2_immediate.next = False
 
@@ -195,8 +195,9 @@ class DecodeBundle:
                     self.jumpr_cmd.next = True
                      # Use ALU to calculate target 
                     self.alu_cmd.next = True
-                    self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB   
-                    rs2_imm_value.next =  get_I_immediate(self.word_i).signed()
+                    self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
+                    self.funct3_o.next = f3.RV32_F3_ADD_SUB
+                    rs2_imm_value.next =  signed_resize(get_I_immediate(self.word_i),self.xlen)
                     rs2_immediate.next = True
                     
                 elif opcode==op.RV32_LUI or opcode==op.RV32_AUIPC:
@@ -209,7 +210,8 @@ class DecodeBundle:
                     else:
                         rs2_imm_value.next=0
 
-                    self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB   
+                    self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
+                    self.funct3_o.next = f3.RV32_F3_ADD_SUB   
                     self.funct7_o.next = 0
                 elif opcode==op.RV32_STORE:
                     self.store_cmd.next = True

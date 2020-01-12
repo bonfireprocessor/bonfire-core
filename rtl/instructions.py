@@ -23,7 +23,7 @@ class Opcodes:
     """
     List all the RV32I opcodes
     """
-    RV32_NOP    = 0b00100
+    #RV32_NOP    = 0b00100
     RV32_LUI    = 0b01101
     RV32_AUIPC  = 0b00101
     RV32_JAL    = 0b11011

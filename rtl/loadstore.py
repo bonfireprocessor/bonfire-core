@@ -208,11 +208,8 @@ class LoadStoreBundle:
                     else: # read
                         bus.we_o.next = 0     
                 
-                if self.store_i:
-                    pipe_rd[0].next=0
-                else:    
-                    pipe_rd[0].next = self.rd_i
-
+                  
+                pipe_rd[0].next = self.rd_i
                 pipe_byte_mode[0].next = byte_mode
                 pipe_hword_mode[0].next = hword_mode
                 pipe_store[0].next = self.store_i
