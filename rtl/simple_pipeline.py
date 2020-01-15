@@ -57,7 +57,7 @@ class SimpleBackend:
         
 
     @block
-    def backend(self,fetch,busy_o,databus, clock,reset,out,debugport ):
+    def backend(self,fetch,busy_o,databus, clock, reset, out, debugport ):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset)

@@ -119,7 +119,7 @@ class ExecuteBundle:
             else:
                 self.result_o.next = 0
 
-            self.reg_we_o.next = not busy and  self.alu.valid_o or self.ls.we_o
+            self.reg_we_o.next =  self.alu.valid_o or self.ls.we_o
 
             if exec_taken:
                 self.rd_adr_o.next = decode.rd_adr_o

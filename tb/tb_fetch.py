@@ -14,6 +14,14 @@ ram_size = 256
 
 ram = [Signal(modbv(0)[32:]) for ii in range(0, ram_size)]
 
+result_o = Signal(intbv(0)[32:])
+rd_o = Signal(intbv(0)[5:])
+we_o =  Signal(bool(0))
+jump_o =  Signal(bool(0))
+jump_dest_o =  Signal(intbv(0)[32:])
+
+
+
 commands=[ \
     {"opcode":0x00a00593,"source":"li a1,10", "t": lambda: abi_name(rd_o)=="a1" and result_o == 10  } , \
     {"opcode":0x00500613,"source":"li a2,5", "t": lambda: abi_name(rd_o)=="a2" and result_o == 5 } , \
@@ -41,6 +49,8 @@ commands=[ \
 def tb(config=config.BonfireConfig(),test_conversion=False):
     clock=Signal(bool(0))
     reset = ResetSignal(1, active=1, isasync=False)
+
+    backend_busy = Signal(bool(0))
    
     ibus = loadstore.DbusBundle(config=config) 
     debug=DebugOutputBundle()
@@ -48,26 +58,85 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     dbus = loadstore.DbusBundle(config=config) 
     fetch_bundle = FetchInputBundle(config=config)
    
-    i_fetch = FetchUnit(config=config)
+    fetch_unit = FetchUnit(config=config)
     backend = SimpleBackend(config=config)
     
 
     clk_driver= ClkDriver(clock)
    
-    dut=i_fetch.SimpleFetchUnit(fetch_bundle,backend,ibus,clock,reset)
+    dut=fetch_unit.SimpleFetchUnit(fetch_bundle,ibus,clock,reset)
 
     if test_conversion:
         dut.convert(hdl='VHDL',std_logic_ports=False,path='vhdl_gen', name="backend" )
 
 
     # processor Backend
-    # TODO 
+    i_backend = backend.backend(fetch_bundle,backend_busy,dbus,clock,reset,out,debug)
 
     # Simulated Data RAM 
    
     mem = sim_ram()
     mem.setLatency(1)
     mem_i = mem.ram_interface(ram,ibus,clock,reset)
+
+
+    
+    @always_comb
+    def comb():
+        fetch_unit.jump_dest_i.next=out.jump_dest_o
+        fetch_unit.jump_i.next = out.jump_o
+        fetch_unit.stall_i.next = backend_busy
+
+        result_o.next =debug.result_o
+        rd_o.next = debug.rd_adr_o
+        we_o.next = debug.reg_we_o
+        jump_o.next = out.jump_o
+        jump_dest_o.next = out.jump_dest_o
+
+
+    @always_seq(clock.posedge,reset=reset)
+    def sim_observe():
+
+        if out.jump_o:
+            raise StopSimulation   
+
+
+    cmd_index = Signal(intbv(0))
+
+    def check(cmd):
+        t=cmd["t"]
+        if type(t) == types.FunctionType:
+            if t():
+                print "OK"
+            else:
+                print "FAIL"
+        print "----"
+
+
+    @always_seq(clock.posedge,reset=reset)
+    def commit_check():
+
+        if cmd_index >= len(commands):
+            print "Simulation finished"
+            raise StopSimulation
+
+        if debug.valid_o:
+           
+            cmd = commands[cmd_index]
+            if debug.reg_we_o:
+                print "at {}ns {}:  commmit to reg {} value {}".format(now(), cmd["source"], 
+                abi_name(debug.rd_adr_o), debug.result_o)
+            else:
+                print "at {}ns {}:  commmit without reg write".format(now(), cmd["source"])    
+            check(cmd)
+
+            cmd_index.next = cmd_index + 1
+        elif backend.decode.branch_cmd or backend.decode.jump_cmd or backend.decode.jumpr_cmd:
+            cmd = commands[cmd_index]
+            print "at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],out.jump_o, out.jump_dest_o )
+            check(cmd)
+            cmd_index.next = cmd_index + 1
+
 
     @instance
     def stimulus():

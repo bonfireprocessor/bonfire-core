@@ -87,9 +87,11 @@ def left_shift_pipelined(clock,reset,d_i,d_o, shift_i, fill_i,en_i,ready_o, c_pi
         # Signal shift_1 defined as work around for potential Vivado synthesis bug when
         # indexing a signal slice (e.g. s(5 downto 3)(i))  
         shift_1 = Signal(intbv(0)[len(shift_i)-c_pipe_stage:])
+
+        fill_r = Signal(bool(0))
        
         stage_0=left_shift_comb(d_i,stage0_out,shift_i(c_pipe_stage,0),fill_i,c_pipe_stage,0)
-        stage_1=left_shift_comb(stage_reg,d_o,shift_1,fill_i,len(shift_i),c_pipe_stage)
+        stage_1=left_shift_comb(stage_reg,d_o,shift_1,fill_r,len(shift_i),c_pipe_stage)
 
         # @always_comb
         # def comb():
@@ -100,6 +102,7 @@ def left_shift_pipelined(clock,reset,d_i,d_o, shift_i, fill_i,en_i,ready_o, c_pi
         def shifter_pipe():
             if en_i:
                 shift_1.next=shift_i[len(shift_i):c_pipe_stage]
+                fill_r.next = fill_i
                 stage_reg.next=stage0_out
             ready_o.next=en_i
 
@@ -140,6 +143,7 @@ def shift_pipelined(clock,reset,d_i,d_o, shift_i, right_i, fill_i,en_i,ready_o, 
    
     temp_out = Signal(modbv(0)[len(d_i):])
     temp_in = Signal(modbv(0)[len(d_i):])
+    right_r = Signal(bool(0))
 
 
     barrel_inst=left_shift_pipelined(clock,reset,temp_in,temp_out, shift_i, fill_i,en_i,ready_o,c_pipe_stage) 
@@ -150,15 +154,23 @@ def shift_pipelined(clock,reset,d_i,d_o, shift_i, right_i, fill_i,en_i,ready_o, 
             r[len(d)-i-1] = d[i]
         return r 
 
+    @always_seq(clock.posedge,reset=reset)
+    def seq():
+        right_r.next =right_i
+
 
     @always_comb
     def comb():
         if right_i:
             temp_in.next=reverse(d_i)
-            d_o.next=reverse(temp_out)
         else:
             temp_in.next=d_i
+            
+        if right_r:
+            d_o.next=reverse(temp_out)
+        else:
             d_o.next=temp_out
+
 
     return instances()
         

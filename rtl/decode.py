@@ -120,7 +120,6 @@ class DecodeBundle:
             self.busy_o.next = downstream_busy
 
 
-
             # Operand output side
 
             if rs2_immediate:
@@ -221,10 +220,8 @@ class DecodeBundle:
                     self.displacement_o.next = get_I_immediate(self.word_i) 
                 else:
                     inv=True
-
-
                 self.valid_o.next = not inv
                 self.invalid_opcode.next= inv
-
+            
 
         return instances()

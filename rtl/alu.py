@@ -162,8 +162,10 @@ class AluBundle:
 
             alu_valid.next=False
            
-
-            if self.funct3_i==f3.RV32_F3_ADD_SUB:
+            if shift_valid:
+                self.res_o.next = shifter_out
+                alu_valid.next = True
+            elif self.funct3_i==f3.RV32_F3_ADD_SUB:
                 self.res_o.next = adder_out 
                 alu_valid.next = self.en_i
 
@@ -187,10 +189,11 @@ class AluBundle:
                 self.res_o.next = not flag_uge
                 alu_valid.next=self.en_i
                 
-            elif self.funct3_i==f3.RV32_F3_SLL or self.funct3_i==f3.RV32_F3_SRL_SRA:
-                self.res_o.next = shifter_out.val
+            # elif not c_shifter_mode=="pipelined" and ( self.funct3_i==f3.RV32_F3_SLL or self.funct3_i==f3.RV32_F3_SRL_SRA):
+            #     self.res_o.next = shifter_out.val
+            #     alu_valid.next = True 
             else:
-                assert False, "Invalid funct3_i"
+                #assert not self.en_i, "Invalid funct3_i"
                 self.res_o.next = 0
 
             # Comparator outputs 
@@ -200,10 +203,13 @@ class AluBundle:
 
 
         @always_comb
-        def pipe_control():
-            self.valid_o.next= alu_valid or shift_valid
-            self.busy_o.next = shift_busy
+        def valid_ctrl():
+            self.valid_o.next= alu_valid
+           
 
+        @always_seq(clock.posedge,reset=reset)
+        def busy_ctrl():
+            self.busy_o.next = shift_busy
 
         return instances()
 

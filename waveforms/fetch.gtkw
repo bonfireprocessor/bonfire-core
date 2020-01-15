@@ -1,0 +1,75 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Tue Jan 14 23:51:26 2020
+[*]
+[dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_fetch.vcd"
+[dumpfile_mtime] "Tue Jan 14 23:41:01 2020"
+[dumpfile_size] 64239
+[savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/fetch.gtkw"
+[timestart] 76
+[size] 1920 1031
+[pos] -1 -1
+*-5.511904 171 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.FetchUnit0_SimpleFetchUnit0.
+[treeopen] tb.sim_ram0_ram_interface0.
+[treeopen] tb.SimpleBackend0_backend0.
+[sst_width] 225
+[signals_width] 286
+[sst_expanded] 1
+[sst_vpaned_height] 304
+@28
+tb.ClkDriver0.clk
+tb.FetchUnit0_SimpleFetchUnit0.ibus_en_o
+tb.FetchUnit0_SimpleFetchUnit0.ibus_we_o[3:0]
+@22
+tb.FetchUnit0_SimpleFetchUnit0.ibus_adr_o[31:0]
+tb.FetchUnit0_SimpleFetchUnit0.ibus_db_rd[31:0]
+@28
+tb.FetchUnit0_SimpleFetchUnit0.ibus_stall_i
+tb.FetchUnit0_SimpleFetchUnit0.ibus_ack_i
+@200
+-
+@28
+tb.FetchUnit0_SimpleFetchUnit0.busy
+@22
+tb.FetchUnit0_SimpleFetchUnit0.current_word.current_word(0)[31:0]
+tb.FetchUnit0_SimpleFetchUnit0.current_word.current_word(1)[31:0]
+@28
+tb.fetch_unit_stall_i
+@200
+-
+-
+@28
+tb.FetchUnit0_SimpleFetchUnit0.valid
+@22
+tb.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_word_i[31:0]
+@28
+tb.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_en_i
+@200
+-
+@28
+tb.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_alu_busy_o
+@200
+-
+@28
+tb.backend_busy
+@200
+-
+@29
+tb.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.exec_taken
+@200
+-
+@28
+tb.out_jump_o
+@22
+tb.out_jump_dest_o[31:0]
+@28
+tb.debug_valid_o
+tb.debug_reg_we_o
+@22
+tb.debug_result_o[31:0]
+@24
+tb.debug_rd_adr_o[4:0]
+[pattern_trace] 1
+[pattern_trace] 0
