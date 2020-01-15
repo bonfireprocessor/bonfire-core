@@ -154,9 +154,14 @@ def shift_pipelined(clock,reset,d_i,d_o, shift_i, right_i, fill_i,en_i,ready_o, 
             r[len(d)-i-1] = d[i]
         return r 
 
-    @always_seq(clock.posedge,reset=reset)
-    def seq():
-        right_r.next =right_i
+    if c_pipe_stage==0:
+        @always_comb
+        def comb_1():
+             right_r.next =right_i
+    else:
+        @always_seq(clock.posedge,reset=reset)
+        def seq():
+            right_r.next =right_i
 
 
     @always_comb

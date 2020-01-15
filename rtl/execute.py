@@ -3,6 +3,7 @@ RISC-V execution stage
 (c) 2019 The Bonfire Project
 License: See LICENSE
 """
+from __future__ import print_function
 
 from myhdl import *
 
@@ -11,6 +12,8 @@ import loadstore
 
 from instructions import BranchFunct3  as b3
 from instructions import Opcodes
+
+
 
 class ExecuteBundle:
     def __init__(self,config):
@@ -23,7 +26,7 @@ class ExecuteBundle:
         self.alu=alu.AluBundle(xlen)
         self.ls = loadstore.LoadStoreBundle(config)
 
-        #output
+        # output
         self.result_o = Signal(intbv(0)[xlen:])
         self.reg_we_o = Signal(bool(0)) # Register File Write Enable
         self.rd_adr_o =  Signal(modbv(0)[5:]) # Target register
@@ -33,13 +36,14 @@ class ExecuteBundle:
 
         self.invalid_opcode_fault = Signal(bool(0))
 
-        #pipeline control
+        # pipeline control
 
         self.en_i = Signal(bool(0)) # Input enable / valid
         self.busy_o = Signal(bool(0)) # unit busy (stall previous stage)
         self.valid_o = Signal(bool(0)) # Output valid
-        #self.stall_i = Signal(bool(0)) # Stall input from next stage
-
+       
+        # debug
+        self.debug_exec_jump = Signal(bool(0))
 
 
 
@@ -56,8 +60,13 @@ class ExecuteBundle:
         assert self.config.loadstore_outstanding==1, "SimpleExecute requires config.loadstore_outstanding==1"
 
         busy = Signal(bool(0)) 
-        exec_taken = Signal(bool(0)) # True when a new instruction is taken 
+        exec_taken = Signal(bool(0)) # True for one cycle when a new instruction is taken 
         rd_adr_reg = Signal(modbv(0)[5:])
+
+        jump = Signal(bool(0))
+        jump_r =  Signal(bool(0))
+        jump_dest =  Signal(intbv(0)[self.config.xlen:])
+        jump_dest_r = Signal(intbv(0)[self.config.xlen:])
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
@@ -71,17 +80,21 @@ class ExecuteBundle:
 
         @always_seq(clock.posedge,reset=reset)
         def seq():
-            if self.en_i and not busy:
+            if exec_taken:
                 rd_adr_reg.next = decode.rd_adr_o
-
-        
+                jump_dest_r.next = jump_dest
+                jump_r.next = jump
+                
+                # Debug code
+                if self.debug_exec_jump.next: 
+                    print(now(), "jump or branch")    
+                
         @always_comb
         def comb():
 
             # Init
-            self.invalid_opcode_fault.next = False
-            self.jump_o.next=False
-            self.jump_dest_o.next=0
+          
+           
 
             # ALU Input wirings
             self.alu.funct3_i.next = decode.funct3_o
@@ -99,11 +112,13 @@ class ExecuteBundle:
 
 
             # Functional Unit selection
-            if decode.valid_o and not busy:
-                self.alu.en_i.next = decode.alu_cmd
-                self.ls.en_i.next = decode.store_cmd or decode.load_cmd 
 
-           # Pipeline control
+            self.alu.en_i.next = decode.alu_cmd and exec_taken
+            self.ls.en_i.next = ( decode.store_cmd or decode.load_cmd ) and exec_taken
+
+            self.debug_exec_jump.next = exec_taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd )
+    
+           # Output 
              
             self.busy_o.next = busy
             self.valid_o.next = self.alu.valid_o or self.ls.valid_o
@@ -112,7 +127,7 @@ class ExecuteBundle:
 
             if self.alu.valid_o:
                 self.result_o.next = self.alu.res_o
-            elif decode.jump_cmd or decode.jumpr_cmd:
+            elif exec_taken and ( decode.jump_cmd or decode.jumpr_cmd ):
                 self.result_o.next = decode.next_ip_o
             elif self.ls.valid_o:
                 self.result_o.next = self.ls.result_o    
@@ -123,34 +138,48 @@ class ExecuteBundle:
 
             if exec_taken:
                 self.rd_adr_o.next = decode.rd_adr_o
+                self.jump_o.next = jump
+                self.jump_dest_o.next = jump_dest
             else:
                 self.rd_adr_o.next = rd_adr_reg
+                self.jump_o.next = jump_r
+                self.jump_dest_o.next = jump_dest_r
+
                      
+        @always_comb
+        def jump_comb():
 
-            if decode.branch_cmd:
+            self.invalid_opcode_fault.next = False
+            if self.en_i:
+                if decode.branch_cmd:
 
-                f3 = decode.funct3_o
-                if f3==b3.RV32_F3_BEQ:
-                    self.jump_o.next = self.alu.flag_equal
-                elif f3==b3.RV32_F3_BGE:
-                    self.jump_o.next = self.alu.flag_ge
-                elif f3==b3.RV32_F3_BGEU:
-                    self.jump_o.next = self.alu.flag_uge
-                elif f3==b3.RV32_F3_BLT:
-                    self.jump_o.next = not self.alu.flag_ge
-                elif f3==b3.RV32_F3_BLTU:
-                    self.jump_o.next = not self.alu.flag_uge
-                elif f3==b3.RV32_F3_BNE:
-                    self.jump_o.next = not self.alu.flag_equal
-                else:
-                    self.invalid_opcode_fault.next = True
+                    f3 = decode.funct3_o
+                    if f3==b3.RV32_F3_BEQ:
+                        jump.next = self.alu.flag_equal
+                    elif f3==b3.RV32_F3_BGE:
+                        jump.next = self.alu.flag_ge
+                    elif f3==b3.RV32_F3_BGEU:
+                        jump.next = self.alu.flag_uge
+                    elif f3==b3.RV32_F3_BLT:
+                        jump.next = not self.alu.flag_ge
+                    elif f3==b3.RV32_F3_BLTU:
+                        jump.next = not self.alu.flag_uge
+                    elif f3==b3.RV32_F3_BNE:
+                        jump.next = not self.alu.flag_equal
+                    else:
+                        self.invalid_opcode_fault.next = True
 
-                self.jump_dest_o.next = decode.jump_dest_o
-            elif decode.jump_cmd:
-                self.jump_dest_o.next = decode.jump_dest_o
-                self.jump_o.next = True
-            elif decode.jumpr_cmd:
-                self.jump_dest_o.next = self.alu.res_o
+                    jump_dest.next = decode.jump_dest_o
+                elif decode.jump_cmd:
+                    jump_dest.next = decode.jump_dest_o
+                    jump.next = True
+                elif decode.jumpr_cmd:
+                    jump_dest.next = self.alu.res_o 
+            else:
+                jump.next = False
+                jump_dest.next = 0    
+            
+
 
             #TODO: Implement other functional units
 

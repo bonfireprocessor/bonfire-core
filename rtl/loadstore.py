@@ -310,7 +310,7 @@ class LoadStoreBundle:
 
             l_busy =  bus.stall_i or ( outstanding == max_outstanding and not (not self.config.registered_read_stage and bus.ack_i) )
             busy.next = l_busy
-            self.busy_o.next = l_busy
+           
 
             self.debug_empty.next = outstanding == 0
             self.rd_o.next = pipe_rd[max_pipe_index]
@@ -326,6 +326,7 @@ class LoadStoreBundle:
             def ls_out():
                 self.result_o.next=rdmux_out
                 self.valid_o.next=valid_comb
+                self.busy_o.next = busy
                 
         else:
 
@@ -343,9 +344,12 @@ class LoadStoreBundle:
                     # Writes can be terminated early 
                     self.valid_o.next = valid_comb
                     self.we_o.next = False
+                    self.busy_o.next = busy
                 else:
                     self.valid_o.next = valid_reg
-                    self.we_o.next = valid_reg    
+                    self.we_o.next = valid_reg
+                    self.busy_o.next = busy or valid_reg # Extend busy to the valid phase
 
+                
 
         return instances()

@@ -136,92 +136,98 @@ class DecodeBundle:
         @always_seq(clock.posedge,reset=reset)
         def decode_op():
 
+            """
+            While downstream_busy do nothing
+            otherwise decode the next instruction when en_i is set  
+            """
 
-            if self.en_i and not downstream_busy:
-                inv=False
+            if not downstream_busy: 
+                if self.en_i:
+                    inv=False
 
-                self.debug_word_o.next = self.word_i
+                    self.debug_word_o.next = self.word_i
 
-                self.funct3_o.next = self.word_i[15:12]
-                self.funct3_onehot_o.next = 0 
-                index = int(self.word_i[15:12])
-                self.funct3_onehot_o.next[index] = True 
-                
-                self.funct7_o.next = self.word_i[32:25]
-                self.rd_adr_o.next = self.word_i[12:7]
-
-                rs1_adr_o_reg.next = self.word_i[20:15]
-                rs2_adr_o_reg.next = self.word_i[25:20]
-
-                self.next_ip_o.next = self.next_ip_i 
-
-                #self.displacement_o.next = 0
-                rs1_immediate.next = False
-                rs2_immediate.next = False
-
-                self.alu_cmd.next = False
-                self.branch_cmd.next = False
-                self.jump_cmd.next = False
-                self.jumpr_cmd.next = False
-                self.load_cmd.next = False
-                self.store_cmd.next = False
-                self.csr_cmd.next = False
-
-                if self.word_i[2:0]!=3:
-                    inv=True
-
-                elif opcode==op.RV32_OP:
-                    self.alu_cmd.next = True
-                elif opcode==op.RV32_IMM:
-                    self.alu_cmd.next = True
-                    # Workaround for ADDI...
-                    if self.word_i[15:12]==f3.RV32_F3_ADD_SUB:
-                        self.funct7_o.next[5] = False  
-                    rs2_imm_value.next = signed_resize(get_I_immediate(self.word_i),self.xlen)
-                    rs2_immediate.next = True
+                    self.funct3_o.next = self.word_i[15:12]
+                    self.funct3_onehot_o.next = 0 
+                    index = int(self.word_i[15:12])
+                    self.funct3_onehot_o.next[index] = True 
                     
-                elif opcode==op.RV32_BRANCH:
-                    self.branch_cmd.next = True
-                    self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(self.word_i).signed()
-                   
-                    self.branch_cmd.next=True
+                    self.funct7_o.next = self.word_i[32:25]
+                    self.rd_adr_o.next = self.word_i[12:7]
 
-                elif opcode==op.RV32_JAL:
-                    self.jump_cmd.next = True
-                    self.jump_dest_o.next = self.current_ip_i + get_UJ_immediate(self.word_i).signed()
+                    rs1_adr_o_reg.next = self.word_i[20:15]
+                    rs2_adr_o_reg.next = self.word_i[25:20]
 
-                elif opcode==op.RV32_JALR:
-                    self.jumpr_cmd.next = True
-                     # Use ALU to calculate target 
-                    self.alu_cmd.next = True
-                    self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
-                    self.funct3_o.next = f3.RV32_F3_ADD_SUB
-                    rs2_imm_value.next =  signed_resize(get_I_immediate(self.word_i),self.xlen)
-                    rs2_immediate.next = True
-                    
-                elif opcode==op.RV32_LUI or opcode==op.RV32_AUIPC:
-                    self.alu_cmd.next = True
-                    rs1_immediate.next = True
-                    rs1_imm_value.next = get_U_immediate(self.word_i)
-                    rs2_immediate.next = True
-                    if opcode==op.RV32_AUIPC:
-                        rs2_imm_value.next = self.next_ip_i
+                    self.next_ip_o.next = self.next_ip_i 
+
+                    #self.displacement_o.next = 0
+                    rs1_immediate.next = False
+                    rs2_immediate.next = False
+
+                    self.alu_cmd.next = False
+                    self.branch_cmd.next = False
+                    self.jump_cmd.next = False
+                    self.jumpr_cmd.next = False
+                    self.load_cmd.next = False
+                    self.store_cmd.next = False
+                    self.csr_cmd.next = False
+
+                    if self.word_i[2:0]!=3:
+                        inv=True
+
+                    elif opcode==op.RV32_OP:
+                        self.alu_cmd.next = True
+                    elif opcode==op.RV32_IMM:
+                        self.alu_cmd.next = True
+                        # Workaround for ADDI...
+                        if self.word_i[15:12]==f3.RV32_F3_ADD_SUB:
+                            self.funct7_o.next[5] = False  
+                        rs2_imm_value.next = signed_resize(get_I_immediate(self.word_i),self.xlen)
+                        rs2_immediate.next = True
+                        
+                    elif opcode==op.RV32_BRANCH:
+                        self.branch_cmd.next = True
+                        self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(self.word_i).signed()
+                       
+                        self.branch_cmd.next=True
+
+                    elif opcode==op.RV32_JAL:
+                        self.jump_cmd.next = True
+                        self.jump_dest_o.next = self.current_ip_i + get_UJ_immediate(self.word_i).signed()
+
+                    elif opcode==op.RV32_JALR:
+                        self.jumpr_cmd.next = True
+                         # Use ALU to calculate target 
+                        self.alu_cmd.next = True
+                        self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
+                        self.funct3_o.next = f3.RV32_F3_ADD_SUB
+                        rs2_imm_value.next =  signed_resize(get_I_immediate(self.word_i),self.xlen)
+                        rs2_immediate.next = True
+                        
+                    elif opcode==op.RV32_LUI or opcode==op.RV32_AUIPC:
+                        self.alu_cmd.next = True
+                        rs1_immediate.next = True
+                        rs1_imm_value.next = get_U_immediate(self.word_i)
+                        rs2_immediate.next = True
+                        if opcode==op.RV32_AUIPC:
+                            rs2_imm_value.next = self.next_ip_i
+                        else:
+                            rs2_imm_value.next=0
+
+                        self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
+                        self.funct3_o.next = f3.RV32_F3_ADD_SUB   
+                        self.funct7_o.next = 0
+                    elif opcode==op.RV32_STORE:
+                        self.store_cmd.next = True
+                        self.displacement_o.next = get_S_immediate(self.word_i)
+                    elif opcode==op.RV32_LOAD:
+                        self.load_cmd.next = True
+                        self.displacement_o.next = get_I_immediate(self.word_i) 
                     else:
-                        rs2_imm_value.next=0
-
-                    self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
-                    self.funct3_o.next = f3.RV32_F3_ADD_SUB   
-                    self.funct7_o.next = 0
-                elif opcode==op.RV32_STORE:
-                    self.store_cmd.next = True
-                    self.displacement_o.next = get_S_immediate(self.word_i)
-                elif opcode==op.RV32_LOAD:
-                    self.load_cmd.next = True
-                    self.displacement_o.next = get_I_immediate(self.word_i) 
+                        inv=True
+                    self.valid_o.next = not inv
+                    self.invalid_opcode.next= inv
                 else:
-                    inv=True
-                self.valid_o.next = not inv
-                self.invalid_opcode.next= inv
-            
+                    self.valid_o.next=False
 
         return instances()
