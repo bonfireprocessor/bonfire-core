@@ -63,6 +63,8 @@ class SimpleBackend:
         decode_inst = self.decode.decoder(clock,reset)
         exec_inst = self.execute.SimpleExecute(self.decode, databus, clock,reset )
 
+        d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
+
         @always_comb
         def comb():
             # Wire up register file
@@ -79,8 +81,8 @@ class SimpleBackend:
 
             busy_o.next = self.decode.busy_o 
 
-            self.decode.stall_i.next = self.execute.busy_o
-            self.execute.en_i.next = self.decode.valid_o
+            # self.decode.stall_i.next = self.execute.busy_o
+            # self.execute.en_i.next = self.decode.valid_o
 
             # Instruction fetch interface 
 

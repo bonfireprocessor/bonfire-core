@@ -9,6 +9,8 @@ from instructions import Opcodes as op
 from instructions import ArithmeticFunct3  as f3
 from util import signed_resize
 
+from pipeline_control import *
+
 
 def get_I_immediate(instr):
     #return concat(instr[32:20])
@@ -34,7 +36,7 @@ def get_SB_immediate(instr):
 
 
 
-class DecodeBundle:
+class DecodeBundle(PipelineControl):
     def __init__(self,xlen=32):
         self.word_i = Signal(modbv(0)[xlen:]) # actual instruction to decode
         self.current_ip_i = Signal(modbv(0)[xlen:])
@@ -73,17 +75,14 @@ class DecodeBundle:
         self.csr_cmd = Signal(bool(0))
         self.invalid_opcode = Signal(bool(0))
 
-        # Control Signals
-        self.en_i = Signal(bool(0)) # Input enable / valid
-        self.busy_o = Signal(bool(0)) # Decoder busy (stall previous stage)
-        self.valid_o = Signal(bool(0)) # Output valid
-        self.stall_i = Signal(bool(0)) # Stall input from next stage
-
+       
         # Debug
         self.debug_word_o = Signal(intbv(0)[xlen:])
 
         # Constants
         self.xlen = xlen
+
+        PipelineControl.__init__(self)
 
     @block
     def decoder(self,clock,reset):

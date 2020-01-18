@@ -10,8 +10,8 @@ from myhdl import *
 from instructions import LoadFunct3, StoreFunct3
 
 from util import signed_resize
-
 from barrel_shifter import left_shift_comb
+from pipeline_control import *
 
 write_pipe_index = 0 # Declaration 
 
@@ -34,7 +34,7 @@ class DbusBundle:
 
 
 
-class LoadStoreBundle:
+class LoadStoreBundle(PipelineControl):
     def __init__(self,config):
         self.config = config
         xlen = config.xlen
@@ -53,10 +53,10 @@ class LoadStoreBundle:
         self.we_o = Signal(bool(0))
 
 
-        # Control Signals
-        self.en_i=Signal(bool(0))
-        self.busy_o=Signal(bool(0))
-        self.valid_o=Signal(bool(0))
+        # # Control Signals
+        # self.en_i=Signal(bool(0))
+        # self.busy_o=Signal(bool(0))
+        # self.valid_o=Signal(bool(0))
 
         #Execption Signals
         self.misalign_store_o = Signal(bool(0))
@@ -66,6 +66,8 @@ class LoadStoreBundle:
 
         #debug signals
         self.debug_empty=Signal(bool(0))
+
+        PipelineControl.__init__(self)
 
 
 
@@ -123,7 +125,6 @@ class LoadStoreBundle:
         rdmux_out = Signal(modbv(0)[self.config.xlen:])
 
         valid_comb = Signal(bool(0))
-       
 
         bus_en = Signal(bool(0))
         en_r = Signal(bool(0))
@@ -165,7 +166,7 @@ class LoadStoreBundle:
                         pipe_invalid_op[i].next = pipe_invalid_op[i-1]
 
 
-            if self.en_i and not busy:
+            if self.taken:
                
                 byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LB
                 word_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LW
@@ -236,7 +237,7 @@ class LoadStoreBundle:
         """
         @always_comb
         def req_confirm():
-            request.next =  self.en_i and not busy 
+            request.next =  self.taken 
             confirm.next =  bus.ack_i or bus.error_i and outstanding > 0      
                 
 
@@ -322,15 +323,20 @@ class LoadStoreBundle:
 
         if not self.config.registered_read_stage:
 
+            ls_pi=self.pipeline_instance(busy,valid_comb)
+
             @always_comb
             def ls_out():
                 self.result_o.next=rdmux_out
-                self.valid_o.next=valid_comb
-                self.busy_o.next = busy
+                self.we_o.next = not pipe_store[write_pipe_index]
                 
         else:
 
             valid_reg = Signal(bool(0))
+            valid =  Signal(bool(0))
+            ext_busy = Signal(bool(0))
+
+            ls_pi=self.pipeline_instance(ext_busy,valid)
 
             @always_seq(clock.posedge,reset=reset)
             def ls_out():
@@ -342,13 +348,13 @@ class LoadStoreBundle:
 
                 if pipe_store[write_pipe_index]:
                     # Writes can be terminated early 
-                    self.valid_o.next = valid_comb
+                    valid.next = valid_comb
                     self.we_o.next = False
-                    self.busy_o.next = busy
+                    ext_busy.next = busy
                 else:
-                    self.valid_o.next = valid_reg
+                    valid.next = valid_reg
                     self.we_o.next = valid_reg
-                    self.busy_o.next = busy or valid_reg # Extend busy to the valid phase
+                    ext_busy.next = busy  or valid_reg # Extend busy to the valid phase
 
                 
 

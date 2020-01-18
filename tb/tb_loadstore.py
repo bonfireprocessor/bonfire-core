@@ -97,10 +97,11 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
                 i.next +=  1
                 ls.en_i.next = i<count 
                 
-                if ls.valid_o:
-                    print("read check x{}: {} == {}".format(ls.rd_o,ls.result_o,hex(store_words[ls.rd_o])))
-                    assert(ls.result_o==store_words[ls.rd_o]), "loadstore lw test failed"
-                    finish = ls.rd_o==count-1
+            if ls.valid_o:
+                assert ls.we_o, "loadstore lw test, ls.we_o not set"
+                print("read check x{}: {} == {}".format(ls.rd_o,ls.result_o,hex(store_words[ls.rd_o])))
+                assert(ls.result_o==store_words[ls.rd_o]), "loadstore lw test failed"
+                finish = ls.rd_o==count-1
             
             yield clock.posedge            
 
@@ -198,6 +199,8 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
        assert a==b, s + " failed"
        print(s," OK")
 
+    def _check_we():
+        assert ls.we_o,"Register we signal not set"
 
     def load_other_test():
         """
@@ -208,26 +211,32 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
         print("Testing lbu")
         yield load_single(3<<2,1,LoadFunct3.RV32_F3_LBU) ## Should read the ff byte 
+        _check_we()
         _check(ls.result_o,0x80,"lbu test" )
        
         print("Testing lb negative")
         yield load_single(3<<2,1,LoadFunct3.RV32_F3_LB) ## Should read and sign extend the ff byte 
+        _check_we()
         _check(ls.result_o,0xffffff80,"lb negative test" )
        
         print("Testing lb positive")
         yield load_single(3<<2,2,LoadFunct3.RV32_F3_LB) ## Should read and sign extend the 55 byte 
+        _check_we()
         _check(ls.result_o,0x5a,"lb positive test" )
 
         print("Testing lhu")
         yield load_single(3<<2,0,LoadFunct3.RV32_F3_LHU) ## Should read the ff00 hword 
+        _check_we()
         _check(ls.result_o,0x8000,"lhu test" )
 
         print("Testing lh negative")
         yield load_single(3<<2,0,LoadFunct3.RV32_F3_LH) ## Should read and sign extend the ff00 hword 
+        _check_we()
         _check(ls.result_o,0xffff8000,"lh negative test" )
 
         print("Testing lh positive")
         yield load_single(3<<2,2,LoadFunct3.RV32_F3_LH) ## Should read and sign extend the 0055 hword 
+        _check_we()
         _check(ls.result_o,0x705a,"lh positive test" )
 
 

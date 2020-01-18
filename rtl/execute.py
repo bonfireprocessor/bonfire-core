@@ -13,9 +13,10 @@ import loadstore
 from instructions import BranchFunct3  as b3
 from instructions import Opcodes
 
+from pipeline_control import *
 
 
-class ExecuteBundle:
+class ExecuteBundle(PipelineControl):
     def __init__(self,config):
         #config
         self.config = config
@@ -36,14 +37,10 @@ class ExecuteBundle:
 
         self.invalid_opcode_fault = Signal(bool(0))
 
-        # pipeline control
-
-        self.en_i = Signal(bool(0)) # Input enable / valid
-        self.busy_o = Signal(bool(0)) # unit busy (stall previous stage)
-        self.valid_o = Signal(bool(0)) # Output valid
-       
         # debug
         self.debug_exec_jump = Signal(bool(0))
+
+        PipelineControl.__init__(self)
 
 
 
@@ -59,8 +56,8 @@ class ExecuteBundle:
 
         assert self.config.loadstore_outstanding==1, "SimpleExecute requires config.loadstore_outstanding==1"
 
-        busy = Signal(bool(0)) 
-        exec_taken = Signal(bool(0)) # True for one cycle when a new instruction is taken 
+        busy = Signal(bool(0))
+        valid = Signal(bool(0))
         rd_adr_reg = Signal(modbv(0)[5:])
 
         jump = Signal(bool(0))
@@ -71,16 +68,12 @@ class ExecuteBundle:
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
 
-        @always_comb
-        def busy_proc():
-            b = self.alu.busy_o or self.ls.busy_o
-            busy.next = b
-            exec_taken.next = self.en_i and not b
+        p_inst = self.pipeline_instance(busy,valid)
 
-
+        
         @always_seq(clock.posedge,reset=reset)
         def seq():
-            if exec_taken:
+            if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
@@ -91,10 +84,6 @@ class ExecuteBundle:
                 
         @always_comb
         def comb():
-
-            # Init
-          
-           
 
             # ALU Input wirings
             self.alu.funct3_i.next = decode.funct3_o
@@ -109,25 +98,25 @@ class ExecuteBundle:
             self.ls.displacement_i.next = decode.displacement_o
             self.ls.store_i.next = decode.store_cmd
 
+            # Pipeline  
+            busy.next = self.alu.busy_o or self.ls.busy_o
+            valid.next = self.alu.valid_o or self.ls.valid_o
 
 
             # Functional Unit selection
 
-            self.alu.en_i.next = decode.alu_cmd and exec_taken
-            self.ls.en_i.next = ( decode.store_cmd or decode.load_cmd ) and exec_taken
+            self.alu.en_i.next = decode.alu_cmd and self.taken
+            self.ls.en_i.next = ( decode.store_cmd or decode.load_cmd ) and self.taken
 
-            self.debug_exec_jump.next = exec_taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd )
+            self.debug_exec_jump.next = self.taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd )
     
-           # Output 
-             
-            self.busy_o.next = busy
-            self.valid_o.next = self.alu.valid_o or self.ls.valid_o
+           
            
             # Output multiplexers
 
             if self.alu.valid_o:
                 self.result_o.next = self.alu.res_o
-            elif exec_taken and ( decode.jump_cmd or decode.jumpr_cmd ):
+            elif self.taken and ( decode.jump_cmd or decode.jumpr_cmd ):
                 self.result_o.next = decode.next_ip_o
             elif self.ls.valid_o:
                 self.result_o.next = self.ls.result_o    
@@ -136,7 +125,7 @@ class ExecuteBundle:
 
             self.reg_we_o.next =  self.alu.valid_o or self.ls.we_o
 
-            if exec_taken:
+            if self.taken:
                 self.rd_adr_o.next = decode.rd_adr_o
                 self.jump_o.next = jump
                 self.jump_dest_o.next = jump_dest
