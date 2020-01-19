@@ -41,7 +41,7 @@ commands=[ \
     {"opcode":0xeef90913,"source":"addi	s2,s2,-273", "t": lambda: abi_name(rd_o)=="s2" and result_o ==0xdeadbeef },
     {"opcode":0x0124a223,"source":"sw	s2,4(s1)", "t": lambda: ram[1]==0xdeadbeef },
     {"opcode":0x0054c583,"source":"lbu	a1,5(s1)", "t": lambda: abi_name(rd_o)=="a1" and result_o ==0xbe },
-    {"opcode":0xfc5ff06f,"source":"j 8 <test>", "t": lambda: abi_name(rd_o)=="zero" and result_o==0x54 and jump_o  }
+    {"opcode":0xfc5ff86f,"source":"jal	a6,8 <test>", "t": lambda: abi_name(rd_o)=="a6" and result_o==0x54 and jump_o  }
 ]
 
 @block

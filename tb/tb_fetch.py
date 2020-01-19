@@ -12,7 +12,8 @@ from rtl.fetch import FetchUnit
 
 ram_size = 256
 
-ram = [Signal(modbv(0)[32:]) for ii in range(0, ram_size)]
+code_ram = [Signal(modbv(0)[32:]) for ii in range(0, ram_size)]
+data_ram = [Signal(modbv(0)[32:]) for ii in range(0, ram_size)]
 
 result_o = Signal(intbv(0)[32:])
 rd_o = Signal(intbv(0)[5:])
@@ -38,7 +39,7 @@ commands=[ \
     {"opcode":0x00000493,"source":"li	s1,0", "t": lambda: abi_name(rd_o)=="s1" and result_o ==0 }, \
     {"opcode":0xdeadc937,"source":"lui	s2,0xdeadc", "t": lambda: abi_name(rd_o)=="s2" and result_o==0xdeadc000 },
      {"opcode":0xeef90913,"source":"addi	s2,s2,-273", "t": lambda: abi_name(rd_o)=="s2" and result_o ==0xdeadbeef },
-    {"opcode":0x0124a223,"source":"sw	s2,4(s1)", "t": lambda: ram[1]==0xdeadbeef }, 
+    {"opcode":0x0124a223,"source":"sw	s2,4(s1)", "t": lambda: data_ram[1]==0xdeadbeef }, 
     {"opcode":0x0054c583,"source":"lbu	a1,5(s1)", "t": lambda: abi_name(rd_o)=="a1" and result_o==0xbe },
     {"opcode":0xfc5ff06f,"source":"j 8 <test>", "t": lambda: abi_name(rd_o)=="zero" and result_o==0x48 and jump_o  }       
 ]
@@ -71,12 +72,16 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     # processor Backend
     i_backend = backend.backend(fetch_bundle,backend_busy,dbus,clock,reset,out,debug)
 
-    # Simulated Data RAM 
+    # Simulated Code RAM 
    
-    mem = sim_ram()
-    mem.setLatency(1)
-    mem_i = mem.ram_interface(ram,ibus,clock,reset)
+    c_mem = sim_ram()
+    c_mem.setLatency(1)
+    c_mem_i = c_mem.ram_interface(code_ram,ibus,clock,reset)
 
+    # Simulated Data RAM
+    d_mem = sim_ram()
+    d_mem.setLatency(1)
+    d_mem_i = d_mem.ram_interface(data_ram,dbus,clock,reset)
 
     
     @always_comb
@@ -129,7 +134,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
             check(cmd)
 
             cmd_index.next = cmd_index + 1
-        elif backend.decode.branch_cmd or backend.decode.jump_cmd or backend.decode.jumpr_cmd:
+        elif backend.execute.debug_exec_jump:
             cmd = commands[cmd_index]
             print "at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],out.jump_o, out.jump_dest_o )
             check(cmd)
@@ -141,9 +146,9 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
          # Copy code to RAM
         i=0
         for cmd in commands:
-            ram[i].next=cmd["opcode"]
+            code_ram[i].next=cmd["opcode"]
             i += 1
-        for i in range(1,5):    
+        for i in range(1,3):    
             yield clock.posedge
 
         reset.next=0

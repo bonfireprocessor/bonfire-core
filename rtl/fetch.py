@@ -47,7 +47,7 @@ class FetchUnit:
 
         # Fifo 
         current_word = [Signal(modbv(0)[32:0]) for i in range(0,2)]
-        current_ip =   [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,2)]
+        current_ip =   [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,3)]
         next_ip =      [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,2)]
 
        
@@ -82,7 +82,19 @@ class FetchUnit:
             fetch.en_i.next = valid
             fetch.word_i.next = current_word[0]
             fetch.next_ip_i.next = ip
+            fetch.current_ip_i.next = current_ip[0]
            
+
+        @always_seq(clock.posedge,reset=reset)
+        def ip_adjust():
+             if run and not ( ibus.stall_i or busy or self.stall_i ):
+                current_ip[2].next = ip  
+                if self.jump_i:
+                    ip.next = self.jump_dest_i
+                else:
+                    ip.next = ip + 4
+
+
 
         @always_seq(clock.posedge,reset=reset)
         def fetch_proc():
@@ -94,7 +106,7 @@ class FetchUnit:
                     # Store pending fetch when next stage is stalled and block ourself
                     if ibus.ack_i:
                         current_word[1].next = ibus.db_rd
-                        current_ip[1].next = current_ip[0]
+                        current_ip[1].next = current_ip[2]
                         busy.next = True
                         valid.next = True
                 else:
@@ -107,17 +119,11 @@ class FetchUnit:
                     else:
                         if ibus.ack_i:
                             current_word[0].next = ibus.db_rd
-                            current_ip[0].next = current_ip[0]
+                            current_ip[0].next = current_ip[2]
                             valid.next = True
                         else:    
                             valid.next = False 
-                            
-                        if not ibus.stall_i:
-                            current_ip[0].next = ip  
-                            if self.jump_i:
-                                ip.next = self.jump_dest_i
-                            else:
-                                ip.next = ip + 4
 
+                       
 
         return instances()

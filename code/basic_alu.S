@@ -26,4 +26,4 @@ li s1, 0
 li s2, 0xdeadbeef
 sw s2,4(s1)
 lbu a1,5(s1) # should load 0xbe  
-j test
+jal a6, test
