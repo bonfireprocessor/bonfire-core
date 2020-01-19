@@ -65,6 +65,8 @@ class ExecuteBundle(PipelineControl):
         jump_dest =  Signal(intbv(0)[self.config.xlen:])
         jump_dest_r = Signal(intbv(0)[self.config.xlen:])
 
+        jump_we = Signal(bool(0)) # rd write enable on jal/jalr
+
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
 
@@ -100,7 +102,7 @@ class ExecuteBundle(PipelineControl):
 
             # Pipeline  
             busy.next = self.alu.busy_o or self.ls.busy_o
-            valid.next = self.alu.valid_o or self.ls.valid_o
+            valid.next = self.alu.valid_o or self.ls.valid_o  or jump_we
 
 
             # Functional Unit selection
@@ -111,19 +113,21 @@ class ExecuteBundle(PipelineControl):
             self.debug_exec_jump.next = self.taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd )
     
            
-           
+        @always_comb
+        def mux():   
             # Output multiplexers
 
             if self.alu.valid_o:
                 self.result_o.next = self.alu.res_o
-            elif self.taken and ( decode.jump_cmd or decode.jumpr_cmd ):
+            elif self.taken and jump_we:
                 self.result_o.next = decode.next_ip_o
+
             elif self.ls.valid_o:
                 self.result_o.next = self.ls.result_o    
             else:
                 self.result_o.next = 0
 
-            self.reg_we_o.next =  self.alu.valid_o or self.ls.we_o
+            self.reg_we_o.next =  self.alu.valid_o or self.ls.we_o  or jump_we
 
             if self.taken:
                 self.rd_adr_o.next = decode.rd_adr_o
@@ -139,7 +143,10 @@ class ExecuteBundle(PipelineControl):
         def jump_comb():
 
             self.invalid_opcode_fault.next = False
-            if self.en_i:
+            jump.next = False
+            jump_dest.next = 0
+            jump_we.next = False
+            if self.en_i and self.taken:
                 if decode.branch_cmd:
 
                     f3 = decode.funct3_o
@@ -162,11 +169,13 @@ class ExecuteBundle(PipelineControl):
                 elif decode.jump_cmd:
                     jump_dest.next = decode.jump_dest_o
                     jump.next = True
+                    jump_we.next = True 
                 elif decode.jumpr_cmd:
-                    jump_dest.next = self.alu.res_o 
-            else:
-                jump.next = False
-                jump_dest.next = 0    
+                    jump_dest.next = self.alu.res_o
+                    jump.next = True
+                    jump_we.next = True 
+            
+                    
             
 
 
