@@ -80,9 +80,9 @@ class ExecuteBundle(PipelineControl):
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
                 
-                # Debug code
-                if self.debug_exec_jump.next: 
-                    print(now(), "jump or branch")    
+                # # Debug code
+                # if self.debug_exec_jump.next: 
+                #     print(now(), "jump or branch")    
                 
         @always_comb
         def comb():

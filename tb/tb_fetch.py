@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from myhdl import *
 
 from rtl.simple_pipeline import *
@@ -66,7 +68,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     dut=fetch_unit.SimpleFetchUnit(fetch_bundle,ibus,clock,reset)
 
     if test_conversion:
-        dut.convert(hdl='VHDL',std_logic_ports=False,path='vhdl_gen', name="backend" )
+        dut.convert(hdl='VHDL',std_logic_ports=False,path='vhdl_gen', name="fetch" )
 
 
     # processor Backend
@@ -100,8 +102,13 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     @always_seq(clock.posedge,reset=reset)
     def sim_observe():
 
-        if out.jump_o:
-            raise StopSimulation   
+        if backend.execute.taken:
+            t_ip = backend.decode.debug_current_ip_o
+            print("@{}ns exc: {} : {} ".format(now(),t_ip,backend.decode.debug_word_o))
+            assert code_ram[t_ip>>2]==backend.decode.debug_word_o, "pc vs ram content mismatch" 
+            assert backend.decode.next_ip_o == t_ip + 4, "next_ip vs. current_ip mismatch" 
+        # if out.jump_o:
+        #     raise StopSimulation   
 
 
     cmd_index = Signal(intbv(0))
@@ -110,33 +117,33 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         t=cmd["t"]
         if type(t) == types.FunctionType:
             if t():
-                print "OK"
+                print("OK")
             else:
-                print "FAIL"
-        print "----"
+                print("FAIL")
+        print("----")
 
 
     @always_seq(clock.posedge,reset=reset)
     def commit_check():
 
         if cmd_index >= len(commands):
-            print "Simulation finished"
+            print("Simulation finished")
             raise StopSimulation
 
         if debug.valid_o:
            
             cmd = commands[cmd_index]
             if debug.reg_we_o:
-                print "at {}ns {}:  commmit to reg {} value {}".format(now(), cmd["source"], 
-                abi_name(debug.rd_adr_o), debug.result_o)
+                print("@{}ns {}:  commmit to reg {} value {}".format(now(), cmd["source"], 
+                abi_name(debug.rd_adr_o), debug.result_o))
             else:
-                print "at {}ns {}:  commmit without reg write".format(now(), cmd["source"])    
+                print("@{}ns {}:  commmit without reg write".format(now(), cmd["source"]))    
             check(cmd)
 
             cmd_index.next = cmd_index + 1
         elif backend.execute.debug_exec_jump:
             cmd = commands[cmd_index]
-            print "at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],out.jump_o, out.jump_dest_o )
+            print("at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],out.jump_o, out.jump_dest_o ))
             check(cmd)
             cmd_index.next = cmd_index + 1
 

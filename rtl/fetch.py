@@ -48,7 +48,7 @@ class FetchUnit:
         # Fifo 
         current_word = [Signal(modbv(0)[32:0]) for i in range(0,2)]
         current_ip =   [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,3)]
-        next_ip =      [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,2)]
+        #next_ip =      [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,2)]
 
        
 
@@ -77,31 +77,28 @@ class FetchUnit:
         def comb():
             ibus.en_o.next = not busy and run and not self.stall_i
             ibus.adr_o.next = ip
-            ibus.we_o = 0
+            ibus.we_o.next = 0
 
             fetch.en_i.next = valid
             fetch.word_i.next = current_word[0]
-            fetch.next_ip_i.next = ip
+            fetch.next_ip_i.next = current_ip[0] + 4 # TODO: look for better solution...
             fetch.current_ip_i.next = current_ip[0]
            
 
-        @always_seq(clock.posedge,reset=reset)
-        def ip_adjust():
-             if run and not ( ibus.stall_i or busy or self.stall_i ):
-                current_ip[2].next = ip  
-                if self.jump_i:
-                    ip.next = self.jump_dest_i
-                else:
-                    ip.next = ip + 4
-
-
-
+       
         @always_seq(clock.posedge,reset=reset)
         def fetch_proc():
 
             if not run:
                 run.next = True # Comming out of reset 
             else: 
+                if  not ( ibus.stall_i or busy or self.stall_i ):
+                    current_ip[2].next = ip  
+                    if self.jump_i:
+                        ip.next = self.jump_dest_i
+                    else:
+                        ip.next = ip + 4
+
                 if self.stall_i:
                     # Store pending fetch when next stage is stalled and block ourself
                     if ibus.ack_i:
@@ -112,8 +109,8 @@ class FetchUnit:
                 else:
                     if busy:
                         assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
-                        current_word[0].next = current_word[1].next
-                        fetch.current_ip_i.next = current_ip[1]
+                        current_word[0].next = current_word[1]
+                        current_ip[0].next = current_ip[1]
                         valid.next = True
                         busy.next = False
                     else:

@@ -78,6 +78,7 @@ class DecodeBundle(PipelineControl):
        
         # Debug
         self.debug_word_o = Signal(intbv(0)[xlen:])
+        self.debug_current_ip_o = Signal(intbv(0)[xlen:])
 
         # Constants
         self.xlen = xlen
@@ -145,6 +146,7 @@ class DecodeBundle(PipelineControl):
                     inv=False
 
                     self.debug_word_o.next = self.word_i
+                    self.debug_current_ip_o.next = self.current_ip_i
 
                     self.funct3_o.next = self.word_i[15:12]
                     self.funct3_onehot_o.next = 0 
