@@ -31,9 +31,9 @@ commands=[ \
     {"opcode":0x00c586b3,"source":"add a3,a1,a2", "t": lambda: abi_name(rd_o)=="a3" and result_o == 15 }, 
     {"opcode":0x00469713,"source":"slli	a4,a3,0x4", "t": lambda: abi_name(rd_o)=="a4" and result_o == 0xf0 }, 
     {"opcode":0x00576713,"source":"ori	a4,a4,5", "t": lambda: abi_name(rd_o)=="a4" and result_o == 0xf5 }, 
-    {"opcode":0x40c00633,"source":"neg	a2,a2", "t": lambda: abi_name(rd_o)=="a2" and result_o.signed() == -5 }, 
-    {"opcode":0x000627b3,"source":"sltz	a5,a2", "t": lambda: abi_name(rd_o)=="a5" and result_o == 1 }, 
-    {"opcode":0x00063793,"source":"sltiu	a5,a2,0", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0 }, 
+    {"opcode":0x40c00733,"source":"neg	a4,a2", "t": lambda: abi_name(rd_o)=="a4" and result_o.signed() == -5 }, 
+    {"opcode":0x000727b3,"source":"sltz	a5,a4", "t": lambda: abi_name(rd_o)=="a5" and result_o == 1 }, 
+    {"opcode":0x00073793,"source":"sltiu a5,a4,0", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0 }, 
     {"opcode":0x800007b7,"source":"lui a5,0x80000", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0x80000000 }, 
     {"opcode":0x4187d793,"source":"srai a5,a5,0x18", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0xffffff80 }, 
     {"opcode":0x00078493,"source":"mv	s1,a5", "t": lambda: abi_name(rd_o)=="s1" and result_o == 0xffffff80 }, 
@@ -42,8 +42,9 @@ commands=[ \
     {"opcode":0xdeadc937,"source":"lui	s2,0xdeadc", "t": lambda: abi_name(rd_o)=="s2" and result_o==0xdeadc000 },
      {"opcode":0xeef90913,"source":"addi	s2,s2,-273", "t": lambda: abi_name(rd_o)=="s2" and result_o ==0xdeadbeef },
     {"opcode":0x0124a223,"source":"sw	s2,4(s1)", "t": lambda: data_ram[1]==0xdeadbeef }, 
-    {"opcode":0x0054c583,"source":"lbu	a1,5(s1)", "t": lambda: abi_name(rd_o)=="a1" and result_o==0xbe },
-    {"opcode":0xfc5ff06f,"source":"j 8 <test>", "t": lambda: abi_name(rd_o)=="zero" and result_o==0x48 and jump_o  }       
+    {"opcode":0x0054c303,"source":"lbu	t1,5(s1)", "t": lambda: abi_name(rd_o)=="t1" and result_o==0xbe },
+    {"opcode":0xfc5ff06f,"source":"j 8 <test>", "t": lambda: abi_name(rd_o)=="zero" and result_o==0x48 and jump_o  },
+    {"opcode":0x00100593,"source":"li a1,1", "t": lambda: False  }, # should not be executed        
 ]
 
 @block
@@ -99,6 +100,8 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         jump_dest_o.next = out.jump_dest_o
 
 
+    current_ip_r = Signal(intbv(0))
+  
     @always_seq(clock.posedge,reset=reset)
     def sim_observe():
 
@@ -107,11 +110,14 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
             print("@{}ns exc: {} : {} ".format(now(),t_ip,backend.decode.debug_word_o))
             assert code_ram[t_ip>>2]==backend.decode.debug_word_o, "pc vs ram content mismatch" 
             assert backend.decode.next_ip_o == t_ip + 4, "next_ip vs. current_ip mismatch" 
+            current_ip_r.next = t_ip >> 2
+          
         # if out.jump_o:
         #     raise StopSimulation   
 
 
-    cmd_index = Signal(intbv(0))
+   
+    jump_cnt = Signal(intbv(0))
 
     def check(cmd):
         t=cmd["t"]
@@ -120,19 +126,24 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
                 print("OK")
             else:
                 print("FAIL")
+                raise StopSimulation
         print("----")
 
 
     @always_seq(clock.posedge,reset=reset)
     def commit_check():
 
-        if cmd_index >= len(commands):
+        if jump_cnt > 1:
             print("Simulation finished")
             raise StopSimulation
 
-        if debug.valid_o:
-           
-            cmd = commands[cmd_index]
+        if backend.execute.taken:
+            idx = backend.decode.debug_current_ip_o >> 2
+        else:
+            idx = current_ip_r
+
+        if debug.valid_o:    
+            cmd = commands[ idx]
             if debug.reg_we_o:
                 print("@{}ns {}:  commmit to reg {} value {}".format(now(), cmd["source"], 
                 abi_name(debug.rd_adr_o), debug.result_o))
@@ -140,12 +151,14 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
                 print("@{}ns {}:  commmit without reg write".format(now(), cmd["source"]))    
             check(cmd)
 
-            cmd_index.next = cmd_index + 1
-        elif backend.execute.debug_exec_jump:
-            cmd = commands[cmd_index]
+            #cmd_index.next = cmd_index + 1
+        if backend.execute.debug_exec_jump:
+            cmd = commands[idx]
             print("at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],out.jump_o, out.jump_dest_o ))
             check(cmd)
-            cmd_index.next = cmd_index + 1
+            #cmd_index.next = cmd_index + 1
+            if out.jump_o:
+                jump_cnt.next = jump_cnt + 1
 
 
     @instance

@@ -41,6 +41,7 @@ class DecodeBundle(PipelineControl):
         self.word_i = Signal(modbv(0)[xlen:]) # actual instruction to decode
         self.current_ip_i = Signal(modbv(0)[xlen:])
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
+        self.kill_i = Signal(bool(0)) # kill current instruction
 
 
         # Register file interface
@@ -137,11 +138,14 @@ class DecodeBundle(PipelineControl):
         def decode_op():
 
             """
+            When kill_i, invalidate output stage else
             While downstream_busy do nothing
             otherwise decode the next instruction when en_i is set  
             """
 
-            if not downstream_busy: 
+            if self.kill_i:
+                self.valid_o.next = False
+            elif not downstream_busy: 
                 if self.en_i:
                     inv=False
 

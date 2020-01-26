@@ -42,44 +42,24 @@ class FetchUnit:
         ip = Signal(intbv(self.reset_address)[self.config.xlen:]) # Insruction pointer
         busy = Signal(bool(0)) # Start with busy asserted 
         valid = Signal(bool(0))
+        jump_taken = Signal(bool(0))
 
         run = Signal(bool(0)) # processor not in reset 
 
         # Fifo 
         current_word = [Signal(modbv(0)[32:0]) for i in range(0,2)]
         current_ip =   [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,3)]
-        #next_ip =      [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,2)]
-
-       
-
-        # word_mux =        [Signal(modbv(0)[32:0]) for i in range(0,2)]
-        # current_ip_mux =  [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,2)]
-        # next_ip_mux =     [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,2)]
-
-        # fifo_empty= Signal(bool(0))
-        # fifo_full= Signal(bool(0))
-        # fifo_write = Signal(bool(0))
-        # fifo_read = Signal(bool(0))
-        # fifo_reset = Signal(bool(0))
-        # fifo_we = Signal(bool(0))
-        # fifo_re = Signal(bool(0))
-
-
-        # @always_comb
-        # def fifo_comb():
-        #     fifo_we.next = fifo_write and not fifo_full
-        #     fifo_re.next = fifo_read and not empty
-
-        #     if not fifo_we or not fifo_empty:
+        
 
 
         @always_comb
         def comb():
-            ibus.en_o.next = not busy and run and not self.stall_i
+            ibus.en_o.next = not busy and run and not self.stall_i \
+                             and not (self.jump_i and not jump_taken) # Supress en on new incomming jumps
             ibus.adr_o.next = ip
             ibus.we_o.next = 0
 
-            fetch.en_i.next = valid
+            fetch.en_i.next = valid 
             fetch.word_i.next = current_word[0]
             fetch.next_ip_i.next = current_ip[0] + 4 # TODO: look for better solution...
             fetch.current_ip_i.next = current_ip[0]
@@ -92,10 +72,14 @@ class FetchUnit:
             if not run:
                 run.next = True # Comming out of reset 
             else: 
+                if not self.jump_i:
+                    jump_taken.next = False
+
                 if  not ( ibus.stall_i or busy or self.stall_i ):
                     current_ip[2].next = ip  
-                    if self.jump_i:
+                    if self.jump_i and not jump_taken:
                         ip.next = self.jump_dest_i
+                        jump_taken.next = True
                     else:
                         ip.next = ip + 4
 

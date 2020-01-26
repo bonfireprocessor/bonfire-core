@@ -104,6 +104,8 @@ class ExecuteBundle(PipelineControl):
             busy.next = self.alu.busy_o or self.ls.busy_o
             valid.next = self.alu.valid_o or self.ls.valid_o  or jump_we
 
+            decode.kill_i.next = self.taken and jump
+
 
             # Functional Unit selection
 
