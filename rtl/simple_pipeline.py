@@ -1,5 +1,5 @@
 """
-Simple 3 Stage Pioeline for bonfire_core 
+Simple 3 Stage Pipeline for bonfire_core 
 (c) 2019 The Bonfire Project
 License: See LICENSE
 """
@@ -31,6 +31,7 @@ class BackendOutputBundle:
 
         self.jump_o =  Signal(bool(0))
         self.jump_dest_o =  Signal(intbv(0)[xlen:])
+        self.busy_o = Signal(bool(0))
 
        
 class DebugOutputBundle:
@@ -57,7 +58,7 @@ class SimpleBackend:
         
 
     @block
-    def backend(self,fetch,busy_o,databus, clock, reset, out, debugport ):
+    def backend(self,fetch, databus, clock, reset, out, debugport ):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset)
@@ -79,10 +80,8 @@ class SimpleBackend:
             self.reg_writePort.we.next = self.execute.reg_we_o
             self.reg_writePort.wd.next = self.execute.result_o
 
-            busy_o.next = self.decode.busy_o 
+            out.busy_o.next = self.decode.busy_o 
 
-            # self.decode.stall_i.next = self.execute.busy_o
-            # self.execute.en_i.next = self.decode.valid_o
 
             # Instruction fetch interface 
 

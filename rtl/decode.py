@@ -144,7 +144,7 @@ class DecodeBundle(PipelineControl):
             """
 
             if self.kill_i:
-                self.valid_o.next = False
+                self.valid_o.next = False               
             elif not downstream_busy: 
                 if self.en_i:
                     inv=False

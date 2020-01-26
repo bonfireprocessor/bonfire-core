@@ -11,6 +11,7 @@ from disassemble import *
 
 from rtl import config,loadstore
 from rtl.fetch import FetchUnit
+from rtl.bonfire_interfaces import DbusBundle
 
 ram_size = 256
 
@@ -52,12 +53,11 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     clock=Signal(bool(0))
     reset = ResetSignal(1, active=1, isasync=False)
 
-    backend_busy = Signal(bool(0))
    
-    ibus = loadstore.DbusBundle(config=config) 
+    ibus = DbusBundle(config=config) 
     debug=DebugOutputBundle()
     out = BackendOutputBundle()
-    dbus = loadstore.DbusBundle(config=config) 
+    dbus = DbusBundle(config=config) 
     fetch_bundle = FetchInputBundle(config=config)
    
     fetch_unit = FetchUnit(config=config)
@@ -73,7 +73,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
 
     # processor Backend
-    i_backend = backend.backend(fetch_bundle,backend_busy,dbus,clock,reset,out,debug)
+    i_backend = backend.backend(fetch_bundle,dbus,clock,reset,out,debug)
 
     # Simulated Code RAM 
    
@@ -91,7 +91,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     def comb():
         fetch_unit.jump_dest_i.next=out.jump_dest_o
         fetch_unit.jump_i.next = out.jump_o
-        fetch_unit.stall_i.next = backend_busy
+        fetch_unit.stall_i.next = out.busy_o
 
         result_o.next =debug.result_o
         rd_o.next = debug.rd_adr_o
