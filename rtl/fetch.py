@@ -55,7 +55,7 @@ class FetchUnit:
         @always_comb
         def comb():
             ibus.en_o.next = not busy and run and not self.stall_i \
-                             and not (self.jump_i and not jump_taken) # Supress en on new incomming jumps
+                             and not (self.jump_i and not jump_taken) # Supress ibus.en_o on new incomming jumps
             ibus.adr_o.next = ip
             ibus.we_o.next = 0
 
