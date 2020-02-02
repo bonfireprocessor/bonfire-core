@@ -14,15 +14,26 @@ class sim_ram:
 
 
     @block
-    def ram_interface(self,ram,bus,clock,reset):
+    def ram_interface(self,ram,bus,clock,reset,readOnly=False):
         """
-            Instantiate a RAM module  for simulation
+            Instantiate a RAM interface  for simulation
 
             ram : RAM Array, should be [Signal(modbv(0)[32:]) for ii in range(0, ram_size)]
             bus: Data bus (class DbusBundle)
             clock, reset : Clock and reset 
         """        
        
+        we_o = Signal(modbv(0)[bus.xlen/8:])
+        db_wr = Signal(modbv(0)[bus.xlen:])       
+
+        if not readOnly:
+           
+            @always_comb
+            def wire_write():
+                we_o.next = bus.we_o
+                db_wr.next = bus.db_wr
+
+
         wait_states = Signal(intbv(0))  # Signal for simulating wait state logic 
         adr_reg = Signal(modbv(0)[32:0])
         write_reg = Signal(modbv(0)[32:0])
@@ -46,8 +57,8 @@ class sim_ram:
             if bus.en_o and must_wait and wait_states==0:
                 wait_states.next = self.latency -1
                 adr_reg.next = bus.adr_o
-                write_reg.next = bus.db_wr
-                we_reg.next = bus.we_o
+                write_reg.next = db_wr
+                we_reg.next = we_o
                 
             elif ( not must_wait and bus.en_o ) or wait_states != 0:
 
@@ -64,9 +75,9 @@ class sim_ram:
                         we_temp = we_reg
                     else:
                         adr_temp = bus.adr_o[32:2]
-                        wr_temp = bus.db_wr
-                        we_temp = bus.we_o
-                    if bus.we_o==0:
+                        wr_temp = db_wr
+                        we_temp = we_o
+                    if we_o==0:
                         bus.db_rd.next = ram[adr_temp]
                     else:
                         wd=modbv(0)[32:]

@@ -14,7 +14,7 @@ import config
 
 
 @block
-def bonfore_core_top(ibus,dbus,control,clock,reset,debug,config):
+def BonfireCoreTop(ibus,dbus,control,clock,reset,debug,config):
     """
     ibus:  DbusBundle for Instruction Bus (read only)
     dbus:  DbusBundle for Data bus
@@ -44,3 +44,4 @@ def bonfore_core_top(ibus,dbus,control,clock,reset,debug,config):
         fetch.stall_i.next = backend_fetch_output.busy_o
 
 
+    return instances()

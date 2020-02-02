@@ -57,7 +57,7 @@ class FetchUnit:
             ibus.en_o.next = not busy and run and not self.stall_i \
                              and not (self.jump_i and not jump_taken) # Supress ibus.en_o on new incomming jumps
             ibus.adr_o.next = ip
-            ibus.we_o.next = 0
+            #ibus.we_o.next = 0
 
             fetch.en_i.next = valid 
             fetch.word_i.next = current_word[0]

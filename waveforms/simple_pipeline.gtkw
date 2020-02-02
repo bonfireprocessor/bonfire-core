@@ -1,21 +1,22 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Sat Jan 11 18:23:15 2020
+[*] Sat Jan 18 15:58:31 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_simple_pipeline.vcd"
-[dumpfile_mtime] "Sat Jan 11 18:18:58 2020"
-[dumpfile_size] 70319
+[dumpfile_mtime] "Sat Jan 18 15:35:37 2020"
+[dumpfile_size] 73397
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/simple_pipeline.gtkw"
-[timestart] 223
+[timestart] 182
 [size] 1920 1031
-[pos] -1921 -1
-*-5.884193 470 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -1 -1
+*-5.884193 250 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.backend.
-[sst_width] 329
+[treeopen] tb.backend.ExecuteBundle0_SimpleExecute0.
+[sst_width] 337
 [signals_width] 293
 [sst_expanded] 1
-[sst_vpaned_height] 374
+[sst_vpaned_height] 361
 @200
 -
 @28
@@ -24,6 +25,35 @@ tb.backend.fetch_en_i
 @22
 tb.backend.fetch_next_ip_i[31:0]
 tb.backend.fetch_word_i[31:0]
+@200
+-
+-
+@22
+tb.backend.out_jump_dest_o[31:0]
+@28
+tb.backend.out_jump_o
+tb.backend.busy_o
+@200
+-
+@28
+tb.backend.DecodeBundle0_decoder0.self_en_i
+@22
+tb.backend.DecodeBundle0_decoder0.self_word_i[31:0]
+@28
+tb.backend.DecodeBundle0_decoder0.self_stall_i
+@200
+-
+@28
+tb.backend.DecodeBundle0_decoder0.downstream_busy
+tb.backend.DecodeBundle0_decoder0.self_valid_o
+@22
+tb.backend.DecodeBundle0_decoder0.self_debug_word_o[31:0]
+@28
+tb.backend.ExecuteBundle0_SimpleExecute0.exec_taken
+@29
+tb.backend.ExecuteBundle0_SimpleExecute0.busy
+@28
+tb.backend.DecodeBundle0_decoder0.self_jump_cmd
 @200
 -
 @28
@@ -37,12 +67,6 @@ tb.backend.debugport_result_o[31:0]
 tb.backend.debugport_result_o[31:0]
 @200
 -
-@22
-tb.backend.out_jump_dest_o[31:0]
-@28
-tb.backend.out_jump_o
-tb.backend.busy_o
-@200
 -
 @22
 tb.ram.ram(0)[31:0]
@@ -50,14 +74,31 @@ tb.ram.ram(1)[31:0]
 @200
 -
 @28
-tb.sim_ram1_ram_interface0.bus_en_o
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_en_o
 @22
-tb.sim_ram1_ram_interface0.bus_adr_o[31:0]
-tb.sim_ram1_ram_interface0.bus_db_wr[31:0]
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_adr_o[31:0]
 @28
-tb.sim_ram1_ram_interface0.bus_we_o[3:0]
-tb.sim_ram1_ram_interface0.bus_ack_i
-@23
-tb.sim_ram1_ram_interface0.bus_db_rd[31:0]
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_error_i
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_stall_i
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_we_o[3:0]
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_ack_i
+@22
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_db_wr[31:0]
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_db_rd[31:0]
+@200
+-
+@28
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.self_en_i
+tb.backend.ExecuteBundle0_SimpleExecute0.self_ls_busy_o
+tb.backend.ExecuteBundle0_SimpleExecute0.self_ls_valid_o
+@22
+tb.backend.ExecuteBundle0_SimpleExecute0.self_ls_result_o[31:0]
+@28
+tb.backend.ExecuteBundle0_SimpleExecute0.self_alu_valid_o
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.outstanding
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.request
+tb.backend.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.confirm
+tb.backend.ExecuteBundle0_SimpleExecute0.self_debug_exec_jump
+tb.backend.ExecuteBundle0_SimpleExecute0.self_jump_o
 [pattern_trace] 1
 [pattern_trace] 0

@@ -54,7 +54,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     reset = ResetSignal(1, active=1, isasync=False)
 
    
-    ibus = DbusBundle(config=config) 
+    ibus = DbusBundle(config=config,readOnly=True) 
     debug=DebugOutputBundle()
     out = BackendOutputBundle()
     dbus = DbusBundle(config=config) 
@@ -79,7 +79,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
    
     c_mem = sim_ram()
     c_mem.setLatency(1)
-    c_mem_i = c_mem.ram_interface(code_ram,ibus,clock,reset)
+    c_mem_i = c_mem.ram_interface(code_ram,ibus,clock,reset,readOnly=True)
 
     # Simulated Data RAM
     d_mem = sim_ram()

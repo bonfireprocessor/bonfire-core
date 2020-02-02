@@ -1,0 +1,47 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Sun Feb  2 15:11:48 2020
+[*]
+[dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_core.vcd"
+[dumpfile_mtime] "Sun Feb  2 15:02:11 2020"
+[dumpfile_size] 608374
+[savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/core.gtkw"
+[timestart] 0
+[size] 1920 1031
+[pos] -1 -1
+*-7.587417 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.BonfireCoreTop0.
+[treeopen] tb.BonfireCoreTop0.SimpleBackend0_backend0.
+[treeopen] tb.BonfireCoreTop0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
+[treeopen] tb.sim_ram0_ram_interface0.
+[sst_width] 413
+[signals_width] 150
+[sst_expanded] 1
+[sst_vpaned_height] 293
+@28
+tb.clock
+tb.sim_ram0_ram_interface0.bus_en_o
+@200
+-
+@22
+tb.sim_ram0_ram_interface0.bus_db_rd[31:0]
+tb.sim_ram0_ram_interface0.bus_adr_o[31:0]
+@28
+tb.sim_ram0_ram_interface0.bus_ack_i
+tb.sim_ram0_ram_interface0.bus_stall_i
+@200
+-
+@28
+tb.sim_ram0_ram_interface1.bus_en_o
+@23
+tb.sim_ram0_ram_interface1.bus_adr_o[31:0]
+@28
+tb.sim_ram0_ram_interface1.bus_we_o[3:0]
+tb.sim_ram0_ram_interface1.bus_stall_i
+tb.sim_ram0_ram_interface1.bus_ack_i
+@22
+tb.sim_ram0_ram_interface1.bus_db_rd[31:0]
+tb.sim_ram0_ram_interface1.bus_db_wr[31:0]
+[pattern_trace] 1
+[pattern_trace] 0
