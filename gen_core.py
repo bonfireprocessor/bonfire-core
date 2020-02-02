@@ -8,8 +8,9 @@ from __future__ import print_function
 
 from myhdl import *
 
-from rtl import config, bonfire_core_top, bonfire_interfaces
+from rtl import config, bonfire_interfaces
 from rtl.simple_pipeline import DebugOutputBundle
+from rtl.bonfire_core_top import BonfireCoreTop
 
 
 config=config.BonfireConfig()
@@ -20,6 +21,7 @@ debug = DebugOutputBundle(config)
 clock = Signal(bool(0))
 reset = ResetSignal(0, active=1, isasync=False)
 
-inst = bonfire_core_top.BonfireCoreTop(ibus,dbus,control,clock,reset,debug,config)
+core= BonfireCoreTop(config)
+inst = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
 
 inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="bonfire_core_top")

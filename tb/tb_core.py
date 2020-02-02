@@ -27,7 +27,6 @@ def create_ram(progfile,ramsize):
     f=open(progfile,"r")
     for line in f:
         i=int(line,16)
-        print(i)
         ram.append(Signal(intbv(i)[32:]))
         adr += 1
 
@@ -58,7 +57,20 @@ def tb(config=config.BonfireConfig(),progfile="",ramsize=4096):
 
     clk_driver= ClkDriver(clock)
 
-    dut = bonfire_core_top.BonfireCoreTop(ibus,dbus,control,clock,reset,debug,config)
+    core=bonfire_core_top.BonfireCoreTop(config)
+    dut = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
+
+
+    @always_seq(clock.posedge,reset=reset)
+    def sim_observe():
+
+        backend=core.backend
+        if backend.execute.taken:
+            t_ip = backend.decode.debug_current_ip_o
+            print("@{}ns exc: {} : {} ".format(now(),t_ip,backend.decode.debug_word_o))
+            # assert code_ram[t_ip>>2]==backend.decode.debug_word_o, "pc vs ram content mismatch" 
+            # assert backend.decode.next_ip_o == t_ip + 4, "next_ip vs. current_ip mismatch" 
+            # current_ip_r.next = t_ip >> 2
    
     return instances()
 
