@@ -1,8 +1,12 @@
+"""
+Bonfire Core simulation ram 
+(c) 2019,2020 The Bonfire Project
+License: See LICENSE
+"""
 from __future__ import print_function
 
 from myhdl import *
 
-from rtl.loadstore import *
 
 
 class sim_ram:

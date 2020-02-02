@@ -22,9 +22,12 @@ beq a1,a2, test // no
 //bltu a2,a1,test // no 
 
 // Load store unit 
-li s1, 0
+la s1, data_area
 li s2, 0xdeadbeef
 sw s2,4(s1)
 lbu t1,5(s1) # should load 0xbe  
 jal a6, test
 li a1,1
+
+.align 4
+data_area:

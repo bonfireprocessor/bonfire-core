@@ -14,6 +14,12 @@ def test(inst,**kwagrs):
         inst.quit_sim()
         print("stopping simulation run because of test failure")
         exit()
+    # except ValueError as err:
+    #     print("Exception: " + err.message)
+    #     inst.quit_sim()
+    #     print("stopping simulation run")
+    #     exit()
+
 
     inst.quit_sim()
 
@@ -79,7 +85,7 @@ def pipeline_integration_tests():
     test(tb_fetch.tb(test_conversion=False),trace=False,filename="tb_fetch")
 
 def core_integration_tests():
-    tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/basic_alu.hex",ramsize=256)
+    tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/simple_loop.hex",ramsize=256)
     test(tb,trace=True,filename="tb_core")
     
 

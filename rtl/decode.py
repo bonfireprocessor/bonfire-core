@@ -215,7 +215,7 @@ class DecodeBundle(PipelineControl):
                         rs1_imm_value.next = get_U_immediate(self.word_i)
                         rs2_immediate.next = True
                         if opcode==op.RV32_AUIPC:
-                            rs2_imm_value.next = self.next_ip_i
+                            rs2_imm_value.next = self.current_ip_i
                         else:
                             rs2_imm_value.next=0
 

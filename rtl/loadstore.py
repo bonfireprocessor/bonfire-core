@@ -234,10 +234,11 @@ class LoadStoreBundle(PipelineControl):
             if request and not confirm:
                 outstanding.next = outstanding + 1
             elif not request and confirm:
-                o_next = outstanding - 1  
-                outstanding.next = o_next  
-                if o_next == 0:
-                    en_r.next=False
+                if outstanding > 0:
+                    o_next = outstanding - 1  
+                    outstanding.next = o_next  
+                    if o_next == 0:
+                        en_r.next=False
 
 
         # Design time code

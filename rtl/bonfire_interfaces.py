@@ -12,6 +12,7 @@ class DbusBundle:
     """
     Simple Databus with enough features to be extended to Wishbone B4
     Can support pipelined mode, similar to Wishbone B4 pipelined mode
+    Signal names are from the master side
     """
     def __init__(self,config,readOnly=False):
         xlen=config.xlen
@@ -28,6 +29,7 @@ class DbusBundle:
         if not readOnly:
             self.we_o = Signal(modbv(0)[xlen/8:]) # Byte wide write enable signals
             self.db_wr = Signal(modbv(0)[xlen:])
+    
 
 
 class ControlBundle:
