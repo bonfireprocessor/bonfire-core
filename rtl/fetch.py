@@ -89,11 +89,11 @@ class FetchUnit:
                         current_word[1].next = ibus.db_rd
                         current_ip[1].next = current_ip[2]
                         busy.next = True
-                        valid.next = True
                 else:
                     if busy:
                         assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
                         current_word[0].next = current_word[1]
+                        #current_word[1].next=0 # debug only
                         current_ip[0].next = current_ip[1]
                         valid.next = True
                         busy.next = False
@@ -105,6 +105,7 @@ class FetchUnit:
                         else:    
                             valid.next = False 
 
-                       
+                if self.jump_i and not jump_taken:
+                    valid.next = False
 
         return instances()

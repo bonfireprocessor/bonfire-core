@@ -107,9 +107,11 @@ def tb(config=config.BonfireConfig(),progfile="",ramsize=4096):
         if backend.execute.taken:
             t_ip = backend.decode.debug_current_ip_o
             print("@{}ns exc: {} : {} ".format(now(),t_ip,backend.decode.debug_word_o))
+           
             # assert code_ram[t_ip>>2]==backend.decode.debug_word_o, "pc vs ram content mismatch" 
             # assert backend.decode.next_ip_o == t_ip + 4, "next_ip vs. current_ip mismatch" 
             # current_ip_r.next = t_ip >> 2
+        assert not backend.decode.invalid_opcode, "Invalid opcode @{}: pc:{} ".format(now(), backend.decode.current_ip_i)     
    
     return instances()
 

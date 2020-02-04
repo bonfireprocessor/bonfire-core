@@ -6,6 +6,7 @@ License: See LICENSE
 from __future__ import print_function
 
 from myhdl import *
+from math import log
 
 
 
@@ -26,9 +27,12 @@ class sim_ram:
             bus: Data bus (class DbusBundle)
             clock, reset : Clock and reset 
         """        
-       
+        adr_len=int(log(len(ram),2))      
+
         we_o = Signal(modbv(0)[bus.xlen/8:])
-        db_wr = Signal(modbv(0)[bus.xlen:])       
+        db_wr = Signal(modbv(0)[bus.xlen:])
+
+        
 
         if not readOnly:
            
@@ -74,11 +78,11 @@ class sim_ram:
 
                 if w==0: # When all wait states consumed ack bus cycle
                     if must_wait:
-                        adr_temp = adr_reg[32:2]
+                        adr_temp = adr_reg[adr_len+2:2]
                         wr_temp = write_reg
                         we_temp = we_reg
                     else:
-                        adr_temp = bus.adr_o[32:2]
+                        adr_temp = bus.adr_o[adr_len+2:2]
                         wr_temp = db_wr
                         we_temp = we_o
                     if we_o==0:

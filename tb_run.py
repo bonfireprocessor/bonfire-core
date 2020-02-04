@@ -8,7 +8,11 @@ def test(inst,**kwagrs):
     inst.config_sim(**kwagrs)
 
     try: 
-        inst.run_sim(duration=10000)
+        if 'duration' in kwagrs:
+            d=kwagrs['duration']
+        else:
+            d=10000
+        inst.run_sim(duration=d)
     except AssertionError as a:
         print("Test failure: " + a.message)
         inst.quit_sim()
@@ -85,8 +89,10 @@ def pipeline_integration_tests():
     test(tb_fetch.tb(test_conversion=False),trace=False,filename="tb_fetch")
 
 def core_integration_tests():
-    tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/simple_loop.hex",ramsize=256)
-    test(tb,trace=True,filename="tb_core")
+    #tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/simple_loop.hex",ramsize=256)
+    #test(tb,trace=False,filename="tb_core")
+    tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/loop.hex",ramsize=256)
+    test(tb,trace=True,filename="tb_core",duration=2500)
     
 
 

@@ -119,13 +119,13 @@ class ExecuteBundle(PipelineControl):
         def mux():   
             # Output multiplexers
 
-            if self.alu.valid_o:
-                self.result_o.next = self.alu.res_o
-            elif self.taken and jump_we:
+            if self.taken and jump_we:
                 self.result_o.next = decode.next_ip_o
-
+            elif self.alu.valid_o:
+                self.result_o.next = self.alu.res_o
+           
             elif self.ls.valid_o:
-                self.result_o.next = self.ls.result_o    
+                self.result_o.next = self.ls.result_o
             else:
                 self.result_o.next = 0
 

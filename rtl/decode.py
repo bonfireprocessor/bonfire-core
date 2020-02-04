@@ -176,6 +176,7 @@ class DecodeBundle(PipelineControl):
                     self.load_cmd.next = False
                     self.store_cmd.next = False
                     self.csr_cmd.next = False
+                    self.invalid_opcode.next = False
 
                     if self.word_i[2:0]!=3:
                         inv=True
