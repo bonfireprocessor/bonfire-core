@@ -91,8 +91,8 @@ def pipeline_integration_tests():
 def core_integration_tests():
     #tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/simple_loop.hex",ramsize=256)
     #test(tb,trace=False,filename="tb_core")
-    tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/loop.hex",ramsize=256)
-    test(tb,trace=True,filename="tb_core",duration=2500)
+    tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/loadsave.hex",ramsize=512)
+    test(tb,trace=True,filename="tb_core",duration=10000)
     
 
 

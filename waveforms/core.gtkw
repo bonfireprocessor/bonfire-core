@@ -1,47 +1,80 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Sun Feb  2 15:11:48 2020
+[*] Wed Feb  5 20:00:47 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_core.vcd"
-[dumpfile_mtime] "Sun Feb  2 15:02:11 2020"
-[dumpfile_size] 608374
+[dumpfile_mtime] "Wed Feb  5 19:58:09 2020"
+[dumpfile_size] 121145
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/core.gtkw"
-[timestart] 0
+[timestart] 1750
 [size] 1920 1031
 [pos] -1 -1
-*-7.587417 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.587417 1890 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
-[treeopen] tb.BonfireCoreTop0.
-[treeopen] tb.BonfireCoreTop0.SimpleBackend0_backend0.
-[treeopen] tb.BonfireCoreTop0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.
 [treeopen] tb.sim_ram0_ram_interface0.
 [sst_width] 413
-[signals_width] 150
+[signals_width] 262
 [sst_expanded] 1
 [sst_vpaned_height] 293
 @28
 tb.clock
+tb.dbus_en_o
+tb.dbus_we_o[3:0]
+@22
+tb.dbus_adr_o[31:0]
+tb.dbus_db_rd[31:0]
+tb.dbus_db_wr[31:0]
+@28
+tb.dbus_ack_i
+tb.dbus_stall_i
 tb.sim_ram0_ram_interface0.bus_en_o
 @200
 -
+-
+@28
+tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.ibus_en_o
 @22
-tb.sim_ram0_ram_interface0.bus_db_rd[31:0]
 tb.sim_ram0_ram_interface0.bus_adr_o[31:0]
+tb.sim_ram0_ram_interface0.bus_db_rd[31:0]
 @28
 tb.sim_ram0_ram_interface0.bus_ack_i
 tb.sim_ram0_ram_interface0.bus_stall_i
 @200
 -
-@28
-tb.sim_ram0_ram_interface1.bus_en_o
-@23
-tb.sim_ram0_ram_interface1.bus_adr_o[31:0]
-@28
-tb.sim_ram0_ram_interface1.bus_we_o[3:0]
-tb.sim_ram0_ram_interface1.bus_stall_i
-tb.sim_ram0_ram_interface1.bus_ack_i
 @22
-tb.sim_ram0_ram_interface1.bus_db_rd[31:0]
-tb.sim_ram0_ram_interface1.bus_db_wr[31:0]
+tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.current_ip.current_ip(0)[31:0]
+tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.current_word.current_word(0)[31:0]
+tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.current_word.current_word(1)[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.valid
+tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.busy
+@200
+-
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.ExecuteBundle1_pipeline_instance0.self_en_i
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_debug_current_ip_o[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_debug_word_o[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.ExecuteBundle1_pipeline_instance0.self_taken
+@23
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.registers.registers(1)[31:0]
+@24
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_rd_adr_o[4:0]
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_result_o[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_jumpr_cmd
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.ExecuteBundle1_pipeline_instance0.valid
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_we
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_next_ip_o[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_alu_valid_o
 [pattern_trace] 1
 [pattern_trace] 0

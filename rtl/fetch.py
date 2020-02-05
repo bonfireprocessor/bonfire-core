@@ -72,10 +72,11 @@ class FetchUnit:
             if not run:
                 run.next = True # Comming out of reset 
             else: 
-                if not self.jump_i:
+                if valid: # reset jump_taken when valid fetch
                     jump_taken.next = False
 
-                if  not ( ibus.stall_i or busy or self.stall_i ):
+
+                if  not ( ibus.stall_i or busy or self.stall_i ): # if nothing blocks us, update ip 
                     current_ip[2].next = ip  
                     if self.jump_i and not jump_taken:
                         ip.next = self.jump_dest_i

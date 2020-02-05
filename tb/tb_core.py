@@ -57,6 +57,7 @@ def tb(config=config.BonfireConfig(),progfile="",ramsize=4096):
     ram_sel_r = Signal(bool(0))
 
     mem = sim_ram()
+    mem.setLatency(1)
 
     ibus_if = mem.ram_interface(ram,ibus,clock,reset,readOnly=True)
     dbus_if = mem.ram_interface(ram,ram_dbus,clock,reset)

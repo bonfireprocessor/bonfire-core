@@ -23,4 +23,4 @@ LINKDEF?=lxp.ld
 basic_alu.hex : basic_alu.S
 
 
-all: basic_alu.hex simple_loop.hex loop.hex
+all: basic_alu.hex simple_loop.hex loop.hex loadsave.hex branch.hex
