@@ -80,14 +80,18 @@ class FetchUnit:
         @always_seq(clock.posedge,reset=reset)
         def fetch_proc():
 
-            outstanding.next = not ( not en and ibus.ack_i)
+            if en and not ibus.ack_i:
+                outstanding.next = True
+            elif not en and ibus.ack_i:
+                outstanding.next = False
+
             if not run:
                 run.next = True # Comming out of reset 
             else: 
                 if valid: # reset jump_taken when valid fetch
                     jump_taken.next = False
 
-                if not outstanding and new_jump: # a new jump resets the fetch unit
+                if ( not outstanding or ibus.ack_i ) and new_jump: # a new jump resets the fetch unit
                     ip.next = self.jump_dest_i
                     jump_taken.next = True
                     valid.next = False
