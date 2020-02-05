@@ -84,7 +84,7 @@ sw t4,0(gp) // save result
 add gp,gp,4 // increment pointer
 beq t4,s2,ok // check if t4 contains desired result
 
-sw s2,4(s0) // check value
+sw s2,4(s0) // write check value to monitor@4 
 li s2,-1
 sw s2,(s0)  // write -1 to monitor result address
 

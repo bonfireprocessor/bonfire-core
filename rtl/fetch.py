@@ -42,7 +42,9 @@ class FetchUnit:
         ip = Signal(intbv(self.reset_address)[self.config.xlen:]) # Insruction pointer
         busy = Signal(bool(0)) # Start with busy asserted 
         valid = Signal(bool(0))
+
         jump_taken = Signal(bool(0))
+        new_jump = Signal(bool(0))
 
         run = Signal(bool(0)) # processor not in reset 
 
@@ -50,12 +52,21 @@ class FetchUnit:
         current_word = [Signal(modbv(0)[32:0]) for i in range(0,2)]
         current_ip =   [Signal(modbv(0)[self.config.xlen:0]) for i in range(0,3)]
         
+        en = Signal(bool(0))
+        outstanding = Signal(bool(0))
 
+        @always_comb
+        def new_j():
+            new_jump.next = self.jump_i and not jump_taken
+             
 
         @always_comb
         def comb():
-            ibus.en_o.next = not busy and run and not self.stall_i \
-                             and not (self.jump_i and not jump_taken) # Supress ibus.en_o on new incomming jumps
+            e =  not busy and run and not self.stall_i \
+                 and not new_jump # Supress ibus.en_o on new incomming jumps
+            en.next = e
+           
+            ibus.en_o.next = e
             ibus.adr_o.next = ip
             #ibus.we_o.next = 0
 
@@ -69,44 +80,44 @@ class FetchUnit:
         @always_seq(clock.posedge,reset=reset)
         def fetch_proc():
 
+            outstanding.next = not ( not en and ibus.ack_i)
             if not run:
                 run.next = True # Comming out of reset 
             else: 
                 if valid: # reset jump_taken when valid fetch
                     jump_taken.next = False
 
-
-                if  not ( ibus.stall_i or busy or self.stall_i ): # if nothing blocks us, update ip 
-                    current_ip[2].next = ip  
-                    if self.jump_i and not jump_taken:
-                        ip.next = self.jump_dest_i
-                        jump_taken.next = True
-                    else:
+                if not outstanding and new_jump: # a new jump resets the fetch unit
+                    ip.next = self.jump_dest_i
+                    jump_taken.next = True
+                    valid.next = False
+                    busy.next = False 
+                else:    
+                    if  not ( ibus.stall_i or busy or self.stall_i ): # if nothing blocks us, update ip 
+                        current_ip[2].next = ip
                         ip.next = ip + 4
 
-                if self.stall_i:
-                    # Store pending fetch when next stage is stalled and block ourself
-                    if ibus.ack_i:
-                        current_word[1].next = ibus.db_rd
-                        current_ip[1].next = current_ip[2]
-                        busy.next = True
-                else:
-                    if busy:
-                        assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
-                        current_word[0].next = current_word[1]
-                        #current_word[1].next=0 # debug only
-                        current_ip[0].next = current_ip[1]
-                        valid.next = True
-                        busy.next = False
-                    else:
+                    if self.stall_i:
+                        # Store pending fetch when next stage is stalled and block ourself
                         if ibus.ack_i:
-                            current_word[0].next = ibus.db_rd
-                            current_ip[0].next = current_ip[2]
+                            current_word[1].next = ibus.db_rd
+                            current_ip[1].next = current_ip[2]
+                            busy.next = True
+                    else:
+                        if busy:
+                            assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
+                            current_word[0].next = current_word[1]
+                            #current_word[1].next=0 # debug only
+                            current_ip[0].next = current_ip[1]
                             valid.next = True
-                        else:    
-                            valid.next = False 
+                            busy.next = False
+                        else:
+                            if ibus.ack_i and not new_jump:
+                                current_word[0].next = ibus.db_rd
+                                current_ip[0].next = current_ip[2]
+                                valid.next = True
+                            else:    
+                                valid.next = False 
 
-                if self.jump_i and not jump_taken:
-                    valid.next = False
 
         return instances()
