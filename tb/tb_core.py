@@ -41,9 +41,9 @@ def create_ram(progfile,ramsize):
 
 
 @block
-def tb(config=config.BonfireConfig(),progfile="",ramsize=4096):
+def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=4096,verbose=False):
 
-    ram = create_ram(progfile,ramsize)
+    ram = create_ram(hexFile,ramsize)
 
     ibus = bonfire_interfaces.DbusBundle(config,readOnly=True)
     dbus = bonfire_interfaces.DbusBundle(config)
@@ -57,14 +57,14 @@ def tb(config=config.BonfireConfig(),progfile="",ramsize=4096):
     ram_sel_r = Signal(bool(0))
 
     mem = sim_ram()
-    mem.setLatency(2)
+    mem.setLatency(1)
 
     ibus_if = mem.ram_interface(ram,ibus,clock,reset,readOnly=True)
     dbus_if = mem.ram_interface(ram,ram_dbus,clock,reset)
 
     clk_driver= ClkDriver(clock)
 
-    mon_i = monitor_instance(mon_dbus,clock)
+    mon_i = monitor_instance(ram,mon_dbus,clock,sigFile=sigFile,elfFile=elfFile)
 
     core=bonfire_core_top.BonfireCoreTop(config)
     dut = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
@@ -107,11 +107,10 @@ def tb(config=config.BonfireConfig(),progfile="",ramsize=4096):
         backend=core.backend
         if backend.execute.taken:
             t_ip = backend.decode.debug_current_ip_o
-            print("@{}ns exc: {} : {} ".format(now(),t_ip,backend.decode.debug_word_o))
+            if verbose:
+                print("@{}ns exc: {} : {} ".format(now(),t_ip,backend.decode.debug_word_o))
            
-            # assert code_ram[t_ip>>2]==backend.decode.debug_word_o, "pc vs ram content mismatch" 
-            # assert backend.decode.next_ip_o == t_ip + 4, "next_ip vs. current_ip mismatch" 
-            # current_ip_r.next = t_ip >> 2
+           
         assert not backend.decode.invalid_opcode, "Invalid opcode @{}: pc:{} ".format(now(), backend.decode.current_ip_i)     
    
     return instances()

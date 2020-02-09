@@ -6,7 +6,7 @@
         {
             "label": "Simulate",
             "type": "shell",
-            "command": "python tb_run.py ",
+            "command": "python tb_run.py -v --hex=code/loadsave.hex",
             "options": {
                 "cwd": "${workspaceRoot}"
             },

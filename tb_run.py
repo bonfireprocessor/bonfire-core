@@ -2,6 +2,9 @@ from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipelin
 
 from rtl import config
 
+import getopt, sys 
+
+
 
 def test(inst,**kwagrs):
     kwagrs["directory"]="./waveforms"
@@ -88,18 +91,50 @@ def pipeline_integration_tests():
     print 'Testing Fetch unit'
     test(tb_fetch.tb(test_conversion=False),trace=False,filename="tb_fetch")
 
-def core_integration_tests():
-    #tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/simple_loop.hex",ramsize=256)
-    #test(tb,trace=False,filename="tb_core")
-    tb=tb_core.tb(progfile="/home/thomas/development/bonfire/bonfire-core/code/loadsave.hex",ramsize=512)
-    test(tb,trace=True,filename="tb_core",duration=10000)
+def core_integration_tests(hex,elf,sig,vcd,verbose):   
+    tb=tb_core.tb(hexFile=hex,elfFile=elf,sigFile=sig,ramsize=16384,verbose=verbose)
+    test(tb,trace=bool(vcd),filename=vcd,duration=10000)
     
 
+try:
+    opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","vcd=","sig="])
+except getopt.GetoptError as err:
+    # print help information and exit:
+    print(err)  # will print something like "option -a not recognized"
+    sys.exit(2)
 
-#module_unit_tests()
-#loadstore_unit_tests()
-#pipeline_integration_tests()
-core_integration_tests()
+elfname=""
+hexname=""
+vcdname=""
+signame=""
 
+options=[]
+
+for o,a in opts:
+    print(o,a)
+    if o in ("-e" "--elf"):
+        elfname=a
+    elif o in ("-x","--hex"):
+        hexname=a
+    elif o == "-vcd":
+        vcdname=a
+    elif o == "--sig":
+        signame=a    
+    else:
+        options.append(o)
+   
+
+
+if "--all" in options or "--ut_modules" in options:
+    module_unit_tests()
+
+if "--all" in options or "--ut_loadstore" in options:
+    loadstore_unit_tests()    
+
+if "--all" in options or "--pipeline" in options:
+    pipeline_integration_tests()
+
+if hexname:
+   core_integration_tests(hexname,elfname,signame,vcdname,"-v" in options)
 
 

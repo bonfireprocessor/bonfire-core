@@ -18,6 +18,7 @@ LINKDEF?=lxp.ld
 	$(TARGET_OBJCOPY) -j .text -O binary $< $(basename $@).bin
 	$(HEXDUMP) -v -e '1/4 "%08x\n"' $(basename $@).bin >$@
 	$(TARGET_PREFIX)-objdump -d $< >$(basename $@).lst
+	$(TARGET_PREFIX)-objdump -t $< >$(basename $@).sym
 	$(TARGET_PREFIX)-size  $<
 
 basic_alu.hex : basic_alu.S
