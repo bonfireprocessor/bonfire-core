@@ -92,6 +92,7 @@ class FetchUnit:
                     jump_taken.next = False
 
                 if ( not outstanding or ibus.ack_i ) and new_jump: # a new jump resets the fetch unit
+                    assert self.jump_dest_i[2:]==0,"misaligned jump detected"
                     ip.next = self.jump_dest_i
                     jump_taken.next = True
                     valid.next = False

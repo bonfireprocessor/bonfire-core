@@ -207,6 +207,7 @@ class DecodeBundle(PipelineControl):
                         self.alu_cmd.next = True
                         self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
                         self.funct3_o.next = f3.RV32_F3_ADD_SUB
+                        self.funct7_o.next[5] = False  
                         rs2_imm_value.next =  signed_resize(get_I_immediate(self.word_i),self.xlen)
                         rs2_immediate.next = True
                         

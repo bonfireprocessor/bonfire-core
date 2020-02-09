@@ -93,7 +93,7 @@ def pipeline_integration_tests():
 
 def core_integration_tests(hex,elf,sig,vcd,verbose):   
     tb=tb_core.tb(hexFile=hex,elfFile=elf,sigFile=sig,ramsize=16384,verbose=verbose)
-    test(tb,trace=bool(vcd),filename=vcd,duration=10000)
+    test(tb,trace=bool(vcd),filename=vcd,duration=20000)
     
 
 try:
@@ -116,7 +116,7 @@ for o,a in opts:
         elfname=a
     elif o in ("-x","--hex"):
         hexname=a
-    elif o == "-vcd":
+    elif o == "--vcd":
         vcdname=a
     elif o == "--sig":
         signame=a    
