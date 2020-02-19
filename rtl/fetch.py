@@ -40,7 +40,7 @@ class FetchUnit:
         reset: reset 
         """
         ip = Signal(intbv(self.reset_address)[self.config.xlen:]) # Insruction pointer
-        busy = Signal(bool(0)) # Start with busy asserted 
+        busy = Signal(bool(0)) 
         valid = Signal(bool(0))
 
         jump_taken = Signal(bool(0))
