@@ -17,7 +17,8 @@ class DbusBundle:
     def __init__(self,config,readOnly=False):
         xlen=config.xlen
 
-        self.xlen=xlen 
+        self.xlen=xlen
+        self.readOnly= readOnly
         
         self.en_o = Signal(bool(0))
        
@@ -77,7 +78,7 @@ class Wishbone_master_bundle:
         if granularity != dataWidth:
             assert dataWidth % granularity == 0, "Wishbone bundle: invalid granularity, not a divider of datawidth"
             self.wbm_sel_o = Signal(modbv(0)[dataWidth/granularity:])
-        if b4_signals:
+        if b4_pipelined:
             self.wbm_stall_i = Signal(bool(0))
 
         if bte_signals:
@@ -111,10 +112,17 @@ def DbusToWishbone(dbus,wb,clock,reset):
     stall = Signal(bool(0))
 
     cyc_r = Signal(bool(0))
+    err = Signal(bool(0))
 
     @always_comb
     def cyc_proc():
         cyc_o.next = cyc_r or dbus.en_o
+
+
+    if wb.errorSupported:
+        @always_comb
+        def wb_err1():
+            err.next = wb.wbm_err_i    
 
     @always_comb
     def wb_connect():
@@ -122,17 +130,13 @@ def DbusToWishbone(dbus,wb,clock,reset):
         wb.wbm_cyc_o.next = cyc_o
         wb.wbm_sel_o.next = sel_o
         wb.wbm_stb_o.next = stb_o
-        wbm.wbm_we_o.next = we_o
+        wb.wbm_we_o.next = we_o
         wb.wbm_adr_o.next[wb.adrHigh:wb.adrLow] = dbus.adr_o[wb.adrHigh:wb.adrLow]
         wb.wbm_db_o.next = dbus.db_wr
         # Inputs
         dbus.ack_i.next = wb.wbm_ack_i
         dbus.db_rd.next = wb.wbm_db_i
-        if wb.errorSupported:
-            dbus.error_i.next = wb.wbm_err_i
-        else:
-            dbus.error_i.next = False
-
+        dbus.error_i.next = err   
         dbus.stall_i.next = stall 
 
 

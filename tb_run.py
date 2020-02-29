@@ -1,5 +1,7 @@
 from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipeline,tb_loadstore,tb_fetch,tb_core
 
+from uncore import tb_soc
+
 from rtl import config
 
 import getopt, sys 
@@ -96,8 +98,12 @@ def core_integration_tests(hex,elf,sig,vcd,verbose):
     test(tb,trace=bool(vcd),filename=vcd,duration=20000)
     
 
+def soc_test(hex,vcd):
+    tb=tb_soc.tb(hexFile=hex)
+    test(tb,trace=bool(vcd),filename=vcd,duration=20000)
+
 try:
-    opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","vcd=","sig="])
+    opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","vcd=","sig="])
 except getopt.GetoptError as err:
     # print help information and exit:
     print(err)  # will print something like "option -a not recognized"
@@ -112,7 +118,7 @@ options=[]
 
 for o,a in opts:
     print(o,a)
-    if o in ("-e" "--elf"):
+    if o in ("-e","--elf"):
         elfname=a
     elif o in ("-x","--hex"):
         hexname=a
@@ -134,7 +140,11 @@ if "--all" in options or "--ut_loadstore" in options:
 if "--all" in options or "--pipeline" in options:
     pipeline_integration_tests()
 
+
 if hexname:
-   core_integration_tests(hexname,elfname,signame,vcdname,"-v" in options)
+    if "--soc" in options:
+        soc_test(hexname,vcdname)
+    else:     
+        core_integration_tests(hexname,elfname,signame,vcdname,"-v" in options)
 
 
