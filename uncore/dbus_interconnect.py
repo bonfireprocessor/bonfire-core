@@ -48,9 +48,14 @@ class DbusInterConnects:
 
         @always_comb
         def adrsel():
-            s_en.next[0] = master.adr_o[adrmask1.upper:adrmask1.lower] == adrmask1.mask
-            s_en.next[1] = master.adr_o[adrmask2.upper:adrmask2.lower] == adrmask2.mask
-            s_en.next[2] = master.adr_o[adrmask3.upper:adrmask3.lower] == adrmask3.mask
+            s_en.next[0] = master.adr_o[adrmask1.upper:adrmask1.lower] == adrmask1.mask and master.en_o 
+            s_en.next[1] = master.adr_o[adrmask2.upper:adrmask2.lower] == adrmask2.mask and master.en_o 
+            s_en.next[2] = master.adr_o[adrmask3.upper:adrmask3.lower] == adrmask3.mask and master.en_o 
+
+        @always(clock.posedge)
+        def mon():
+            if s_en:
+                print("adr:{} s_en:{}".format(master.adr_o,bin(s_en,3)))    
 
         @always_comb
         def comb():
@@ -63,6 +68,9 @@ class DbusInterConnects:
             slave1.db_wr.next = master.db_wr
             slave2.db_wr.next = master.db_wr
             slave3.db_wr.next = master.db_wr
+            slave1.we_o.next = master.we_o
+            slave2.we_o.next = master.we_o
+            slave3.we_o.next = master.we_o
 
             # Stall master when the seleted slave changes.
             # This is needed because the interconnet has no mechanism to queue bus cycles

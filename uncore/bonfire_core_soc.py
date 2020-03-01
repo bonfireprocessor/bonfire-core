@@ -35,9 +35,9 @@ def soc_instance(wb_master,db_master,clock,reset,hexfile,config=config.BonfireCo
     db_slave1 = bonfire_interfaces.DbusBundle(config)
     db_slave2 = bonfire_interfaces.DbusBundle(config)
     
-    #ic_class= DbusInterConnects()
+    ic_class= DbusInterConnects()
     ic = DbusInterConnects.Master3Slaves(dbus,db_slave1,db_slave2,db_master,clock,reset, \
-         AdrMask(32,30,0),AdrMask(32,30,0x01),AdrMask(32,30,0x10))
+        AdrMask(32,28,0),AdrMask(32,28,0x2),AdrMask(32,28,0x1))
 
 
     core=bonfire_core_top.BonfireCoreTop(config)
@@ -48,5 +48,5 @@ def soc_instance(wb_master,db_master,clock,reset,hexfile,config=config.BonfireCo
     ram = DualportedRam(hexfile)
     ram_i = ram.ram_instance_dbus(ibus,db_slave1,clock)
 
-   
+    
     return instances()

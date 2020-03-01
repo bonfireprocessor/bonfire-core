@@ -203,11 +203,9 @@ class LoadStoreBundle(PipelineControl):
                 pipe_invalid_op[0].next = invalid_op
                 pipe_adr_lo[0].next = adr[2:0]
 
-               
+
             # Cycle Termination
-            if bus.ack_i or bus.error_i and outstanding > 0:
-               
-               
+            if (bus.ack_i or bus.error_i) and outstanding > 0:
                 # self.valid_o.next =  bus.ack_i and not \
                 #   (pipe_misalign[max_outstanding-1] or  pipe_invalid_op[max_outstanding-1])
                 self.bus_error_o.next = bus.error_i
@@ -222,7 +220,7 @@ class LoadStoreBundle(PipelineControl):
         @always_comb
         def req_confirm():
             request.next =  self.taken 
-            confirm.next =  bus.ack_i or bus.error_i and outstanding > 0      
+            confirm.next =  ( bus.ack_i or bus.error_i ) and outstanding > 0      
                 
 
         @always_seq(clock.posedge,reset=reset)
@@ -302,7 +300,7 @@ class LoadStoreBundle(PipelineControl):
             self.rd_o.next = pipe_rd[max_pipe_index]
             bus.en_o.next = bus_en
 
-            valid_comb.next = bus.ack_i and not \
+            valid_comb.next = confirm and not \
                              (pipe_misalign[max_pipe_index] or  pipe_invalid_op[max_pipe_index])            
                               
 

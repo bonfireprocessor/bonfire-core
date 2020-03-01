@@ -86,15 +86,13 @@ def dbusToRamPort(dbus,port,clock,readOnly=False):
         def comb_wr():
             port.dbin.next = dbus.db_wr
             port.wren.next = dbus.we_o
-            ack_wr.next = dbus.en_o and dbus.we_o
-            we.next = dbus.we_o
+            t_we = dbus.we_o != 0
+            ack_wr.next = dbus.en_o and t_we
+            we.next = t_we
 
     @always(clock.posedge)
     def seq():
-        if ack_rd:
-            ack_rd.next = False
-        else:    
-            ack_rd.next = dbus.en_o and not we
+        ack_rd.next = dbus.en_o and not we
 
     return instances()
 
@@ -130,7 +128,7 @@ class DualportedRam:
         portb = RamPort32(self.adrwidth,db_b.readOnly)
 
         p1 = dbusToRamPort(db_a,porta,clock,db_a.readOnly)
-        p1 = dbusToRamPort(db_b,portb,clock,db_b.readOnly)
+        p2 = dbusToRamPort(db_b,portb,clock,db_b.readOnly)
 
         ram = self.ram_instance(porta,portb,clock)
 
