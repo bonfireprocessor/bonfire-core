@@ -21,6 +21,7 @@ def tb(config=config.BonfireConfig(),hexFile=""):
     mon_i = monitor_instance(None ,dbus,clock)
 
     soc_i = bonfire_core_soc.soc_instance(wb_master,dbus,clock,reset,hexFile,config)
+    soc_i.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="bonfire_core_soc_top")
 
     return instances()
     

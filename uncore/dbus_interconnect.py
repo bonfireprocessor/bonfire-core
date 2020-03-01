@@ -11,7 +11,7 @@ class AdrMask:
     def __init__(self,upper,lower,value):
         self.upper = upper
         self.lower = lower
-        self.mask = modbv(value)
+        self.mask = value
 
 
 
@@ -39,7 +39,7 @@ class DbusInterConnects:
                 for i in range(len(s_en)):
                     b = b or s_en[i]
 
-                busy.next = b
+                busy.next = b and not ack
 
         @always_comb
         def mux_sel_proc():
@@ -52,10 +52,10 @@ class DbusInterConnects:
             s_en.next[1] = master.adr_o[adrmask2.upper:adrmask2.lower] == adrmask2.mask and master.en_o 
             s_en.next[2] = master.adr_o[adrmask3.upper:adrmask3.lower] == adrmask3.mask and master.en_o 
 
-        @always(clock.posedge)
-        def mon():
-            if s_en:
-                print("adr:{} s_en:{}".format(master.adr_o,bin(s_en,3)))    
+        # @always(clock.posedge)
+        # def mon():
+        #     if s_en:
+        #         print("adr:{} s_en:{}".format(master.adr_o,bin(s_en,3)))    
 
         @always_comb
         def comb():
@@ -74,32 +74,32 @@ class DbusInterConnects:
 
             # Stall master when the seleted slave changes.
             # This is needed because the interconnet has no mechanism to queue bus cycles
-            stall = busy and s_en != s_en_r
+            stall = busy and master.en_o and s_en != s_en_r
 
-            t_ack = False 
+            t_ack = False
 
+            master.error_i.next = False 
             if mux_sel[0]:
                 stall = stall or  slave1.stall_i
-                t_ack = slave1.ack_i
+                t_ack = slave1.ack_i.val
                 master.db_rd.next = slave1.db_rd
-                master.error_i.next = False
             elif mux_sel[1]:
                 stall = stall or slave2.stall_i
-                t_ack = slave2.ack_i
+                t_ack = slave2.ack_i.val
                 master.db_rd.next = slave2.db_rd
                 master.error_i.next = False
             elif mux_sel[2]:
                 stall = stall or slave3.stall_i
-                t_ack = slave3.ack_i
-                master.db_rd.next = slave3.db_rd
-                master.error_i.next = False    
+                t_ack = slave3.ack_i.val
+                master.db_rd.next = slave3.db_rd   
             else:
-                master.error_i.next = True
+                master.error_i.next = master.en_o
+                
                 
             master.ack_i.next = t_ack
             ack.next = t_ack                
             master.stall_i.next = stall    
-
+            
 
         return instances()
 

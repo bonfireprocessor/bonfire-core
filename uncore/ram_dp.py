@@ -42,24 +42,24 @@ def create_ram(ramfile,ramsize):
 @block
 def port_instance(ram,port):
 
-    @always(port.clock.posedge)
-    def read():
-        if port.en:
-            port.dbout.next = ram[port.adrbus]
-
-    if not port.readOnly:
+    if port.readOnly:
         @always(port.clock.posedge)
-        def write():
+        def ram_proc():
             if port.en:
-                wd=modbv(0)[32:]
-                wd[:] = ram[port.adrbus]
+                port.dbout.next = ram[port.adrbus]
+
+    else:
+        @always(port.clock.posedge)
+        def ram_proc():
+            if port.en:
                 for i in range(len(port.wren)):            
                     if port.wren[i]:
                         low = i * 8
                         high = low+8
-                        wd[high:low] = port.dbin[high:low]
-                ram[port.adrbus].next = wd
+                        ram[port.adrbus].next[high:low] = port.dbin[high:low]
 
+                port.dbout.next = ram[port.adrbus]
+                
     return instances()
 
 @block

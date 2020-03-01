@@ -72,7 +72,7 @@ class Wishbone_master_bundle:
             self.wbm_err_i = Signal(bool(0))
 
         self.wbm_we_o =  Signal(bool(0))
-        self.wbm_adr_o = Signal(modbv(0)[adrHigh:adrLow])
+        self.wbm_adr_o = Signal(modbv(0)[adrHigh-adrLow:0])
         self.wbm_db_o = Signal(modbv(0)[dataWidth:])
         self.wbm_db_i =  Signal(modbv(0)[dataWidth:])
         if granularity != dataWidth:
@@ -131,7 +131,7 @@ def DbusToWishbone(dbus,wb,clock,reset):
         wb.wbm_sel_o.next = sel_o
         wb.wbm_stb_o.next = stb_o
         wb.wbm_we_o.next = we_o
-        wb.wbm_adr_o.next[wb.adrHigh:wb.adrLow] = dbus.adr_o[wb.adrHigh:wb.adrLow]
+        wb.wbm_adr_o.next = dbus.adr_o[wb.adrHigh:wb.adrLow]
         wb.wbm_db_o.next = dbus.db_wr
         # Inputs
         dbus.ack_i.next = wb.wbm_ack_i
