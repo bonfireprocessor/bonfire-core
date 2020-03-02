@@ -17,14 +17,14 @@ from uncore.dbus_interconnect import *
 from tb.sim_monitor import *
 
 @block
-def soc_instance(wb_master,db_master,clock,reset,hexfile,config=config.BonfireConfig()):
+def soc_instance(wb_master,db_master,bram_a,bram_b,clock,reset,config=config.BonfireConfig(),bram_adrWidth=12):
     """
-    wb_master: Wishbone_master_bundle mapped at address 0x01000000
+    wb_master: Wishbone_master_bundle mapped at address 0x02000000
     db_master: DbusBundle mapped at address 0x100000000
+    bram_a: RamPort32, should be read only, mapped at address 0
+    bram_b: RamPort32 mapped at address 0
     clock : cpu clock
     reset : reset signal
-    hexfile : RAM initalization file
-   
     """
 
     ibus = bonfire_interfaces.DbusBundle(config,readOnly=True)
@@ -45,8 +45,8 @@ def soc_instance(wb_master,db_master,clock,reset,hexfile,config=config.BonfireCo
 
     wb_i = bonfire_interfaces.DbusToWishbone(db_slave2,wb_master,clock,reset)
 
-    ram = DualportedRam(hexfile)
-    ram_i = ram.ram_instance_dbus(ibus,db_slave1,clock)
+    p_a = dbusToRamPort(ibus,bram_a,clock,readOnly=True)
+    p_b = dbusToRamPort(db_slave1,bram_b,clock,readOnly=False)
 
     
     return instances()
