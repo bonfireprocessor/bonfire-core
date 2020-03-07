@@ -5,6 +5,7 @@
 *.hex
 *.bin
 *.sym
+*.elf
 
 *.v 
 /work-obj93.cf
