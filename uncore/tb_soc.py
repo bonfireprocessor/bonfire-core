@@ -17,7 +17,7 @@ def tb(config=config.BonfireConfig(),hexFile=""):
     wb_master = bonfire_interfaces.Wishbone_master_bundle()
 
 
-    clk_driver= ClkDriver(clock)
+    clk_driver= ClkDriver(clock,period=10)
     mon_i = monitor_instance(None ,dbus,clock)
     bram_port_a = ram_dp.RamPort32(readOnly=True)
     bram_port_b = ram_dp.RamPort32()

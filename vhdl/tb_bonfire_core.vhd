@@ -19,8 +19,9 @@ constant ram_adr_width : natural := log2.log2(ram_size);
 
 
 
-signal clock               : std_logic;
-signal reset               : std_logic;
+signal clock               : std_logic := '0';
+signal reset               : std_logic := '0';
+
 signal wb_master_wbm_adr_o : std_logic_vector(29 downto 0);
 signal wb_master_wbm_ack_i : std_logic;
 signal wb_master_wbm_sel_o : std_logic_vector(3 downto 0);
@@ -172,6 +173,9 @@ clock <= not clock after clk_i_period/2 when TbSimEnded /= '1' else '0';
   stim_proc: process
   begin
 
+    reset <= '1';
+    wait for clk_i_period*5;
+    reset <= '0';
 
      wait until finished='1'; -- or uart_stop;
      report "Test finished with result "& hstr(result) severity note;

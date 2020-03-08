@@ -33,7 +33,9 @@ targets:
     - TestFile
     tools:
       ghdl:
-        analyze_options:
-        - --ieee=synopsys
+        analyze_options: [ --ieee=synopsys ]
+        run_options: [--wave=cpu.ghw, --stop-time=1000ns ]
+      xsim:
+        xelab_options: [ "--debug typical" ]  
     toplevel: tb_bonfire_core
   
