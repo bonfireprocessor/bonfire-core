@@ -89,17 +89,17 @@ def RegisterFile(clk,
         """
         synchronous read operation. Rely on registers[0] to be always zero 
         """
-        read_a.next = registers[portA.ra]
-        read_b.next = registers[portB.ra] 
-        # if portA.ra != 0:
-        #     read_a.next = registers[portA.ra]
-        # else:
-        #     read_a.next = 0 
+        #read_a.next = registers[portA.ra]
+        #read_b.next = registers[portB.ra] 
+        if portA.ra != 0:
+            read_a.next = registers[portA.ra]
+        else:
+            read_a.next = 0 
 
-        # if  portB.ra != 0:    
-        #     read_b.next = registers[portB.ra] 
-        # else:
-        #     read_b.next = 0      
+        if  portB.ra != 0:    
+            read_b.next = registers[portB.ra] 
+        else:
+            read_b.next = 0      
 
 
     @always(clk.posedge)

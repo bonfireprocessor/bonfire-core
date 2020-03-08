@@ -36,7 +36,7 @@ entity monitor is
     db_we_i: in std_logic_vector(3 downto 0);
     db_rd: out std_logic_vector(31 downto 0);
     db_wr: in std_logic_vector(31 downto 0);
-    db_adr_i: in std_logic_vector(31 downto 0);
+    db_adr_i: in std_logic_vector(27 downto 2);
     db_error_o: out std_logic;
     db_ack_o: out std_logic;
     db_stall_o: out std_logic;
@@ -51,7 +51,7 @@ architecture sim of monitor is
 
 -- Last address of Monitor range is the signature file port.
 -- Any value written to it will be written has hex value to the signature file
-constant c_signature_port_adr : std_logic_vector(db_adr_i'range) := X"01ffffff";
+constant c_signature_port_adr : std_logic_vector(db_adr_i'range) := (others=>'1');
 
 signal result: std_logic_vector(31 downto 0):=(others=>'0');
 signal finished: std_logic:='0';

@@ -13,15 +13,15 @@
       </db_ref>
    </db_ref_list>
    <zoom_setting>
-      <ZoomStartTime time="34321590fs"></ZoomStartTime>
-      <ZoomEndTime time="123815593fs"></ZoomEndTime>
+      <ZoomStartTime time="40421665fs"></ZoomStartTime>
+      <ZoomEndTime time="81272490fs"></ZoomEndTime>
       <Cursor1Time time="115000000fs"></Cursor1Time>
    </zoom_setting>
    <column_width_setting>
       <NameColumnWidth column_width="435"></NameColumnWidth>
       <ValueColumnWidth column_width="314"></ValueColumnWidth>
    </column_width_setting>
-   <WVObjectSize size="35" />
+   <WVObjectSize size="37" />
    <wvobject type="logic" fp_name="/tb_bonfire_core/uut/clock">
       <obj_property name="ElementShortName">clock</obj_property>
       <obj_property name="ObjectShortName">clock</obj_property>
@@ -157,5 +157,13 @@
    <wvobject type="logic" fp_name="/tb_bonfire_core/uut/BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_ExecuteBundle0_SimpleExecute0_AluBundle0_alu0_subtract">
       <obj_property name="ElementShortName">BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_ExecuteBundle0_SimpleExecute0_AluBundle0_alu0_subtract</obj_property>
       <obj_property name="ObjectShortName">BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_ExecuteBundle0_SimpleExecute0_AluBundle0_alu0_subtract</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/tb_bonfire_core/uut/BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_DecodeBundle0_decoder0_rs1_imm_value">
+      <obj_property name="ElementShortName">BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_DecodeBundle0_decoder0_rs1_imm_value[31:0]</obj_property>
+      <obj_property name="ObjectShortName">BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_DecodeBundle0_decoder0_rs1_imm_value[31:0]</obj_property>
+   </wvobject>
+   <wvobject type="array" fp_name="/tb_bonfire_core/uut/BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_self_decode_rs1_data_i">
+      <obj_property name="ElementShortName">BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_self_decode_rs1_data_i[31:0]</obj_property>
+      <obj_property name="ObjectShortName">BonfireCoreTop0_createInstance0_SimpleBackend0_backend0_self_decode_rs1_data_i[31:0]</obj_property>
    </wvobject>
 </wave_config>

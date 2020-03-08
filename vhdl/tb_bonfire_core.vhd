@@ -155,7 +155,7 @@ begin
                 db_we_i    => db_master_we_o,
                 db_rd      => db_master_db_rd,
                 db_wr      => db_master_db_wr,
-                db_adr_i   => db_master_adr_o,
+                db_adr_i   => db_master_adr_o(27 downto 2),
                 db_error_o => db_master_error_i,
                 db_ack_o   => db_master_ack_i,
                 db_stall_o => db_master_stall_i,

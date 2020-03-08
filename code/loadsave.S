@@ -57,6 +57,13 @@ check(0xaa55)
 lh  t4,12(a1) // => FFFFAA55
 check(0xffffaa55)
 
+// Negative offset test 
+addi a5,a1,20
+sw a2,-4(a5) // offet 16
+lw t4,16(a1)
+check(0xfa55aa55)
+
+
 // misalign tests
 /*
 sh t1,17(a1) // test store of "middle" half word
