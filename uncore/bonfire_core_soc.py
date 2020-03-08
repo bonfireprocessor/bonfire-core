@@ -17,7 +17,7 @@ from uncore.dbus_interconnect import *
 from tb.sim_monitor import *
 
 @block
-def soc_instance(wb_master,db_master,bram_a,bram_b,clock,reset,config=config.BonfireConfig(),bram_adrWidth=12):
+def bonfireCoreExtendedInterface(wb_master,db_master,bram_a,bram_b,clock,reset,config=config.BonfireConfig(),bram_adrWidth=12):
     """
     wb_master: Wishbone_master_bundle mapped at address 0x02000000
     db_master: DbusBundle mapped at address 0x100000000
@@ -32,21 +32,21 @@ def soc_instance(wb_master,db_master,bram_a,bram_b,clock,reset,config=config.Bon
     control = bonfire_interfaces.ControlBundle(config)
     debug = DebugOutputBundle(config)
 
-    db_slave1 = bonfire_interfaces.DbusBundle(config)
-    db_slave2 = bonfire_interfaces.DbusBundle(config)
+    db_master1 = bonfire_interfaces.DbusBundle(config)
+    db_master2 = bonfire_interfaces.DbusBundle(config)
     
     ic_class= DbusInterConnects()
-    ic = DbusInterConnects.Master3Slaves(dbus,db_slave1,db_slave2,db_master,clock,reset, \
+    ic = DbusInterConnects.Master3Slaves(dbus,db_master1,db_master2,db_master,clock,reset, \
         AdrMask(32,28,0),AdrMask(32,28,0x2),AdrMask(32,28,0x1))
 
 
     core=bonfire_core_top.BonfireCoreTop(config)
     core_i = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
 
-    wb_i = bonfire_interfaces.DbusToWishbone(db_slave2,wb_master,clock,reset)
+    wb_i = bonfire_interfaces.DbusToWishbone(db_master2,wb_master,clock,reset)
 
     p_a = dbusToRamPort(ibus,bram_a,clock,readOnly=True)
-    p_b = dbusToRamPort(db_slave1,bram_b,clock,readOnly=False)
+    p_b = dbusToRamPort(db_master1,bram_b,clock,readOnly=False)
 
     
     return instances()

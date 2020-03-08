@@ -11,8 +11,9 @@
 /work-obj93.cf
 
 vhdl_gen/*
+vhdl_gen_tb/*
 /vhdl/work-obj93.cf
-*.vhd
+
 /.vscode/settings.json
 /luts.txt
 /tb_simtest.py
