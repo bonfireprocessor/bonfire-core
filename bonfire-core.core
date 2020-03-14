@@ -1,5 +1,5 @@
 CAPI=2:
-name: ::bonfire-core-soc:0
+name: ::bonfire-core:0
 filesets:
   rtl:
     depend:
