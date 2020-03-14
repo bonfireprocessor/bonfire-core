@@ -103,7 +103,8 @@ def soc_test(hex,vcd):
     test(tb,trace=bool(vcd),filename=vcd,duration=20000)
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","vcd=","sig="])
+    opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,
+    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","vcd=","sig="])
 except getopt.GetoptError as err:
     # print help information and exit:
     print(err)  # will print something like "option -a not recognized"

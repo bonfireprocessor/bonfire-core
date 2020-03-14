@@ -85,7 +85,7 @@ end component sim_MainMemory;
 
 begin
 
-    uut:  entity work.bonfire_core_extented_top
+    uut:  entity work.bonfire_core_extended_top
     port map (
       clock               => clock,
       reset               => reset,

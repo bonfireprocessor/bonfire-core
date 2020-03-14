@@ -6,11 +6,19 @@ filesets:
     - ::bonfire-util:0
     file_type: vhdlSource
     files:
-    - vhdl_gen/pck_myhdl_011.vhd
-    - vhdl_gen/bonfire_core_extented_top.vhd
+    - vhdl_gen/export/pck_myhdl_011.vhd
+    - vhdl_gen/export/bonfire_core_extended_top.vhd
   sim:
+    depend:
+    - ::bonfire-util:0
     file_type: vhdlSource
-    files: [ vhdl/monitor.vhd, vhdl/sim_MainMemory.vhd, vhdl/tb_bonfire_core.vhd ]
+    files:
+    - vhdl_gen/pck_myhdl_011.vhd
+    - vhdl_gen/bonfire_core_extended_top.vhd  
+    - vhdl/monitor.vhd 
+    - vhdl/sim_MainMemory.vhd
+    - vhdl/tb_bonfire_core.vhd
+
     
 
 parameters:
@@ -27,7 +35,7 @@ targets:
     parameters: [ TestFile ]
   sim:
     default_tool: ghdl
-    filesets: [rtl, sim ]
+    filesets: [ sim ]
   
     parameters:
     - TestFile
