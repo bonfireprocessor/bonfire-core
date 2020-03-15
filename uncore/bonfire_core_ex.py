@@ -18,7 +18,7 @@ from tb.sim_monitor import *
 
 @block
 def bonfireCoreExtendedInterface(wb_master,db_master,bram_a,bram_b,clock,reset,
-                                 config=config.BonfireConfig(),bram_adrWidth=12,
+                                 config=config.BonfireConfig(),
                                  wb_mask=AdrMask(32,28,0x2),
                                  db_mask=AdrMask(32,28,0x1),
                                  bram_mask=AdrMask(32,28,0)):

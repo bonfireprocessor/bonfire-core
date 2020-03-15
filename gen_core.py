@@ -31,7 +31,7 @@ def gen_core(config,hdl,name,path):
     inst.convert(hdl=hdl,std_logic_ports=True,path=path, name=name)
 
 
-def gen_extended_core(config,hdl,name,path,bram_adr_base=0):
+def gen_extended_core(config,hdl,name,path,bram_adr_base=0,bramAdrWidth=12):
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
     
@@ -39,8 +39,8 @@ def gen_extended_core(config,hdl,name,path,bram_adr_base=0):
     wb_master = bonfire_interfaces.Wishbone_master_bundle()
 
    
-    bram_port_a = ram_dp.RamPort32(readOnly=True)
-    bram_port_b = ram_dp.RamPort32()
+    bram_port_a = ram_dp.RamPort32(readOnly=True,adrWidth=bramAdrWidth)
+    bram_port_b = ram_dp.RamPort32(adrWidth=bramAdrWidth)
 
     config.reset_address=bram_adr_base << 24
     soc_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master,dbus,
@@ -52,7 +52,7 @@ def gen_extended_core(config,hdl,name,path,bram_adr_base=0):
 
 
 try:
-    opts, args = getopt.getopt(sys.argv[1:],"n" ,["hdl=","name=","extended","bram_base=","path="])
+    opts, args = getopt.getopt(sys.argv[1:],"n" ,["hdl=","name=","extended","bram_base=","path=","bram_adr_width="])
 except getopt.GetoptError as err:
     # print help information and exit:
     print(err)  # will print something like "option -a not recognized"
@@ -62,6 +62,7 @@ name_overide = ""
 hdl = "VHDL"
 extended = False
 bram_base = 0x0
+bram_adr_width = 12
 gen_path = "vhdl_gen"
 
 for o,a in opts:
@@ -72,7 +73,9 @@ for o,a in opts:
     elif o == "--hdl":
         hdl=a
     elif o=="--bram_base":
-        bram_base = int(a,0)    
+        bram_base = int(a,0) 
+    elif o=="--bram_adr_width":
+        bram_adr_width = int(a,0)         
     elif o == "--extended":
         extended = True
     elif o == "--path":
@@ -92,4 +95,4 @@ else:
     else:
         n="bonfire_core_extended_top"
 
-    gen_extended_core(config,hdl,n,gen_path,bram_adr_base=bram_base) 
+    gen_extended_core(config,hdl,n,gen_path,bram_adr_base=bram_base,bramAdrWidth=bram_adr_width) 

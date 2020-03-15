@@ -160,6 +160,8 @@ def DbusToWishbone(dbus,wb,clock,reset):
         # Convert Pipelined to non pipelined cycle, see WB4 spec chapter 5.2.1
         @always_comb
         def wb_standard():
+
+            stb_o.next = cyc_o 
             if cyc_o:
                 stall.next = not wb.wbm_ack_i
             else:
