@@ -130,7 +130,7 @@ def DbusToWishbone(dbus,wb,clock,reset):
         wb.wbm_cyc_o.next = cyc_o
         wb.wbm_sel_o.next = sel_o
         wb.wbm_stb_o.next = stb_o
-        wb.wbm_we_o.next = we_o
+        wb.wbm_we_o.next = we_o and cyc_o
         wb.wbm_adr_o.next = dbus.adr_o[wb.adrHigh:wb.adrLow]
         wb.wbm_db_o.next = dbus.db_wr
         # Inputs
@@ -147,7 +147,7 @@ def DbusToWishbone(dbus,wb,clock,reset):
                 sel_o.next = dbus.we_o
                 we_o.next = True
             else:
-                sel_o.next = 0
+                sel_o.next = 0xf
                 we_o.next = False 
 
 

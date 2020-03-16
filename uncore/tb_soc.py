@@ -6,6 +6,7 @@ from  uncore import bonfire_core_ex,ram_dp
 from rtl import bonfire_interfaces,config
 from tb.ClkDriver import *
 from tb.sim_monitor import *
+from uncore.tb_wishbone_bfm import Wishbone_bfm
 
 @block
 def tb(config=config.BonfireConfig(),hexFile=""):
@@ -15,7 +16,7 @@ def tb(config=config.BonfireConfig(),hexFile=""):
     
     dbus = bonfire_interfaces.DbusBundle(config)
     wb_master = bonfire_interfaces.Wishbone_master_bundle()
-
+    wb_bfm = Wishbone_bfm()
 
     clk_driver= ClkDriver(clock,period=10)
     mon_i = monitor_instance(None ,dbus,clock)
@@ -28,5 +29,7 @@ def tb(config=config.BonfireConfig(),hexFile=""):
     ram = ram_dp.DualportedRam(hexFile)
     ram_i = ram.ram_instance(bram_port_a,bram_port_b,clock)
     
+    bfm_i = wb_bfm.Wishbone_check(wb_master,clock,reset)    
+
     return instances()
     

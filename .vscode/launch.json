@@ -19,7 +19,7 @@
             "type": "python",
             "request": "launch",
             "program": "/home/thomas/development/bonfire/bonfire-core/tb_run.py",
-            "args" : ["--hex=code/loadsave.hex",  
+            "args" : ["--hex=code/wb_test.hex",  
                       "--soc","--vcd=tb_soc"],
             "console": "integratedTerminal"
         }

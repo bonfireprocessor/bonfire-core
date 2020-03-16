@@ -16,6 +16,7 @@ SECTIONS
 }
 
 monitor = 0x10000000;
+wb_base = 0x20000000;
 
 mtime   = 0x0FFFF0000;
 
