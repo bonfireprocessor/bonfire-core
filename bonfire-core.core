@@ -32,7 +32,7 @@ parameters:
 targets:
   default:
     filesets: [ rtl ]
-    parameters: [ TestFile ]
+    #parameters: [ TestFile ]
   sim:
     default_tool: ghdl
     filesets: [ sim ]

@@ -41,7 +41,7 @@ class Wishbone_bfm:
                 wb.wbm_ack_i.next = False
             else:
                 if active_cycle and not active_cycle_r: # begin of new bus cycle
-                    w = random.randint(0,3)
+                    w = random.randint(0,2)
                     if w>0:
                         wait_counter.next = w
                         active_cycle_r.next = True
