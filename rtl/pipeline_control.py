@@ -9,8 +9,8 @@ from __future__ import print_function
 from myhdl import *
 
 class PipelineControl:
-    def __init__(self):
-        self.en_i = Signal(bool(0)) # Input enable / valid
+    def __init__(self,firstStage=False):
+        self.en_i = Signal(bool(firstStage)) # Input enable / valid
         self.busy_o = Signal(bool(0)) # unit busy (stall previous stage)
 
         self.valid_o = Signal(bool(0)) # Output valid

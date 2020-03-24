@@ -6,27 +6,55 @@ License: See LICENSE
 from __future__ import print_function
 
 from myhdl import *
+from pipeline_control import *
 
 
-class FetchUnit:
+class InstructionBuffer(PipelineControl):
+    def __init__(self,config):
+        self.config = config
+
+        PipelineControl.__init__(self)
+
+
+    @block
+    def bufferInstance(self,fetch_in,fetch_out,clock,reset):
+
+        full = Signal(bool(0))
+        word = Signal(modbv(0)[32:])
+        current_ip = Signal(modbv(0)[self.xlen:])
+        next_ip = Signal(modbv(0)[self.xlen:])
+
+        @always_seq(clock.posedge,reset=reset)
+        def seq():
+
+            if not full and fetch_in.en_i:
+                full.next = True
+                word.next = fetch_in.word_i
+                current_ip.next = fetch_in.current_ip_i
+                next_ip.next = fetch_in.next_ip_i
+
+            if full and not self.stall_i:
+                full.next = False
+
+        p_inst = self.pipeline_instance(False,full)         
+
+        return instances()
+
+
+class FetchUnit(PipelineControl):
+
     def __init__(self,config):
         self.config = config
         xlen = config.xlen
-        self.reset_address=config.reset_address
-
-        self.stall_i = Signal(bool(0)) # Stall input from next stage
+        self.reset_address=intbv(config.reset_address)[xlen:]
 
         # # Jump control
         self.jump_i =  Signal(bool(0)) 
         self.jump_dest_i = Signal(modbv(0)[xlen:])
 
-        # # Output
-        # self.valid_o = Signal(bool(0)) # Output valid
-        
-        # self.current_ip_o = Signal(modbv(0)[xlen:]) # ip (PC) of current instruction
-        # self.next_ip_o = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
-        # self.word_o = Signal(modbv(0)[32:]) # actual instruction to decode
+        PipelineControl.__init__(self,firstStage=True)
 
+        
 
     @block
     def SimpleFetchUnit(self,fetch,ibus,clock,reset):
@@ -54,6 +82,8 @@ class FetchUnit:
         
         en = Signal(bool(0))
         outstanding = Signal(bool(0))
+
+        p_inst = self.pipeline_instance(busy,valid)
 
         @always_comb
         def new_j():

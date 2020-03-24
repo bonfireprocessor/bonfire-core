@@ -4,14 +4,30 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
+        
         {
-            "name": "Python: run core",
+            "name": "Python: run core compliance",
             "type": "python",
             "request": "launch",
             "program": "/home/thomas/development/bonfire/bonfire-core/tb_run.py",
-            "args" : ["--hex=/home/thomas/development/riscv/riscv-compliance/work/rv32i/I-JALR-01.elf.hex",
-                      "--elf=/home/thomas/development/riscv/riscv-compliance/work/rv32i/I-JALR-01.elf",
-                      "--sig=dummy.txt","--vcd=tb_core","-v"],
+            "args": [
+                "--hex=/home/thomas/development/riscv/riscv-compliance/work/rv32i/I-JALR-01.elf.hex",
+                "--elf=/home/thomas/development/riscv/riscv-compliance/work/rv32i/I-JALR-01.elf",
+                "--sig=dummy.txt",
+                "--vcd=tb_core",
+                "-v"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: run core local code",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/thomas/development/bonfire/bonfire-core/tb_run.py",
+            "args": [
+                "--hex=code/loadsave.hex",
+                "--vcd=tb_core", "-v"
+            ],
             "console": "integratedTerminal"
         },
         {
@@ -19,8 +35,25 @@
             "type": "python",
             "request": "launch",
             "program": "/home/thomas/development/bonfire/bonfire-core/tb_run.py",
-            "args" : ["--hex=code/wb_test.hex",  
-                      "--soc","--vcd=tb_soc"],
+            "args": [
+                "--hex=code/wb_test.hex",
+                "--soc",
+                "--vcd=tb_soc"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: gen core",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/thomas/development/bonfire/bonfire-core/gen_core.py",
+            "args": [
+                "--extended",
+                "--bram_base=0xc",
+                "--bram_adr_width=11",
+                "--path=vhdl_gen/export"
+
+            ],
             "console": "integratedTerminal"
         }
     ]

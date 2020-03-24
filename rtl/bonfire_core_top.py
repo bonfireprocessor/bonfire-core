@@ -34,7 +34,8 @@ class BonfireCoreTop:
         """
 
         i_fetch = self.fetch.SimpleFetchUnit(self.backend_fetch_input,ibus,clock,reset)
-        i_backend = self.backend.backend(self.backend_fetch_input,dbus,clock,reset,self.backend_fetch_output,debug)
+        i_backend = self.backend.backend(self.backend_fetch_input,self.fetch,
+                    dbus,clock,reset,self.backend_fetch_output,debug)
 
 
         """
@@ -44,7 +45,7 @@ class BonfireCoreTop:
         def comb():
             self.fetch.jump_dest_i.next=self.backend_fetch_output.jump_dest_o
             self.fetch.jump_i.next = self.backend_fetch_output.jump_o
-            self.fetch.stall_i.next = self.backend_fetch_output.busy_o
+            #self.fetch.stall_i.next = self.backend_fetch_output.busy_o
 
 
         return instances()

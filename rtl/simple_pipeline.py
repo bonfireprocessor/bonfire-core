@@ -58,13 +58,15 @@ class SimpleBackend:
         
 
     @block
-    def backend(self,fetch, databus, clock, reset, out, debugport ):
+    def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport ):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset)
         exec_inst = self.execute.SimpleExecute(self.decode, databus, clock,reset )
 
         d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
+
+        f_d_inst = self.decode.connect(clock,reset,previous=frontEnd)
 
         @always_comb
         def comb():
@@ -83,12 +85,11 @@ class SimpleBackend:
             out.busy_o.next = self.decode.busy_o 
 
 
-            # Instruction fetch interface 
-
-            self.decode.en_i.next = fetch.en_i
-            self.decode.word_i.next = fetch.word_i
-            self.decode.current_ip_i.next = fetch.current_ip_i
-            self.decode.next_ip_i.next  = fetch.next_ip_i 
+            # Front end interface
+            
+            self.decode.word_i.next = fetchBundle.word_i
+            self.decode.current_ip_i.next = fetchBundle.current_ip_i
+            self.decode.next_ip_i.next  = fetchBundle.next_ip_i 
 
 
         @always_comb
