@@ -1,0 +1,78 @@
+[*]
+[*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
+[*] Wed Mar 25 16:58:14 2020
+[*]
+[dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_core.vcd"
+[dumpfile_mtime] "Wed Mar 25 16:51:53 2020"
+[dumpfile_size] 3216629
+[savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_core.gtkw"
+[timestart] 193
+[size] 1920 1031
+[pos] -1 -1
+*-7.070378 510 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.BonfireCoreTop0_createInstance0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.
+[sst_width] 368
+[signals_width] 346
+[sst_expanded] 1
+[sst_vpaned_height] 293
+@28
+tb.ClkDriver0.clk
+@200
+-
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.downstream_busy
+@29
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_en_i
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_word_i[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_debug_word_o[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_dest[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_dest_r[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_taken
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_r
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_we
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.decode_branch_cmd
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.decode_jump_cmd
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.decode_jumpr_cmd
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.busy
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_dest[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_dest_r[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_busy
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_jump_dest_o[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_jump_o
+@22
+tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.fetch_current_ip_i[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.jump_taken
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_kill_i
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_store_cmd
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_adr_o[31:0]
+@200
+-
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.debugport_valid_o
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.debugport_result_o[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.debugport_reg_we_o
+@24
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.debugport_rd_adr_o[4:0]
+@200
+-
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_en_o
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_ack_i
+[pattern_trace] 1
+[pattern_trace] 0

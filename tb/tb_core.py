@@ -104,14 +104,16 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
     @always_seq(clock.posedge,reset=reset)
     def sim_observe():
 
-        backend=core.backend
-        if backend.execute.taken:
-            t_ip = backend.decode.debug_current_ip_o
+       
+        d = core.backend.decode
+        if core.backend.execute.taken:
+            t_ip = d.debug_current_ip_o
             if verbose:
-                print("@{}ns exc: {} : {} ".format(now(),t_ip,backend.decode.debug_word_o))
+                print("@{}ns exc: {} : {} ".format(now(),t_ip,d.debug_word_o))
            
-           
-        assert not backend.decode.invalid_opcode, "Invalid opcode @{}: pc:{} ".format(now(), backend.decode.current_ip_i)     
+        
+        inv = d.en_i and d.invalid_opcode and not d.kill_i
+        assert not inv, "Invalid opcode @{}: pc:{} op:{} ".format(now(), d.current_ip_i,d.word_i)     
    
     return instances()
 

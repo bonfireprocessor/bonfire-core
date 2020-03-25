@@ -20,23 +20,35 @@ class InstructionBuffer(PipelineControl):
     def bufferInstance(self,fetch_in,fetch_out,clock,reset):
 
         full = Signal(bool(0))
+        busy = Signal(bool(0))
         word = Signal(modbv(0)[32:])
         current_ip = Signal(modbv(0)[self.xlen:])
         next_ip = Signal(modbv(0)[self.xlen:])
 
+        p_inst = self.pipeline_instance(busy,full)    
+
+        
         @always_seq(clock.posedge,reset=reset)
         def seq():
 
-            if not full and fetch_in.en_i:
+            if not busy and self.en_i:
                 full.next = True
                 word.next = fetch_in.word_i
                 current_ip.next = fetch_in.current_ip_i
                 next_ip.next = fetch_in.next_ip_i
 
-            if full and not self.stall_i:
-                full.next = False
+            if full:
+                if self.stall_i:
+                    busy.next = True
+                else:        
+                    full.next = False
 
-        p_inst = self.pipeline_instance(False,full)         
+        @always_comb
+        def comb():
+            fetch_out.en_i.next = self.valid_o
+            fetch_out.word_i.next = word
+            fetch_out.current_ip_i.next = current_ip
+            fetch_out.next_ip_i.next = next_ip
 
         return instances()
 

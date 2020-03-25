@@ -64,6 +64,7 @@ class ExecuteBundle(PipelineControl):
         jump_r =  Signal(bool(0))
         jump_dest =  Signal(intbv(0)[self.config.xlen:])
         jump_dest_r = Signal(intbv(0)[self.config.xlen:])
+        jump_busy = Signal(bool(0)) # Only used when not config.jump_bypass
 
         jump_we = Signal(bool(0)) # rd write enable on jal/jalr
 
@@ -75,10 +76,14 @@ class ExecuteBundle(PipelineControl):
         
         @always_seq(clock.posedge,reset=reset)
         def seq():
+
+            jump_busy.next = False
             if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
+                jump_busy.next = jump and not self.config.jump_bypass
+                   
                 
                 # # Debug code
                 # if self.debug_exec_jump.next: 
@@ -101,10 +106,13 @@ class ExecuteBundle(PipelineControl):
             self.ls.store_i.next = decode.store_cmd
 
             # Pipeline  
-            busy.next = self.alu.busy_o or self.ls.busy_o
+            busy.next = self.alu.busy_o or self.ls.busy_o or jump_busy
             valid.next = self.alu.valid_o or self.ls.valid_o  or jump_we
 
-            decode.kill_i.next = self.taken and jump
+            if self.config.jump_bypass:
+                decode.kill_i.next =  self.taken and jump
+            else:    
+                decode.kill_i.next = jump_busy
 
 
             # Functional Unit selection
@@ -133,11 +141,14 @@ class ExecuteBundle(PipelineControl):
 
             if self.taken:
                 self.rd_adr_o.next = decode.rd_adr_o
+            else:
+                self.rd_adr_o.next = rd_adr_reg
+
+            if self.taken and self.config.jump_bypass:  
                 self.jump_o.next = jump
                 self.jump_dest_o.next = jump_dest
             else:
-                self.rd_adr_o.next = rd_adr_reg
-                self.jump_o.next = jump_r
+                self.jump_o.next = jump_r and not self.taken # supress jump_o when next instruction after jump is taken
                 self.jump_dest_o.next = jump_dest_r
 
                      
