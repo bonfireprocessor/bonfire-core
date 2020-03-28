@@ -1,9 +1,9 @@
-
+from __future__ import print_function
 
 from myhdl import *
 from rtl.alu import *
 from rtl.instructions import ArithmeticFunct3  as f3 
-from ClkDriver import *
+from tb.ClkDriver import *
 import types
 
 
@@ -54,7 +54,7 @@ def tb(c_shifter_mode="behavioral"):
         alu.en_i.next=False
         while not alu.valid_o:
             yield clock.posedge
-        print "{} {} {} result: {}".format(alu.op1_i,cmd["c"], alu.op2_i,alu.res_o)
+        print ("{} {} {} result: {}".format(alu.op1_i,cmd["c"], alu.op2_i,alu.res_o))
         shouldbe=modbv(0)[32:]
         r=cmd["r"]
 
@@ -63,11 +63,8 @@ def tb(c_shifter_mode="behavioral"):
         else:
             shouldbe[32:] = r
 
-        if alu.res_o==shouldbe:
-            print "ok"
-        else:
-            print "error, should be",shouldbe.unsigned()
-
+        assert alu.res_o==shouldbe,"error, should be {}".format(shouldbe.unsigned())
+      
         return
 
 
@@ -78,7 +75,7 @@ def tb(c_shifter_mode="behavioral"):
         for cmd in commands:
             yield test_op(cmd)
 
-        print "Simulation finished"
+        print( "Simulation finished")
         raise StopSimulation
 
 

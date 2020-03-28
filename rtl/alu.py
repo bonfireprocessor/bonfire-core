@@ -6,8 +6,8 @@ License: See LICENSE
 
 from myhdl import *
 
-from barrel_shifter import shift_pipelined
-from instructions import ArithmeticFunct3  as f3 
+from rtl.barrel_shifter import shift_pipelined
+from rtl.instructions import ArithmeticFunct3  as f3 
 
 
 class AluBundle:

@@ -12,12 +12,12 @@ from myhdl import *
 from rtl import config, bonfire_core_top, bonfire_interfaces
 from rtl.simple_pipeline import DebugOutputBundle
 
-from ClkDriver import *
-from sim_ram import *
-from sim_monitor import *
+from tb.ClkDriver import *
+from tb.sim_ram import *
+from tb.sim_monitor import *
 
 import types
-from disassemble import *
+from tb.disassemble import *
 from math import log 
 
 

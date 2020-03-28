@@ -6,8 +6,8 @@ from rtl.loadstore import *
 from rtl.instructions import LoadFunct3, StoreFunct3
 from rtl import config
 
-from sim_ram import * 
-from ClkDriver import *
+from tb.sim_ram import * 
+from tb.ClkDriver import *
 
 ram_size=256
 

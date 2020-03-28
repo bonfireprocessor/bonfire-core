@@ -6,7 +6,7 @@ License: See LICENSE
 from __future__ import print_function
 
 from myhdl import *
-from pipeline_control import *
+from rtl.pipeline_control import *
 
 
 class InstructionBuffer(PipelineControl):

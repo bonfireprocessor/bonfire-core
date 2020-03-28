@@ -5,11 +5,11 @@ License: See LICENSE
 """
 
 from myhdl import *
-from instructions import Opcodes as op
-from instructions import ArithmeticFunct3  as f3
-from util import signed_resize
+from rtl.instructions import Opcodes as op
+from rtl.instructions import ArithmeticFunct3  as f3
+from rtl.util import signed_resize
 
-from pipeline_control import *
+from rtl.pipeline_control import *
 
 
 def get_I_immediate(instr):

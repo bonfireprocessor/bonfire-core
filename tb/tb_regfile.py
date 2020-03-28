@@ -1,7 +1,7 @@
 from myhdl import *
 
 from rtl.regfile import * 
-from ClkDriver import *
+from tb.ClkDriver import *
 
 
 clock=Signal(bool(0))
@@ -37,10 +37,10 @@ def tb():
             reg_portA.ra.next = i
             reg_portB.ra.next = i 
             yield clock.posedge
-            print reg_portA.rd, reg_portB.rd 
+            print(reg_portA.rd, reg_portB.rd) 
 
 
-        print "Simulation finished"
+        print ("Simulation finished")
         raise StopSimulation    
 
     return instances()

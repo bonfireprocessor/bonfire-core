@@ -3,11 +3,11 @@ from __future__ import print_function
 from myhdl import *
 
 from rtl.simple_pipeline import *
-from ClkDriver import *
-from sim_ram import *
+from tb.ClkDriver import *
+from tb.sim_ram import *
 
 import types
-from disassemble import *
+from tb.disassemble import *
 
 from rtl import config,loadstore
 from rtl.fetch import FetchUnit

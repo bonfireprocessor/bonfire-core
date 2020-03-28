@@ -1,11 +1,13 @@
+from __future__ import print_function
+
 from myhdl import *
 
 from rtl.simple_pipeline import *
-from ClkDriver import *
-from sim_ram import *
+from tb.ClkDriver import *
+from tb.sim_ram import *
 
 import types
-from disassemble import *
+from tb.disassemble import *
 
 from rtl import config,loadstore
 
@@ -83,33 +85,33 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         t=cmd["t"]
         if type(t) == types.FunctionType:
             if t():
-                print "OK"
+                print ("OK")
             else:
-                print "FAIL"
+                print ("FAIL")
                 assert StopSimulation
-        print "----"
+        print ("----")
 
 
     @always_seq(clock.posedge,reset=reset)
     def commit_check():
 
         if cmd_index >= len(commands):
-            print "Simulation finished"
+            print ("Simulation finished")
             raise StopSimulation
 
         if debug.valid_o:
 
             cmd = commands[cmd_index]
             if we_o:
-                print "at {}ns {}:  commmit to reg {} value {}".format(now(), cmd["source"], abi_name(rd_o), result_o)
+                print ("at {}ns {}:  commmit to reg {} value {}".format(now(), cmd["source"], abi_name(rd_o), result_o))
             else:
-                print "at {}ns {}:  commmit without reg write".format(now(), cmd["source"])
+                print ("at {}ns {}:  commmit without reg write".format(now(), cmd["source"]))
             check(cmd)
 
             cmd_index.next = cmd_index + 1
         elif backend.execute.debug_exec_jump:
             cmd = commands[cmd_index]
-            print "at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],jump_o, jump_dest_o )
+            print ("at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],jump_o, jump_dest_o ))
             check(cmd)
             cmd_index.next = cmd_index + 1
 

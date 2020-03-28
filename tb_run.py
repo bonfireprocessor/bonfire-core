@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipeline,tb_loadstore,tb_fetch,tb_core
 
 from uncore import tb_soc
@@ -37,32 +39,32 @@ def convert_tb(inst,**kwargs):
 
 
 def module_unit_tests():
-    print "Testing tb_barrel_left_shift_comb"
+    print("Testing tb_barrel_left_shift_comb")
     test(tb_barrel_shifter.tb_barrel_left_shift_comb())
 
-    print "Testing tb_barrel_left_shift_pipelined"
+    print("Testing tb_barrel_left_shift_pipelined")
     test(tb_barrel_shifter.tb_barrel_left_shift_pipelined(),trace=False)
 
-    print "Testing tb_barrel_shift_pipelined"
+    print("Testing tb_barrel_shift_pipelined")
     test(tb_barrel_shifter.tb_barrel_shift_pipelined(),trace=False)
 
-    print 'Testing alu c_shifter_mode="behavioral"'
+    print('Testing alu c_shifter_mode="behavioral"')
     test(tb_alu.tb(c_shifter_mode="behavioral"),trace=False)
 
-    print 'Testing alu c_shifter_mode="comb"'
+    print('Testing alu c_shifter_mode="comb"')
     test(tb_alu.tb(c_shifter_mode="comb"),trace=False)
 
-    print 'Testing alu c_shifter_mode="pipelined"'
+    print('Testing alu c_shifter_mode="pipelined"')
     test(tb_alu.tb(c_shifter_mode="pipelined"),trace=False)
 
-    print 'Testing decoder'
+    print('Testing decoder')
     test(tb_decode.tb(True),trace=False)
 
-    print 'Testing Regfile'
+    print('Testing Regfile')
     test(tb_regfile.tb(),trace=False)
 
 def loadstore_unit_tests():    
-    print 'Testing Loadstore'
+    print('Testing Loadstore')
     conf=config.BonfireConfig()
     # Waveform tracing test variant
     conf.loadstore_outstanding=1
@@ -81,16 +83,16 @@ def loadstore_unit_tests():
 
 
 def pipeline_integration_tests():
-    print 'Testing SimplePipeline with comb shifter'
+    print('Testing SimplePipeline with comb shifter')
     conf=config.BonfireConfig()
     conf.shifter_mode="comb"
     test(tb_simple_pipeline.tb(config=conf),trace=False,filename="tb_simple_pipeline_comb_shift")
 
 
-    print 'Testing SimplePipeline with staged shifter'
+    print('Testing SimplePipeline with staged shifter')
     test(tb_simple_pipeline.tb(test_conversion=False),trace=False,filename="tb_simple_pipeline")
 
-    print 'Testing Fetch unit'
+    print('Testing Fetch unit')
     test(tb_fetch.tb(test_conversion=False),trace=False,filename="tb_fetch")
 
 def core_integration_tests(hex,elf,sig,vcd,verbose):   

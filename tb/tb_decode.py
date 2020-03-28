@@ -1,10 +1,10 @@
-
+from __future__ import print_function
 
 from myhdl import *
 from rtl.decode import *
-from ClkDriver import *
+from tb.ClkDriver import *
 import types
-from disassemble import *
+from tb.disassemble import *
 
 
 clock=Signal(bool(0))
@@ -52,26 +52,26 @@ def tb(test_conversion=False):
         if dec.valid_o:
             
             if cmd_index >= len(commands):
-                print "Simulation finished"
+                print ("Simulation finished")
                 raise StopSimulation
 
             cmd = commands[cmd_index]
-            print "{} at {} ns".format( cmd["source"], now() )
-            print "rs1: {}, rs2: {} rd:{}".format( abi_name(rs1), abi_name(rs2),abi_name(dec.rd_adr_o) )
-            print "funct3: {} funct7: {}".format(bin(dec.funct3_onehot_o,8),bin(dec.funct7_o,7))
-            print "op1: {} op2: {}".format( dec.op1_o, dec.op2_o,7 )
+            print ("{} at {} ns".format( cmd["source"], now() ))
+            print ("rs1: {}, rs2: {} rd:{}".format( abi_name(rs1), abi_name(rs2),abi_name(dec.rd_adr_o) ))
+            print ("funct3: {} funct7: {}".format(bin(dec.funct3_onehot_o,8),bin(dec.funct7_o,7)))
+            print ("op1: {} op2: {}".format( dec.op1_o, dec.op2_o,7 ))
           
             if dec.branch_cmd:
-                print "Branch target: {}".format(hex(dec.jump_dest_o))
+                print ("Branch target: {}".format(hex(dec.jump_dest_o)))
           
             t=cmd["t"]
        
             if type(t) == types.FunctionType:
                 if t(dec,rs1,rs2):
-                    print "OK"
+                    print ("OK")
                 else:
-                    print "FAIL"
-            print "----"
+                    print ("FAIL")
+            print ("----")
             
             cmd_index.next = cmd_index + 1 
             

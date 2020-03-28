@@ -7,11 +7,11 @@ License: See LICENSE
 
 from myhdl import *
 
-from decode import *
-from execute import *
-from regfile import * 
+from rtl.decode import *
+from rtl.execute import *
+from rtl.regfile import * 
 
-import config
+from  rtl import config
 def_config= config.BonfireConfig()
 
 class FetchInputBundle:

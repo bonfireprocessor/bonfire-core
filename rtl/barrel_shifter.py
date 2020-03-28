@@ -3,7 +3,7 @@ Barrel Shifter Library
 (c) 2019 The Bonfire Project
 License: See LICENSE
 """
-
+from __future__ import print_function
 from myhdl import *
 
 
@@ -29,7 +29,7 @@ def left_shift_comb(d_i,d_o, shift_i, fill_i,c_sh_power_high=5,c_sh_power_low=0)
     """
 
     l=len(d_i)
-    print "Shifter instance with config {} {}".format(c_sh_power_high,c_sh_power_low)
+    print ("Shifter instance with config {} {}".format(c_sh_power_high,c_sh_power_low))
     
     @always_comb
     def comb():
@@ -74,12 +74,12 @@ def left_shift_pipelined(clock,reset,d_i,d_o, shift_i, fill_i,en_i,ready_o, c_pi
         
     """
 
-    print len(shift_i), c_pipe_stage
+    print (len(shift_i), c_pipe_stage)
     assert(c_pipe_stage<=len(shift_i) and c_pipe_stage>=0)
 
     if c_pipe_stage > 0:
 
-        print  "Shifter implemented with one pipeline stage: {}:{} || {}:{} ".format(c_pipe_stage,0,len(shift_i),c_pipe_stage)
+        print ("Shifter implemented with one pipeline stage: {}:{} || {}:{} ".format(c_pipe_stage,0,len(shift_i),c_pipe_stage))
 
         stage_reg = Signal(modbv(0)[len(d_i):])
         stage0_out = Signal(modbv(0)[len(d_i):])
@@ -108,7 +108,7 @@ def left_shift_pipelined(clock,reset,d_i,d_o, shift_i, fill_i,en_i,ready_o, c_pi
 
     else:
 
-      print "Shifter implemented without pipeline stage "  
+      print ("Shifter implemented without pipeline stage "  )
       shifter_inst=left_shift_comb(d_i,d_o,shift_i,fill_i,len(shift_i))
 
       @always_comb

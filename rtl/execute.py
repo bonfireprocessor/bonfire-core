@@ -7,13 +7,12 @@ from __future__ import print_function
 
 from myhdl import *
 
-import alu
-import loadstore
+from rtl import alu, loadstore
 
-from instructions import BranchFunct3  as b3
-from instructions import Opcodes
+from rtl.instructions import BranchFunct3  as b3
+from rtl.instructions import Opcodes
 
-from pipeline_control import *
+from rtl.pipeline_control import *
 
 
 class ExecuteBundle(PipelineControl):

@@ -7,15 +7,15 @@ from __future__ import print_function
 
 from myhdl import *
 
-from instructions import LoadFunct3, StoreFunct3
+from rtl.instructions import LoadFunct3, StoreFunct3
 
-from util import signed_resize
-from barrel_shifter import left_shift_comb
-from pipeline_control import *
+from rtl.util import signed_resize
+from rtl.barrel_shifter import left_shift_comb
+from rtl.pipeline_control import *
 
 write_pipe_index = 0 # Declaration 
 
-from bonfire_interfaces import DbusBundle
+from rtl.bonfire_interfaces import DbusBundle
 
 
 class LoadStoreBundle(PipelineControl):

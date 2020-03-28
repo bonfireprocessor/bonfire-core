@@ -1,6 +1,6 @@
 from myhdl import *
 from rtl import barrel_shifter
-from ClkDriver import *
+from tb.ClkDriver import *
 
 d_in=Signal(intbv(1)[32:])
 d_o=Signal(intbv(0)[32:])
@@ -25,28 +25,28 @@ def tb_barrel_left_shift_comb():
 
     @instance
     def stimulus():
-        print "zero fill"
+        print("zero fill")
        
         fill_i.next=0
         for i in range(shift_in.max):
             shift_in.next=i
             yield delay(10)
-            print  i, bin(d_o,32) 
+            print (i, bin(d_o,32)) 
             assert(d_o == d_in << i)
             yield delay(10)
             
 
         fill_i.next=True
-        print "1 fill" 
+        print("1 fill")
         for i in range(shift_in.max):
             shift_in.next=i
             yield delay(10)
-            print  i, bin(d_o,32) 
+            print(i, bin(d_o,32))
             fill=2**i -1
             assert(d_o == (d_in << i | fill )) 
             yield delay(10)
            
-        print "finish"
+        print("finish")
 
     return instances()
 
@@ -67,7 +67,7 @@ def tb_barrel_left_shift_pipelined():
         reset.next=False
         yield delay(40)
 
-        print "zero fill"
+        print("zero fill")
        
         fill_i.next=0
         for i in range(shift_in.max):
@@ -80,11 +80,11 @@ def tb_barrel_left_shift_pipelined():
             while ready_o==0: 
                 yield clock.posedge 
              
-            print  i, bin(d_o,32) 
+            print(i, bin(d_o,32) )
             assert(d_o == d_in << i)
             yield clock.posedge
 
-        print "Simulation finished"
+        print("Simulation finished")
         raise StopSimulation 
 
     return instances()
@@ -107,7 +107,7 @@ def tb_barrel_shift_pipelined():
         reset.next=False
         yield delay(40)
 
-        print "zero fill"
+        print("zero fill")
        
         fill_i.next=0
         for i in range(shift_in.max):
@@ -120,7 +120,7 @@ def tb_barrel_shift_pipelined():
             while ready_o==0: 
                 yield clock.posedge 
              
-            print  i, bin(d_o,32) 
+            print (i, bin(d_o,32) )
             assert(d_o == d_in << i)
             yield clock.posedge
 
@@ -137,11 +137,11 @@ def tb_barrel_shift_pipelined():
             while ready_o==0: 
                 yield clock.posedge 
              
-            print  i, bin(d_o,32) 
+            print(i, bin(d_o,32) )
             assert(d_o == d_in >> i)
             yield clock.posedge    
 
-        print "Simulation finished"
+        print("Simulation finished")
         raise StopSimulation 
 
     return instances()    

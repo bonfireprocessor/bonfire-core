@@ -12,7 +12,7 @@ from rtl import config
 from rtl import bonfire_interfaces
 from rtl.simple_pipeline import DebugOutputBundle
 
-from ram_dp import *
+from uncore.ram_dp import *
 from uncore.dbus_interconnect import *
 from tb.sim_monitor import *
 

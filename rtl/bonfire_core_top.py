@@ -8,9 +8,9 @@ from __future__ import print_function
 
 from myhdl import *
 
-from simple_pipeline import *
-from fetch import FetchUnit
-import config 
+from rtl.simple_pipeline import *
+from rtl.fetch import FetchUnit
+from rtl import config 
 
 class BonfireCoreTop:
     def __init__(self,config=config.BonfireConfig()):
