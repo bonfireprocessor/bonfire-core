@@ -94,6 +94,7 @@ class DbusInterConnects:
                 master.db_rd.next = slave3.db_rd   
             else:
                 master.error_i.next = master.en_o
+                master.db_rd.next = 0
                 
                 
             master.ack_i.next = t_ack

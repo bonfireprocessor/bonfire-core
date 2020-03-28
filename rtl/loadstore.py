@@ -330,10 +330,16 @@ class LoadStoreBundle(PipelineControl):
             def ls_valid_out():
 
                 if pipe_store[write_pipe_index]:
-                    # Writes can be terminated early 
-                    valid.next = valid_comb
+                    # Writes can be terminated early
+                    if self.config.mem_write_early_term: 
+                        valid.next = valid_comb
+                        ext_busy.next = busy
+                    else:
+                        valid.next = valid_reg
+                        ext_busy.next = busy  or valid_reg # Extend busy to the valid phase
+
                     self.we_o.next = False
-                    ext_busy.next = busy
+                    
                 else:
                     valid.next = valid_reg
                     self.we_o.next = valid_reg
