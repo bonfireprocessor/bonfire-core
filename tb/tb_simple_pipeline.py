@@ -9,12 +9,14 @@ from tb.sim_ram import *
 import types
 from tb.disassemble import *
 
-from rtl import config,loadstore
+from rtl import config,loadstore, pipeline_control
+from rtl.bonfire_interfaces import DebugOutputBundle
 
 result_o = Signal(intbv(0)[32:])
 rd_o = Signal(intbv(0)[5:])
 we_o =  Signal(bool(0))
 
+take_branch = Signal(bool(0))
 jump_o =  Signal(bool(0))
 jump_dest_o =  Signal(intbv(0)[32:])
 
@@ -34,17 +36,45 @@ commands=[ \
     {"opcode":0x800007b7,"source":"lui a5,0x80000", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0x80000000 },
     {"opcode":0x4187d793,"source":"srai a5,a5,0x18", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0xffffff80 },
     {"opcode":0x00078493,"source":"mv	s1,a5", "t": lambda: abi_name(rd_o)=="s1" and result_o == 0xffffff80 },
-    {"opcode":0xfcc58ee3,"source":"beq	a1,a2,0 <test>", "t": lambda: jump_o==False },
-    #{"opcode":0xfcc59ce3,"source":"bne	a1,a2,0 <test>", "t": lambda: jump_o==True and jump_dest_o==0x8 },
-    #{"opcode":0xfcb64ae3,"source":"blt	a1,a2,0 <test>", "t": lambda: jump_o==False  },
-    #{"opcode":0xfcb668e3,"source":"bltu	a1,a2,0 <test>", "t": lambda: jump_o==True and jump_dest_o==0x8 },
+    {"opcode":0xfcc58ee3,"source":"beq	a1,a2,0 <test>", "t": lambda: take_branch==False },
     {"opcode":0x00000493,"source":"li	s1,0", "t": lambda: abi_name(rd_o)=="s1" and result_o ==0 },
     {"opcode":0xdeadc937,"source":"lui	s2,0xdeadc", "t": lambda: abi_name(rd_o)=="s2" and result_o ==0xdeadc000 },
     {"opcode":0xeef90913,"source":"addi	s2,s2,-273", "t": lambda: abi_name(rd_o)=="s2" and result_o ==0xdeadbeef },
     {"opcode":0x0124a223,"source":"sw	s2,4(s1)", "t": lambda: ram[1]==0xdeadbeef },
     {"opcode":0x0054c583,"source":"lbu	a1,5(s1)", "t": lambda: abi_name(rd_o)=="a1" and result_o ==0xbe },
-    {"opcode":0xfc5ff86f,"source":"jal	a6,8 <test>", "t": lambda: abi_name(rd_o)=="a6" and result_o==0x48 and jump_o  }
+    {"opcode":0xfc5ff86f,"source":"jal	a6,8 <test>", "t": lambda: abi_name(rd_o)=="a6" and result_o==0x48   }
 ]
+
+
+class dummy_fetch_unit(PipelineControl):
+    def __init__(self):
+        PipelineControl.__init__(self)
+
+
+    @block
+    def createInstance(self,fetch,clock,reset):
+
+        fetch_index = Signal(intbv(0))
+
+        @always_seq(clock.posedge,reset=reset)
+        def feed():
+
+            if not self.stall_i:
+                if fetch_index < len(commands):
+                    cmd = commands[fetch_index]
+                    fetch.word_i.next = cmd["opcode"]
+                    fetch.current_ip_i.next = fetch_index * 4
+                    fetch.next_ip_i.next  = fetch_index * 4  + 4
+
+                    fetch.en_i.next=True
+                    fetch_index.next = fetch_index + 1
+                else:
+                    fetch.en_i.next=False
+
+        p_i = self.pipeline_instance(False,fetch.en_i)            
+
+        return instances()            
+
 
 @block
 def tb(config=config.BonfireConfig(),test_conversion=False):
@@ -52,15 +82,19 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     reset = ResetSignal(0, active=1, isasync=False)
     cmd_index = Signal(intbv(0)[32:])
 
-    debug=DebugOutputBundle()
+    debug=DebugOutputBundle(config)
     out = BackendOutputBundle()
     datatbus = loadstore.DbusBundle(config=config)
 
     backend = SimpleBackend(config=config)
     fetch = FetchInputBundle(config=config)
+    frontend = dummy_fetch_unit()
+    fu_i = frontend.createInstance(fetch,clock,reset)
+
+    
 
     clk_driver= ClkDriver(clock)
-    dut = backend.backend(fetch,datatbus,clock,reset,out,debug)
+    dut = backend.backend(fetch,frontend,datatbus,clock,reset,out,debug)
 
 
     if test_conversion:
@@ -79,6 +113,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         we_o.next = debug.reg_we_o
         jump_o.next = backend.execute.jump_o
         jump_dest_o.next = backend.execute.jump_dest_o
+        take_branch.next = debug.jump and debug.jump_exec
 
 
     def check(cmd):
@@ -109,31 +144,20 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
             check(cmd)
 
             cmd_index.next = cmd_index + 1
-        elif backend.execute.debug_exec_jump:
+
+        if debug.jump_exec:
             cmd = commands[cmd_index]
-            print ("at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],jump_o, jump_dest_o ))
+            print ("at {}ns: {}, do: {}".format(now(),cmd["source"],debug.jump))
             check(cmd)
-            cmd_index.next = cmd_index + 1
+            # In case of a not taken branch increment command counter now, because there will be no jump_o signal
+            if not debug.jump:
+                cmd_index.next = cmd_index + 1
 
-
-    fetch_index = Signal(intbv(0))
-
-    @always_seq(clock.posedge,reset=reset)
-    def feed():
-
-        if not backend.decode.busy_o:
-            if fetch_index < len(commands):
-                cmd = commands[fetch_index]
-                fetch.word_i.next = cmd["opcode"]
-                fetch.current_ip_i.next = fetch_index * 4
-                fetch.next_ip_i.next  = fetch_index * 4  + 4
-
-                fetch.en_i.next=True
-                fetch_index.next = fetch_index + 1
-            else:
-                fetch.en_i.next=False
-
-
+        if jump_o:
+            cmd = commands[cmd_index] 
+            print ("at {}ns: {}, destination: {}".format(now(),cmd["source"], jump_dest_o )) 
+            check(cmd) 
+    
 
     return instances()
 

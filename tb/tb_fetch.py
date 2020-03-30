@@ -11,7 +11,7 @@ from tb.disassemble import *
 
 from rtl import config,loadstore
 from rtl.fetch import FetchUnit
-from rtl.bonfire_interfaces import DbusBundle
+from rtl.bonfire_interfaces import DbusBundle,DebugOutputBundle
 
 ram_size = 256
 
@@ -23,6 +23,7 @@ rd_o = Signal(intbv(0)[5:])
 we_o =  Signal(bool(0))
 jump_o =  Signal(bool(0))
 jump_dest_o =  Signal(intbv(0)[32:])
+take_branch = Signal(bool(0))
 
 
 
@@ -38,13 +39,13 @@ commands=[ \
     {"opcode":0x800007b7,"source":"lui a5,0x80000", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0x80000000 }, 
     {"opcode":0x4187d793,"source":"srai a5,a5,0x18", "t": lambda: abi_name(rd_o)=="a5" and result_o == 0xffffff80 }, 
     {"opcode":0x00078493,"source":"mv	s1,a5", "t": lambda: abi_name(rd_o)=="s1" and result_o == 0xffffff80 }, 
-    {"opcode":0xfcc58ee3,"source":"beq	a1,a2,0 <test>", "t": lambda: not jump_o },
+    {"opcode":0xfcc58ee3,"source":"beq	a1,a2,0 <test>", "t": lambda: not take_branch },
     {"opcode":0x00000493,"source":"li	s1,0", "t": lambda: abi_name(rd_o)=="s1" and result_o ==0 }, \
     {"opcode":0xdeadc937,"source":"lui	s2,0xdeadc", "t": lambda: abi_name(rd_o)=="s2" and result_o==0xdeadc000 },
      {"opcode":0xeef90913,"source":"addi	s2,s2,-273", "t": lambda: abi_name(rd_o)=="s2" and result_o ==0xdeadbeef },
     {"opcode":0x0124a223,"source":"sw	s2,4(s1)", "t": lambda: data_ram[1]==0xdeadbeef }, 
     {"opcode":0x0054c303,"source":"lbu	t1,5(s1)", "t": lambda: abi_name(rd_o)=="t1" and result_o==0xbe },
-    {"opcode":0xfc5ff06f,"source":"j 8 <test>", "t": lambda: abi_name(rd_o)=="zero" and result_o==0x48 and jump_o  },
+    {"opcode":0xfc5ff06f,"source":"j 8 <test>", "t": lambda: abi_name(rd_o)=="zero" and result_o==0x48 and take_branch  },
     {"opcode":0x00100593,"source":"li a1,1", "t": lambda: False  }, # should not be executed        
 ]
 
@@ -55,7 +56,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
    
     ibus = DbusBundle(config=config,readOnly=True) 
-    debug=DebugOutputBundle()
+    debug=DebugOutputBundle(config)
     out = BackendOutputBundle()
     dbus = DbusBundle(config=config) 
     fetch_bundle = FetchInputBundle(config=config)
@@ -73,7 +74,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
 
 
     # processor Backend
-    i_backend = backend.backend(fetch_bundle,dbus,clock,reset,out,debug)
+    i_backend = backend.backend(fetch_bundle,fetch_unit,dbus,clock,reset,out,debug)
 
     # Simulated Code RAM 
    
@@ -98,6 +99,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
         we_o.next = debug.reg_we_o
         jump_o.next = out.jump_o
         jump_dest_o.next = out.jump_dest_o
+        take_branch.next = debug.jump and debug.jump_exec
 
 
     current_ip_r = Signal(intbv(0))
@@ -133,7 +135,7 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
     @always_seq(clock.posedge,reset=reset)
     def commit_check():
 
-        if jump_cnt > 1:
+        if jump_cnt > 0:
             print("Simulation finished")
             raise StopSimulation
 
@@ -151,14 +153,18 @@ def tb(config=config.BonfireConfig(),test_conversion=False):
                 print("@{}ns {}:  commmit without reg write".format(now(), cmd["source"]))    
             check(cmd)
 
-            #cmd_index.next = cmd_index + 1
-        if backend.execute.debug_exec_jump:
+
+        if debug.jump_exec:
             cmd = commands[idx]
-            print("at {}ns: {}, do: {}, destination: {}".format(now(),cmd["source"],out.jump_o, out.jump_dest_o ))
+            print ("at {}ns: {}, do: {}".format(now(),cmd["source"],debug.jump))
             check(cmd)
-            #cmd_index.next = cmd_index + 1
-            if out.jump_o:
-                jump_cnt.next = jump_cnt + 1
+            
+
+        if jump_o:
+            cmd = commands[idx] 
+            print ("at {}ns: {}, destination: {}".format(now(),cmd["source"], jump_dest_o )) 
+            jump_cnt.next = jump_cnt + 1
+         
 
 
     @instance

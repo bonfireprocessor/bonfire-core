@@ -31,7 +31,22 @@ class DbusBundle:
             self.we_o = Signal(modbv(0)[xlen/8:]) # Byte wide write enable signals
             self.db_wr = Signal(modbv(0)[xlen:])
     
+class DebugOutputBundle:
+   def __init__(self,config):
+       self.config=config
+       xlen=config.xlen 
 
+       self.valid_o =  Signal(bool(0))
+       self.result_o = Signal(intbv(0)[xlen:])
+       self.rd_adr_o = Signal(intbv(0)[5:])
+       self.reg_we_o = Signal(bool(0))
+
+       # branch/jump
+       # jump_exec = True and jump = False: current instruction is  a not taken branch, this is not exposed to the regular pipeline output
+       # jump_exec = True and jump = True: current instruction is a taken branch. Depending on config.jump_bypass it will be reflected in the next clock cycle
+       self.jump_exec = Signal(bool(0)) # Jump/branch instruction execution begins
+       self.jump = Signal(bool(0)) # jump will take place (internal non-reigistered signal, not the same as jump_o)
+       
 
 class ControlBundle:
     """

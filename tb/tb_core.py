@@ -10,7 +10,7 @@ from __future__ import print_function
 from myhdl import *
 
 from rtl import config, bonfire_core_top, bonfire_interfaces
-from rtl.simple_pipeline import DebugOutputBundle
+
 
 from tb.ClkDriver import *
 from tb.sim_ram import *
@@ -48,7 +48,7 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
     ibus = bonfire_interfaces.DbusBundle(config,readOnly=True)
     dbus = bonfire_interfaces.DbusBundle(config)
     control = bonfire_interfaces.ControlBundle(config)
-    debug = DebugOutputBundle(config)
+    debug = bonfire_interfaces.DebugOutputBundle(config)
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
 

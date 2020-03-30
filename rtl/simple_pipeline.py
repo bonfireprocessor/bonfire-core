@@ -34,16 +34,6 @@ class BackendOutputBundle:
         self.busy_o = Signal(bool(0))
 
        
-class DebugOutputBundle:
-   def __init__(self,config=def_config):
-       self.config=config
-       xlen=config.xlen 
-
-       self.valid_o =  Signal(bool(0))
-       self.result_o = Signal(intbv(0)[xlen:])
-       self.rd_adr_o = Signal(intbv(0)[5:])
-       self.reg_we_o = Signal(bool(0))
-
 
 class SimpleBackend:
     def __init__(self,config=def_config):
@@ -62,7 +52,7 @@ class SimpleBackend:
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset)
-        exec_inst = self.execute.SimpleExecute(self.decode, databus, clock,reset )
+        exec_inst = self.execute.SimpleExecute(self.decode, databus, debugport, clock,reset )
 
         d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
 

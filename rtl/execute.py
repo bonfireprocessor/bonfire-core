@@ -36,19 +36,17 @@ class ExecuteBundle(PipelineControl):
 
         self.invalid_opcode_fault = Signal(bool(0))
 
-        # debug
-        self.debug_exec_jump = Signal(bool(0))
-
         PipelineControl.__init__(self)
 
 
 
     @block
-    def SimpleExecute(self, decode, databus, clock, reset):
+    def SimpleExecute(self, decode, databus, debugport, clock, reset):
         """
         Simple execution Unit designed for single stage in-order execution
         decode : DecodeBundle class instance
         databus : DBusBundle instance  
+        debugport : DebugOutputBundle instance
         clock : clock
         reset : reset
         """
@@ -119,7 +117,9 @@ class ExecuteBundle(PipelineControl):
             self.alu.en_i.next = decode.alu_cmd and self.taken
             self.ls.en_i.next = ( decode.store_cmd or decode.load_cmd ) and self.taken
 
-            self.debug_exec_jump.next = self.taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd )
+            # Debug Interface
+            debugport.jump_exec.next = self.taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd)
+            debugport.jump.next = jump
     
            
         @always_comb
@@ -187,10 +187,6 @@ class ExecuteBundle(PipelineControl):
                     jump.next = True
                     jump_we.next = True 
             
-                    
-            
-
-
             #TODO: Implement other functional units
 
 

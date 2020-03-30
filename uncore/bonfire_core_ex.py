@@ -10,7 +10,7 @@ from myhdl import *
 from rtl import bonfire_core_top
 from rtl import config
 from rtl import bonfire_interfaces
-from rtl.simple_pipeline import DebugOutputBundle
+
 
 from uncore.ram_dp import *
 from uncore.dbus_interconnect import *
@@ -37,7 +37,7 @@ def bonfireCoreExtendedInterface(wb_master,db_master,bram_a,bram_b,clock,reset,
     ibus = bonfire_interfaces.DbusBundle(config,readOnly=True)
     dbus = bonfire_interfaces.DbusBundle(config)
     control = bonfire_interfaces.ControlBundle(config)
-    debug = DebugOutputBundle(config)
+    debug = bonfire_interfaces.DebugOutputBundle(config)
 
     db_master_bram = bonfire_interfaces.DbusBundle(config) # Block RAM 
     db_master_wb = bonfire_interfaces.DbusBundle(config) # Wishbone DBUS
