@@ -29,14 +29,14 @@ commands=[ \
 
 
 @block
-def tb(c_shifter_mode="behavioral"):
+def tb(c_shifter_mode="behavioral",test_conversion=False):
 
     clk_driver= ClkDriver(clock)
 
     #inst=alu.alu()
     inst=AluBundle.alu(alu,clock,reset, c_shifter_mode)
 
-    if c_shifter_mode!="behavioral":
+    if c_shifter_mode!="behavioral" and test_conversion:
        inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="alu_" + c_shifter_mode )
 
 

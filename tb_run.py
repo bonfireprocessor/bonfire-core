@@ -41,27 +41,35 @@ def convert_tb(inst,**kwargs):
 def module_unit_tests():
     print("Testing tb_barrel_left_shift_comb")
     test(tb_barrel_shifter.tb_barrel_left_shift_comb())
+    print("OK")
 
     print("Testing tb_barrel_left_shift_pipelined")
     test(tb_barrel_shifter.tb_barrel_left_shift_pipelined(),trace=False)
+    print("OK")
 
     print("Testing tb_barrel_shift_pipelined")
     test(tb_barrel_shifter.tb_barrel_shift_pipelined(),trace=False)
+    print("OK")
 
     print('Testing alu c_shifter_mode="behavioral"')
     test(tb_alu.tb(c_shifter_mode="behavioral"),trace=False)
+    print("OK")
 
     print('Testing alu c_shifter_mode="comb"')
     test(tb_alu.tb(c_shifter_mode="comb"),trace=False)
+    print("OK")
 
     print('Testing alu c_shifter_mode="pipelined"')
     test(tb_alu.tb(c_shifter_mode="pipelined"),trace=False)
+    print("OK")
 
     print('Testing decoder')
-    test(tb_decode.tb(True),trace=False)
+    test(tb_decode.tb(),trace=False)
+    print("OK")
 
     print('Testing Regfile')
     test(tb_regfile.tb(),trace=False)
+    print("OK")
 
 def loadstore_unit_tests():    
     print('Testing Loadstore')
