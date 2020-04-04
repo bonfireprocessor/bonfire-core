@@ -21,7 +21,7 @@ def test(inst,**kwagrs):
             d=10000
         inst.run_sim(duration=d)
     except AssertionError as a:
-        print("Test failure: " + a.message)
+        print("Test failure: ".join(a.args))
         inst.quit_sim()
         print("stopping simulation run because of test failure")
         exit()

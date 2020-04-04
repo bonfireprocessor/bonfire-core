@@ -10,10 +10,11 @@ from __future__ import print_function
 from myhdl import *
 from elftools.elf.elffile import ELFFile
 
+from sys import stdout
 
 def dump_signature(memArray,elf,sig):
 
-    with open(elf) as f:
+    with open(elf,mode="rb") as f:
         elf = ELFFile(f)
         symtab = elf.get_section_by_name('.symtab')
         # for s in symtab.iter_symbols():
@@ -26,10 +27,13 @@ def dump_signature(memArray,elf,sig):
 
         sf=open(sig,"w")
 
+        cnt=1
         for i in range(start>>2,end>>2):
             h="{0:08x}".format(int(memArray[i]))
-            print(h)
+            stdout.write(h+ ("\n" if (cnt % 8)==0 else " "))
+            cnt+=1
             sf.write(h+"\n")
+        stdout.write("\n")    
         sf.close()
 
 @block

@@ -26,7 +26,17 @@
             "program": "/home/thomas/development/bonfire/bonfire-core/tb_run.py",
             "args": [
                 "--hex=code/loadsave.hex",
-                "--vcd=tb_core", "-v"
+                "--vcd=tb_core"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: run unit tests",
+            "type": "python",
+            "request": "launch",
+            "program": "/home/thomas/development/bonfire/bonfire-core/tb_run.py",
+            "args": [
+                "--pipeline"
             ],
             "console": "integratedTerminal"
         },
