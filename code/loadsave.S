@@ -59,7 +59,7 @@ check(0xffffaa55)
 
 // Negative offset test 
 addi a5,a1,20
-sw a2,-4(a5) // offet 16
+sw a2,-4(a5) // offset 16
 lw t4,16(a1)
 check(0xfa55aa55)
 

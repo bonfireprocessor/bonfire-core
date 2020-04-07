@@ -10,7 +10,6 @@ import getopt, sys
 from myhdl import *
 
 from rtl import config, bonfire_interfaces
-from rtl.simple_pipeline import DebugOutputBundle
 from rtl.bonfire_core_top import BonfireCoreTop
 from  uncore import bonfire_core_ex,ram_dp
 from  uncore.dbus_interconnect import AdrMask
@@ -21,7 +20,7 @@ def gen_core(config,hdl,name,path):
     ibus = bonfire_interfaces.DbusBundle(config,readOnly=True)
     dbus = bonfire_interfaces.DbusBundle(config)
     control = bonfire_interfaces.ControlBundle(config)
-    debug = DebugOutputBundle(config)
+    debug = bonfire_interfaces.DebugOutputBundle(config)
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
 
