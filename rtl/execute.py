@@ -57,13 +57,30 @@ class ExecuteBundle(PipelineControl):
         valid = Signal(bool(0))
         rd_adr_reg = Signal(modbv(0)[5:])
 
-        jump = Signal(bool(0))
-        jump_r =  Signal(bool(0))
+        jump = Signal(bool(0))    # Execute jump "raw" signal without pipeline control
+        branch =  Signal(bool(0)) # Execute branch "raw" signal without pipeline control
+
+        jump_1 = Signal(bool(0)) # temporary signal, input for jump_r
+        jump_r =  Signal(bool(0)) # Do jump registered
         jump_dest =  Signal(intbv(0)[self.config.xlen:])
         jump_dest_r = Signal(intbv(0)[self.config.xlen:])
-        jump_busy = Signal(bool(0)) # Only used when not config.jump_bypass
+        jump_busy = Signal(bool(0)) 
+
+       
 
         jump_we = Signal(bool(0)) # rd write enable on jal/jalr
+
+        # Copy of ALU output flags, can be used registered or combinatorical
+        flag_ge = Signal(bool(0)) 
+        flag_uge = Signal(bool(0)) 
+        flag_equal = Signal(bool(0))
+
+        # Copy of branch command and opcode,  can be used registered or combinatorical
+        branch_cmd = Signal(bool(0))
+        branch_op = Signal(intbv(0)[3:])
+
+       
+        invalid_branch_op = Signal(bool(0)) 
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
@@ -71,16 +88,18 @@ class ExecuteBundle(PipelineControl):
         p_inst = self.pipeline_instance(busy,valid)
 
         
+        
         @always_seq(clock.posedge,reset=reset)
         def seq():
 
             jump_busy.next = False
             if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
-                jump_dest_r.next = jump_dest
-                jump_r.next = jump
-                jump_busy.next = jump and not self.config.jump_bypass
-                   
+                jump_dest_r.next = jump_dest            
+                jump_busy.next = decode.branch_cmd and self.config.comp_registered
+
+            if self.taken or jump_busy:
+                 jump_r.next = jump_1
                 
                 # # Debug code
                 # if self.debug_exec_jump.next: 
@@ -106,10 +125,10 @@ class ExecuteBundle(PipelineControl):
             busy.next = self.alu.busy_o or self.ls.busy_o or jump_busy
             valid.next = self.alu.valid_o or self.ls.valid_o  or jump_we
 
-            if self.config.jump_bypass:
-                decode.kill_i.next =  self.taken and jump
-            else:    
-                decode.kill_i.next = jump_busy
+         
+            decode.kill_i.next =  (self.taken or jump_busy ) and jump_1
+            #else:    
+            #    decode.kill_i.next = jump_busy
 
 
             # Functional Unit selection
@@ -121,7 +140,29 @@ class ExecuteBundle(PipelineControl):
             debugport.jump_exec.next = self.taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd)
             debugport.jump.next = jump
     
-           
+
+        # ALU Flags and branch
+        if self.config.comp_registered:
+            @always(clock.posedge)
+            def comp_seq():
+                flag_equal.next = self.alu.flag_equal
+                flag_ge.next = self.alu.flag_ge
+                flag_uge.next = self.alu.flag_uge
+                branch_op.next = decode.funct3_o
+                branch_cmd.next = decode.branch_cmd
+
+        else:
+            @always_comb
+            def comp_seq():
+                flag_equal.next = self.alu.flag_equal
+                flag_ge.next = self.alu.flag_ge
+                flag_uge.next = self.alu.flag_uge
+                branch_op.next = decode.funct3_o
+                branch_cmd.next = decode.branch_cmd
+
+      
+
+
         @always_comb
         def mux():   
             # Output multiplexers
@@ -143,12 +184,59 @@ class ExecuteBundle(PipelineControl):
             else:
                 self.rd_adr_o.next = rd_adr_reg
 
-            if self.taken and self.config.jump_bypass:  
-                self.jump_o.next = jump
-                self.jump_dest_o.next = jump_dest
-            else:
-                self.jump_o.next = jump_r and not self.taken # supress jump_o when next instruction after jump is taken
-                self.jump_dest_o.next = jump_dest_r
+
+        if self.config.comp_registered:
+            @always_comb
+            def jump_out():
+
+                jump_1.next = False # Avoid latch 
+                if self.taken:
+                    jump_1.next = jump
+                    self.jump_o.next = jump
+                    self.jump_dest_o.next = jump_dest
+                else:
+                    self.jump_o.next = jump_r and not self.taken # supress jump_o when next instruction after jump is taken
+                    self.jump_dest_o.next = jump_dest_r
+
+                if jump_busy:
+                    jump_1.next = branch
+                    self.jump_o.next = branch    
+
+        else:
+            @always_comb
+            def jump_out():    
+
+                jump_1.next = False # Avoid latch 
+                if self.taken:
+                    jump_1.next = jump or branch
+                    self.jump_o.next = jump or branch
+                    self.jump_dest_o.next = jump_dest
+                else:
+                    self.jump_o.next = jump_r and not self.taken # supress jump_o when next instruction after jump is taken
+                    self.jump_dest_o.next = jump_dest_r
+
+
+        @always_comb
+        def branch_proc():
+
+            branch.next = False
+            invalid_branch_op.next = False
+         
+            if branch_cmd:
+                if branch_op==b3.RV32_F3_BEQ:
+                    branch.next = flag_equal
+                elif branch_op==b3.RV32_F3_BGE:
+                    branch.next = flag_ge
+                elif branch_op==b3.RV32_F3_BGEU:
+                    branch.next = flag_uge
+                elif branch_op==b3.RV32_F3_BLT:
+                    branch.next = not flag_ge
+                elif branch_op==b3.RV32_F3_BLTU:
+                    branch.next = not flag_uge
+                elif branch_op==b3.RV32_F3_BNE:
+                    branch.next = not flag_equal
+                else:
+                    invalid_branch_op.next = True
 
                      
         @always_comb
@@ -158,25 +246,8 @@ class ExecuteBundle(PipelineControl):
             jump.next = False
             jump_dest.next = 0
             jump_we.next = False
-            if self.en_i and self.taken:
+            if self.taken:
                 if decode.branch_cmd:
-
-                    f3 = decode.funct3_o
-                    if f3==b3.RV32_F3_BEQ:
-                        jump.next = self.alu.flag_equal
-                    elif f3==b3.RV32_F3_BGE:
-                        jump.next = self.alu.flag_ge
-                    elif f3==b3.RV32_F3_BGEU:
-                        jump.next = self.alu.flag_uge
-                    elif f3==b3.RV32_F3_BLT:
-                        jump.next = not self.alu.flag_ge
-                    elif f3==b3.RV32_F3_BLTU:
-                        jump.next = not self.alu.flag_uge
-                    elif f3==b3.RV32_F3_BNE:
-                        jump.next = not self.alu.flag_equal
-                    else:
-                        self.invalid_opcode_fault.next = True
-
                     jump_dest.next = decode.jump_dest_o
                 elif decode.jump_cmd:
                     jump_dest.next = decode.jump_dest_o
@@ -187,7 +258,5 @@ class ExecuteBundle(PipelineControl):
                     jump.next = True
                     jump_we.next = True 
             
-            #TODO: Implement other functional units
-
-
+           
         return instances()
