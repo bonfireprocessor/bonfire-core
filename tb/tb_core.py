@@ -26,11 +26,11 @@ def create_ram(progfile,ramsize):
     ram = []
     adr = 0
 
-    f=open(progfile,"r")
-    for line in f:
-        i=int(line,16)
-        ram.append(Signal(intbv(i)[32:]))
-        adr += 1
+    with open(progfile,"r") as f:
+        for line in f:
+            i=int(line,16)
+            ram.append(Signal(intbv(i)[32:]))
+            adr += 1
 
     print("eof at adr:{}".format(hex(adr<<2)))    
     for i in range(adr,ramsize):

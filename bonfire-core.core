@@ -1,9 +1,22 @@
 CAPI=2:
 name: ::bonfire-core:0
+
+generators:
+  bonfire_core_top_gen:
+    interpreter: python3
+    command: gen_core.py
+
+generate:
+  top:
+    generator: bonfire_core_top_gen
+    parameters:
+      language: vhdl    
+
 filesets:
   rtl:
     depend:
     - ::bonfire-util:0
+    - bonfire_core_top_gen
     file_type: vhdlSource
     files:
     - vhdl_gen/export/pck_myhdl_011.vhd
@@ -14,13 +27,13 @@ filesets:
     file_type: vhdlSource
     files:
     - vhdl_gen/pck_myhdl_011.vhd
-    - vhdl_gen/bonfire_core_extended_top.vhd  
-    - vhdl/monitor.vhd 
+    - vhdl_gen/bonfire_core_extended_top.vhd
+    - vhdl/monitor.vhd
     - vhdl/sim_MainMemory.vhd
     - vhdl/tb_bonfire_core.vhd
 
-    
 
+      
 parameters:
   TestFile:
     datatype: file
@@ -32,11 +45,13 @@ parameters:
 targets:
   default:
     filesets: [ rtl ]
+    generate: [ top ]
     #parameters: [ TestFile ]
   sim:
     default_tool: ghdl
     filesets: [ sim ]
-  
+    generate: [ top ]
+
     parameters:
     - TestFile
     tools:
@@ -44,6 +59,5 @@ targets:
         analyze_options: [ --ieee=synopsys ]
         run_options: [--wave=cpu.ghw,  --ieee-asserts=disable, --stop-time=7000ns ]
       xsim:
-        xelab_options: [ "--debug typical" ]  
+        xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core
-  

@@ -7,9 +7,10 @@ License: See LICENSE
 from __future__ import print_function
 import getopt, sys 
 
+
 from myhdl import *
 
-from rtl import config, bonfire_interfaces
+from rtl import bonfire_interfaces
 from rtl.bonfire_core_top import BonfireCoreTop
 from  uncore import bonfire_core_ex,ram_dp
 from  uncore.dbus_interconnect import AdrMask
@@ -51,49 +52,94 @@ def gen_extended_core(config,hdl,name,path,bram_adr_base=0,bramAdrWidth=12):
     soc_i.convert(hdl=hdl,std_logic_ports=True,path=path, name=name)
 
 
+def get(parameters,key,default):
 
-try:
-    opts, args = getopt.getopt(sys.argv[1:],"n" ,["hdl=","name=","extended","bram_base=","path=","bram_adr_width="])
-except getopt.GetoptError as err:
-    # print help information and exit:
-    print(err)  # will print something like "option -a not recognized"
-    sys.exit(2)
+    try:
+        return parameters[key]
+    except KeyError:
+        return default   
 
-name_overide = ""
-hdl = "VHDL"
-extended = False
-bram_base = 0x0
-bram_adr_width = 12
-gen_path = "vhdl_gen"
 
-for o,a in opts:
-    print(o,a)
-    if o in ("-n","--name"):
-        name_overide=a
-  
-    elif o == "--hdl":
-        hdl=a
-    elif o=="--bram_base":
-        bram_base = int(a,0) 
-    elif o=="--bram_adr_width":
-        bram_adr_width = int(a,0)         
-    elif o == "--extended":
-        extended = True
-    elif o == "--path":
-        gen_path = a     
-    
-if not extended:
-    config=config.BonfireConfig()
-    if name_overide:
-        n=name_overide
+def fusesoc_gen():
+    import os
+    import yaml
+    from rtl import config
+
+    try:
+        with open(sys.argv[1], mode='r') as f:
+            p=yaml.load(f, Loader=yaml.Loader)
+            print(yaml.dump(p))
+            files_root=p["files_root"]
+            parameters=p["parameters"]
+            print(parameters)
+            print("Generating into: {}".format(os.getcwd()))
+
+            name_overide = ""
+
+            hdl = get(parameters,"language","VHDL")
+            name=get(parameters,"entity_name","bonfire_core_extended_top")
+            extended = True
+            bram_base = 0x0
+            bram_adr_width = 12
+            gen_path = os.getcwd()
+            config=config.BonfireConfig()
+            gen_extended_core(config,hdl,name,gen_path,bram_adr_base=bram_base,bramAdrWidth=bram_adr_width) 
+
+        return True;
+    except FileNotFoundError as err:
+        return False;    
+
+
+def default_gen():
+    from rtl import config
+
+    try:
+        opts, args = getopt.getopt(sys.argv[1:],"n" ,["hdl=","name=","extended","bram_base=","path=","bram_adr_width="])
+    except getopt.GetoptError as err:
+        # print help information and exit:
+        print(err)  # will print something like "option -a not recognized"
+        sys.exit(2)
+
+    name_overide = ""
+    hdl = "VHDL"
+    extended = False
+    bram_base = 0x0
+    bram_adr_width = 12
+    gen_path = "vhdl_gen"
+
+    for o,a in opts:
+        print(o,a)
+        if o in ("-n","--name"):
+            name_overide=a
+      
+        elif o == "--hdl":
+            hdl=a
+        elif o=="--bram_base":
+            bram_base = int(a,0) 
+        elif o=="--bram_adr_width":
+            bram_adr_width = int(a,0)         
+        elif o == "--extended":
+            extended = True
+        elif o == "--path":
+            gen_path = a     
+        
+    if not extended:
+        config=config.BonfireConfig()
+        if name_overide:
+            n=name_overide
+        else:
+            n="bonfire_core_top"
+        gen_core(config,hdl,n,path)        
     else:
-        n="bonfire_core_top"
-    gen_core(config,hdl,n,path)        
-else:
-    config=config.BonfireConfig()
-    if name_overide:
-        n=name_overide
-    else:
-        n="bonfire_core_extended_top"
+        config=config.BonfireConfig()
+        if name_overide:
+            n=name_overide
+        else:
+            n="bonfire_core_extended_top"
 
-    gen_extended_core(config,hdl,n,gen_path,bram_adr_base=bram_base,bramAdrWidth=bram_adr_width) 
+        gen_extended_core(config,hdl,n,gen_path,bram_adr_base=bram_base,bramAdrWidth=bram_adr_width) 
+
+## Main Program
+
+if not fusesoc_gen():
+    default_gen()
