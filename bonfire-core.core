@@ -7,27 +7,24 @@ generators:
     command: gen_core.py
 
 generate:
-  top:
+  core_top:
     generator: bonfire_core_top_gen
     parameters:
       language: vhdl    
 
 filesets:
+  code: 
+    files: [ code/loadsave.hex ]
   rtl:
     depend:
     - ::bonfire-util:0
     - bonfire_core_top_gen
-    file_type: vhdlSource
-    files:
-    - vhdl_gen/export/pck_myhdl_011.vhd
-    - vhdl_gen/export/bonfire_core_extended_top.vhd
+    
   sim:
     depend:
     - ::bonfire-util:0
     file_type: vhdlSource
     files:
-    - vhdl_gen/pck_myhdl_011.vhd
-    - vhdl_gen/bonfire_core_extended_top.vhd
     - vhdl/monitor.vhd
     - vhdl/sim_MainMemory.vhd
     - vhdl/tb_bonfire_core.vhd
@@ -37,20 +34,19 @@ filesets:
 parameters:
   TestFile:
     datatype: file
-    default: code/loadsave.hex
     description: Initial boot RAM contents (in hex)
-    paramtype: vlogparam
+    paramtype: generic
     scope: private
 
 targets:
   default:
     filesets: [ rtl ]
-    generate: [ top ]
+    generate: [ core_top ]
     #parameters: [ TestFile ]
   sim:
     default_tool: ghdl
-    filesets: [ sim ]
-    generate: [ top ]
+    filesets: [ sim, code ]
+    generate: [ core_top ]
 
     parameters:
     - TestFile
