@@ -68,7 +68,7 @@ signal WEA : STD_LOGIC_VECTOR (3 downto 0);
 -- The file does either contain hex values (mode = 'H') or binary values
 
 impure function InitFromFile  return tRam is
-FILE RamFile : text is in RamFileName;
+FILE RamFile : text open read_mode is RamFileName;
 variable RamFileLine : line;
 variable word : tWord;
 variable r : tRam;

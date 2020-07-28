@@ -2,23 +2,20 @@ CAPI=2:
 name: ::bonfire-core:0
 
 generators:
-  bonfire_core_top_gen:
+  gen_core:
     interpreter: python3
     command: gen_core.py
 
 generate:
   core_top:
-    generator: bonfire_core_top_gen
+    generator: gen_core
     parameters:
       language: vhdl    
 
 filesets:
-  code: 
-    files: [ code/loadsave.hex ]
   rtl:
     depend:
-    - ::bonfire-util:0
-    - bonfire_core_top_gen
+    - core_top
     
   sim:
     depend:
@@ -42,10 +39,10 @@ targets:
   default:
     filesets: [ rtl ]
     generate: [ core_top ]
-    #parameters: [ TestFile ]
+  
   sim:
     default_tool: ghdl
-    filesets: [ sim, code ]
+    filesets: [ sim ]
     generate: [ core_top ]
 
     parameters:
