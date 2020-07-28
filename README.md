@@ -221,3 +221,12 @@ The status "ignored" on four tests is intentionally, because without privilege m
 
 The forked test suite contains the target `bonfire-core`. In the `device/rv32i` subdirectory the target specific `Makefile.include` and the adapted header files are contained. The Makefile will call tb_run.py with the elf, hex and sig parameters as outlined above. Please refer to the Makefile for supported parameters. 
 
+### Generating bonfire-core 
+... todo
+
+#### Simulation the Core with GHDL
+
+From bonfire root directory start:
+
+    fusesoc --config=fusesoc.conf  run --target=sim   bonfire-core --TestFile=bonfire-core/code/loadsave.hex
+

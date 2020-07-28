@@ -65,25 +65,47 @@ def fusesoc_gen():
     import yaml
     from rtl import config
 
+    CORE_TEMPLATE = """CAPI=2:
+name: {vlnv}
+
+filesets:
+    rtl:
+        file_type: {filetype}
+        files: [ {files} ]
+targets:
+    default:
+        filesets: [ rtl ]
+
+"""
+
+
     try:
         with open(sys.argv[1], mode='r') as f:
             p=yaml.load(f, Loader=yaml.Loader)
             print(yaml.dump(p))
             files_root=p["files_root"]
             parameters=p["parameters"]
-            print(parameters)
             print("Generating into: {}".format(os.getcwd()))
-
-            name_overide = ""
+           
 
             hdl = get(parameters,"language","VHDL")
-            name=get(parameters,"entity_name","bonfire_core_extended_top")
+            name= get(parameters,"entity_name","bonfire_core_top")
+            vlnv = p["vlnv"]
+            os.system("rm -f *.vhd *.v *.core")
+
             extended = True
             bram_base = 0x0
             bram_adr_width = 12
             gen_path = os.getcwd()
             config=config.BonfireConfig()
             gen_extended_core(config,hdl,name,gen_path,bram_adr_base=bram_base,bramAdrWidth=bram_adr_width) 
+            filelist = [ "pck_myhdl_011.vhd",name+".vhd"]
+            with open(name+".core","w") as corefile:
+                corefile.write(CORE_TEMPLATE.format(vlnv=vlnv,
+                                                    filetype="vhdlSource",
+                                                    files=",".join(filelist)
+                ))
+
 
         return True;
     except FileNotFoundError as err:
