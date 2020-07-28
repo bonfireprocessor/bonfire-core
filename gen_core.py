@@ -49,7 +49,7 @@ def gen_extended_core(config,hdl,name,path,bram_adr_base=0,bramAdrWidth=12):
             wb_mask=AdrMask(32,28,0),
             db_mask=AdrMask(32,28,1))
 
-    soc_i.convert(hdl=hdl,std_logic_ports=True,path=path, name=name)
+    soc_i.convert(hdl=hdl,std_logic_ports=True,initial_values=True, path=path, name=name)
 
 
 def get(parameters,key,default):
