@@ -24,11 +24,13 @@ def dump_signature(memArray,elf,sig):
         end=symtab.get_symbol_by_name("end_signature")[0]['st_value']
         assert(end>start)
         assert(end-start < 1000)
+       
 
         sf=open(sig,"w")
 
         cnt=1
         for i in range(start>>2,end>>2):
+            assert(i<len(memArray))
             h="{0:08x}".format(int(memArray[i]))
             stdout.write(h+ ("\n" if (cnt % 8)==0 else " "))
             cnt+=1

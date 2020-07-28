@@ -6,8 +6,10 @@ use work.log2;
 
 ENTITY tb_bonfire_core IS
   generic (
-    TestFile : string;
-    signature_file : string := "" -- RISCV compliance signature output
+    testfile : string;
+    signature_file : string := ""; -- RISCV compliance signature output
+    enable_sig_dump : boolean := false; -- Enable signature dump port
+    raise_reset : boolean := false -- Determine if a 5 clock cycle long reset signal is asserted at begin of simulation
 
   );
 END tb_bonfire_core;
@@ -123,7 +125,7 @@ begin
 
     sim_MainMemory_i : sim_MainMemory
         generic map (
-          RamFileName      => TestFile,
+          RamFileName      => testfile,
           mode             => "H",
           ADDR_WIDTH       => ram_adr_width,
           EnableSecondPort => true
@@ -146,7 +148,7 @@ begin
             generic map(
               VERBOSE=>true,
               signature_file=>signature_file,
-              ENABLE_SIG_DUMP=>false
+              ENABLE_SIG_DUMP=>ENABLE_SIG_DUMP
 
             )
             PORT MAP(
@@ -173,14 +175,17 @@ clock <= not clock after clk_i_period/2 when TbSimEnded /= '1' else '0';
   stim_proc: process
   begin
 
-    reset <= '1';
-    wait for clk_i_period*5;
-    reset <= '0';
+    if raise_reset then
+      report "Reseting design" severity note;
+      reset <= '1';
+      wait for clk_i_period*5;
+      reset <= '0';
+      report "Start" severity note;
+    end if;  
 
-     wait until finished='1'; -- or uart_stop;
-     report "Test finished with result "& hstr(result) severity note;
-     --severity failure; -- ugly but portable ....
-     tbSimEnded <= '1'; -- End Simulation
-
+    wait until finished='1'; -- or uart_stop;
+    report "Test finished with result "& hstr(result) severity note;
+    tbSimEnded <= '1'; -- End Simulation
+    wait;
   end process;
 end;

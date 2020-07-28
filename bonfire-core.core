@@ -29,11 +29,26 @@ filesets:
 
       
 parameters:
-  TestFile:
+  testfile:
     datatype: file
     description: Initial boot RAM contents (in hex)
     paramtype: generic
-    scope: private
+  signature_file:
+    datatype: file
+    description: Name of signature dump file (used for riscv-compliance suite)
+    paramtype: generic
+    default: ""
+  enable_sig_dump:
+    datatype: str
+    description: "Enable signature dump functionality values: (true/false)"
+    paramtype: generic
+    default: 'false'
+  raise_reset:
+    datatype: str
+    description: "Raise 5 clock cyle reset signal at beginning of simulation, values: (true/false)"
+    paramtype: generic 
+    default: 'false' 
+
 
 targets:
   default:
@@ -45,12 +60,11 @@ targets:
     filesets: [ sim ]
     generate: [ core_top ]
 
-    parameters:
-    - TestFile
+    parameters: [ testfile, signature_file, enable_sig_dump, raise_reset]
     tools:
       ghdl:
         analyze_options: [ --ieee=synopsys ]
-        run_options: [--wave=cpu.ghw,  --ieee-asserts=disable, --stop-time=7000ns ]
+        run_options: [ --ieee-asserts=disable, --stop-time=7000ns, --wave=cpu.ghw ]
       xsim:
         xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core

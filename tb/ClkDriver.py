@@ -2,7 +2,7 @@ from myhdl import block, delay, instance
 
 
 @block
-def ClkDriver(clk, period=20):
+def ClkDriver(clk, period=10):
 
     lowTime = int(period / 2)
     highTime = period - lowTime

@@ -9,7 +9,7 @@ from tb.sim_monitor import *
 from uncore.tb_wishbone_bfm import Wishbone_bfm
 
 @block
-def tb(config=config.BonfireConfig(),hexFile=""):
+def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile=""):
 
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
@@ -19,16 +19,17 @@ def tb(config=config.BonfireConfig(),hexFile=""):
     wb_bfm = Wishbone_bfm()
 
     clk_driver= ClkDriver(clock,period=10)
-    mon_i = monitor_instance(None ,dbus,clock)
+   
     bram_port_a = ram_dp.RamPort32(readOnly=True)
     bram_port_b = ram_dp.RamPort32()
 
     soc_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master,dbus,bram_port_a,bram_port_b,clock,reset,config=config)
-    #soc_i.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="bonfire_core_extented_top")
+   
 
     ram = ram_dp.DualportedRam(hexFile)
     ram_i = ram.ram_instance(bram_port_a,bram_port_b,clock)
     
+    mon_i = monitor_instance(ram.ram ,dbus,clock,sigFile=sigFile,elfFile=elfFile)
     bfm_i = wb_bfm.Wishbone_check(wb_master,clock,reset)    
 
     return instances()

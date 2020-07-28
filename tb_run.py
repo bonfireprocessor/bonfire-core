@@ -108,8 +108,8 @@ def core_integration_tests(hex,elf,sig,vcd,verbose):
     test(tb,trace=bool(vcd),filename=vcd,duration=20000)
     
 
-def soc_test(hex,vcd):
-    tb=tb_soc.tb(hexFile=hex)
+def soc_test(hex,vcd,elf,sig):
+    tb=tb_soc.tb(hexFile=hex,elfFile=elf,sigFile=sig)
     test(tb,trace=bool(vcd),filename=vcd,duration=20000)
 
 try:
@@ -154,7 +154,7 @@ if "--all" in options or "--pipeline" in options:
 
 if hexname:
     if "--soc" in options:
-        soc_test(hexname,vcdname)
+        soc_test(hexname,vcdname,elfname,signame)
     else:     
         core_integration_tests(hexname,elfname,signame,vcdname,"-v" in options)
 
