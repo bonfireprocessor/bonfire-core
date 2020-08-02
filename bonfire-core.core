@@ -2,21 +2,21 @@ CAPI=2:
 name: ::bonfire-core:0
 
 generators:
-  gen_core:
+  gen_bonfire_core:
     interpreter: python3
     command: gen_core.py
+    description: "Generates a VHDL version of bonfore-core"
 
 generate:
   core_top:
-    generator: gen_core
+    generator: gen_bonfire_core
     parameters:
-      language: vhdl    
+      language: vhdl
+      bram_base: 0x0
+      bram_adr_width: 12
 
 filesets:
-  rtl:
-    depend:
-    - core_top
-    
+  
   sim:
     depend:
     - ::bonfire-util:0
@@ -47,14 +47,12 @@ parameters:
     datatype: str
     description: "Raise 5 clock cyle reset signal at beginning of simulation, values: (true/false)"
     paramtype: generic 
-    default: 'false' 
-
+    default: 'false'
+ 
 
 targets:
-  default:
-    filesets: [ rtl ]
-    generate: [ core_top ]
-  
+ 
+   
   sim:
     default_tool: ghdl
     filesets: [ sim ]

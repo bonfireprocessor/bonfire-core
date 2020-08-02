@@ -78,7 +78,7 @@ targets:
 
 """
 
-
+    print(sys.argv[1])
     try:
         with open(sys.argv[1], mode='r') as f:
             p=yaml.load(f, Loader=yaml.Loader)
@@ -94,8 +94,8 @@ targets:
             os.system("rm -f *.vhd *.v *.core")
 
             extended = True
-            bram_base = 0x0
-            bram_adr_width = 12
+            bram_base = get(parameters,"bram_base",0x0)
+            bram_adr_width = get(parameters,"bram_adr_width",12)
             gen_path = os.getcwd()
             config=config.BonfireConfig()
             gen_extended_core(config,hdl,name,gen_path,bram_adr_base=bram_base,bramAdrWidth=bram_adr_width) 
