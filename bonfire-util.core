@@ -1,0 +1,21 @@
+CAPI=1
+[main]
+name = ::bonfire-util:0
+
+
+
+[fileset rtl]
+files = log2.vhd txt_util.vhd
+file_type=vhdlSource
+
+
+[fileset sim]
+files=tb_uart_capture_tx.vhd
+file_type=vhdlSource
+usage=sim
+
+[provider]
+name=github
+user=bonfireprocessor
+repo=bonfire-util
+version=master

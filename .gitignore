@@ -17,3 +17,4 @@ vhdl_gen_tb/*
 /.vscode/settings.json
 /luts.txt
 /tb_simtest.py
+build
