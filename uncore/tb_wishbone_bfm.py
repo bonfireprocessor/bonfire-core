@@ -42,11 +42,14 @@ class Wishbone_bfm:
             else:
                 if active_cycle and not active_cycle_r: # begin of new bus cycle
                     w = random.randint(0,2)
+                    print("@{}: new cycle, we:{}, waitstates:{}".format(now(),wb.wbm_we_o,w))
                     if w>0:
                         wait_counter.next = w
                         active_cycle_r.next = True
                     else:
-                        wb.wbm_ack_i.next = True     
+                        wb.wbm_ack_i.next = True
+                        if not wb.wbm_we_o:
+                            wb.wbm_db_i.next = 0xdeadbeef     
 
                 if active_cycle_r: # Subsequent clock cylces of bus cycle
                     if wait_counter==0:
@@ -54,6 +57,7 @@ class Wishbone_bfm:
                         wb.wbm_ack_i.next = True
                         if not wb.wbm_we_o:
                             wb.wbm_db_i.next = 0xdeadbeef
+                            
                     else:
                         wait_counter.next = wait_counter - 1
 
@@ -63,13 +67,15 @@ class Wishbone_bfm:
             
             if active_cycle and wb.wbm_ack_i:
                 
-                check_term.next = True 
-                print("@{}: wb cyc. trm. Adr:{} we: {}, sel: {}".format(now(),hex(wb.wbm_adr_o<<2),wb.wbm_we_o,bin(wb.wbm_sel_o)))
+                check_term.next = True
                 if wb.wbm_we_o:
-                    print("write data: {}".format(hex(wb.wbm_db_o)))
+                    datastr = "write data: {}".format(hex(wb.wbm_db_o))
                 else:
-                    print("read data: {}".format(hex(wb.wbm_db_i))) 
-
+                    datastr = "read data: {}".format(hex(wb.wbm_db_i))
+ 
+                print("@{}: wb cyc. trm. Adr:{} we: {}, sel: {} {}".
+                       format(now(),hex(wb.wbm_adr_o<<2),wb.wbm_we_o,bin(wb.wbm_sel_o),datastr))
+                
             if active_cycle_r:
                 assert active_cycle,"wbm_cyc_o or wbm_stb_o deasserted without ack"
             
