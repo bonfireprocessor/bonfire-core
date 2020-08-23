@@ -74,6 +74,17 @@
                 "--path=vhdl_gen/export"
             ],
             "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: cache unit tests",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tb_run.py",
+            "args": [
+                "--ut_cache"
+            ],
+            "console": "integratedTerminal"
         }
+
     ]
 }

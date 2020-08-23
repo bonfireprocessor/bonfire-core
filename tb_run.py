@@ -114,11 +114,21 @@ def soc_test(hex,vcd,elf,sig):
 
 try:
     opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,
-    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","vcd=","sig="])
+    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","ut_cache","vcd=","sig="])
 except getopt.GetoptError as err:
     # print help information and exit:
     print(err)  # will print something like "option -a not recognized"
     sys.exit(2)
+
+
+def cache_unit_tests():
+    from tb import tb_cache
+
+    tb = tb_cache.tb()
+    test(tb,trace=False)
+
+
+### Main....    
 
 elfname=""
 hexname=""
@@ -151,6 +161,8 @@ if "--all" in options or "--ut_loadstore" in options:
 if "--all" in options or "--pipeline" in options:
     pipeline_integration_tests()
 
+if "--ut_cache" in options:
+    cache_unit_tests()
 
 if hexname:
     if "--soc" in options:
