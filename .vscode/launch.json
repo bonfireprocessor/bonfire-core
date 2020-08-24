@@ -11,7 +11,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/gen_core.py",
             
-            "cwd": "/home/thomas/.cache/fusesoc/generated/bonfire-core-core_top_0",
+            //"cwd": "/home/thomas/.cache/fusesoc/generated/bonfire-core-core_top_0",
+            "cwd": "/home/thomas/.cache/fusesoc/generated/bonfire-core-top_0",
             "args": ["/home/thomas/.cache/fusesoc/generated/bonfire-core-core_top_0/core_top_input.yml"],
             "console": "integratedTerminal"
         },
@@ -26,6 +27,20 @@
                 "--sig=/tmp/dummy.txt",
                 "--vcd=tb_core",
                 "-v"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: run soc compliance",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tb_run.py",
+            "args": [
+                "--hex=/home/thomas/development/riscv/riscv-compliance/work/rv32i/I-JALR-01.elf.hex",
+                "--elf=/home/thomas/development/riscv/riscv-compliance/work/rv32i/I-JALR-01.elf",
+                "--sig=/tmp/dummy.txt",
+                "--vcd=tb_core",
+                "--soc"
             ],
             "console": "integratedTerminal"
         },

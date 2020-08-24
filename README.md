@@ -228,5 +228,5 @@ The forked test suite contains the target `bonfire-core`. In the `device/rv32i` 
 
 From bonfire root directory start:
 
-    fusesoc --config=fusesoc.conf  run --target=sim   bonfire-core --TestFile=bonfire-core/code/loadsave.hex
+    fusesoc --config=fusesoc.conf  run --target=sim   bonfire-core --testfile=bonfire-core/code/loadsave.hex
 

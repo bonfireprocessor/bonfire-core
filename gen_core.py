@@ -10,6 +10,7 @@ import getopt, sys
 
 from myhdl import *
 
+
 from rtl import bonfire_interfaces
 from rtl.bonfire_core_top import BonfireCoreTop
 from  uncore import bonfire_core_ex,ram_dp
@@ -18,6 +19,9 @@ from  uncore.dbus_interconnect import AdrMask
 
 
 def gen_core(config,hdl,name,path):
+    from myhdl import ToVHDLWarning
+    import warnings
+
     ibus = bonfire_interfaces.DbusBundle(config,readOnly=True)
     dbus = bonfire_interfaces.DbusBundle(config)
     control = bonfire_interfaces.ControlBundle(config)
@@ -28,10 +32,17 @@ def gen_core(config,hdl,name,path):
     core= BonfireCoreTop(config)
     inst = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
 
-    inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            'default',
+            category=ToVHDLWarning)
+        inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
 
 
-def gen_extended_core(config,hdl,name,path,bram_adr_base=0,bramAdrWidth=12):
+def gen_extended_core(config,hdl,name,path,bram_adr_base=0,bramAdrWidth=12,handleWarnings='default'):
+    from myhdl import ToVHDLWarning
+    import warnings
+
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
     
@@ -49,7 +60,11 @@ def gen_extended_core(config,hdl,name,path,bram_adr_base=0,bramAdrWidth=12):
             wb_mask=AdrMask(32,28,0),
             db_mask=AdrMask(32,28,1))
 
-    soc_i.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            handleWarnings,
+            category=ToVHDLWarning)
+        soc_i.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
 
 
 def get(parameters,key,default):
@@ -96,9 +111,14 @@ targets:
             extended = True
             bram_base = get(parameters,"bram_base",0x0)
             bram_adr_width = get(parameters,"bram_adr_width",12)
+            conversion_warnings = get(parameters,"conversion_warnings","default")
             gen_path = os.getcwd()
             config=config.BonfireConfig()
-            gen_extended_core(config,hdl,name,gen_path,bram_adr_base=bram_base,bramAdrWidth=bram_adr_width) 
+            gen_extended_core(config,hdl,name,gen_path,
+                              bram_adr_base=bram_base,
+                              bramAdrWidth=bram_adr_width,
+                              handleWarnings=conversion_warnings) 
+
             filelist = [ "pck_myhdl_011.vhd",name+".vhd"]
             with open(name+".core","w") as corefile:
                 corefile.write(CORE_TEMPLATE.format(vlnv=vlnv,
