@@ -24,7 +24,7 @@ def test(inst,**kwagrs):
         print("Test failure: ".join(a.args))
         inst.quit_sim()
         print("stopping simulation run because of test failure")
-        exit()
+        sys.exit(0)
     # except ValueError as err:
     #     print("Exception: " + err.message)
     #     inst.quit_sim()
@@ -124,8 +124,8 @@ except getopt.GetoptError as err:
 def cache_unit_tests():
     from tb import tb_cache
 
-    tb = tb_cache.tb()
-    test(tb,trace=False)
+    test(tb_cache.tb_tagram(),trace=False)
+    test(tb_cache.tb_cache_way(),trace=False)
 
 
 ### Main....    

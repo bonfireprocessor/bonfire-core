@@ -36,7 +36,8 @@ class CacheConfig:
         self.word_select_bits = int_log2(self.mux_size)
 
         self.line_size = line_size 
-        self.cl_bits = int_log2(line_size) # Bits for adressing a word in a cache line
+        self.cl_bits = int_log2(line_size) # Bits for adressing a master word in a cache line
+        self.cl_bits_slave = self.cl_bits + int_log2(self.mux_size) # Bits for addressing a 32 Bit word in a cache line  
         self.cache_size_m_words = cache_size_m_words
         self.cache_size_bytes = cache_size_m_words * self.master_width_bytes
 
@@ -45,10 +46,31 @@ class CacheConfig:
         self.set_adr_bits = int_log2(cache_size_m_words) - self.way_adr_bits # adress bits for a set in cache RAM
         self.line_select_adr_bits = self.set_adr_bits - self.cl_bits # adr bits for selecting a cache line
         self.tag_ram_size = 2**self.line_select_adr_bits # the Tag RAM size is defined by the size of line select address
-        self.tag_ram_bits = address_bits -self.line_select_adr_bits - self.cl_bits - self.word_select_bits
+        self.tag_ram_bits = address_bits - self.line_select_adr_bits - self.cl_bits - self.word_select_bits
  
         self.address_bits = address_bits # Number of bits of chacheable address range
       
+    # Simulation only methods, cannot be converted  
+    def create_address(self,value_part,line_part,word_select_part):
+        adr = modbv(0)[self.address_bits:]
+        adr[:self.tag_ram_bits+1]=value_part
+        adr[self.tag_ram_bits:self.cl_bits_slave]=line_part
+        adr[self.cl_bits_slave:]=word_select_part
+        return adr 
+
+    def print_address(self,adr):
+        print("Adr:{}".format(hex(adr)))
+        v_low = self.address_bits - self.tag_ram_bits
+        value_part= adr[ self.address_bits:v_low]
+        assert len(value_part)==self.tag_ram_bits
+        print("Tag Value part from bit {} to {} ({} bits) : {}:({})".format(self.address_bits-1,
+                v_low, len(value_part), bin(value_part), hex(value_part)))      
+        line_part =  adr[v_low:self.cl_bits_slave]
+        assert len(line_part)==self.line_select_adr_bits
+        print("Cache line (tag index) part from bit {} to {} ({} bits) : {}:({})".format(v_low-1,self.cl_bits_slave, 
+              len(line_part),  bin(line_part), hex(line_part)))
+        wp =  adr[self.cl_bits_slave:]
+        print("word select part from bit {} to {} ({} bits) : {}:({})".format(self.cl_bits_slave-1,0, len(wp), bin(wp),hex(wp)))
 
        
     def print_config(self):

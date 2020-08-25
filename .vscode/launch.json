@@ -11,8 +11,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/gen_core.py",
             
-            //"cwd": "/home/thomas/.cache/fusesoc/generated/bonfire-core-core_top_0",
-            "cwd": "/home/thomas/.cache/fusesoc/generated/bonfire-core-top_0",
+            "cwd": "/home/thomas/.cache/fusesoc/generated/bonfire-core-core_top_0",
             "args": ["/home/thomas/.cache/fusesoc/generated/bonfire-core-core_top_0/core_top_input.yml"],
             "console": "integratedTerminal"
         },

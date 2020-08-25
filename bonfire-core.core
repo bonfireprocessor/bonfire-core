@@ -14,7 +14,7 @@ generate:
       language: vhdl
       bram_base: 0x0
       bram_adr_width: 12
-      conversion_warnings: 'default'
+      conversion_warnings: 'ignore'
 
 filesets:
   

@@ -7,11 +7,13 @@ License: See LICENSE
 from myhdl import Signal,intbv,modbv,ConcatSignal, \
                   block,always_comb,always_seq,instances, now
 
+from  rtl.cache.tag_ram   import tag_ram_instance              
+
 class CacheWayBundle:
     def __init__(self,cache_config):
         #Config
         self.config = cache_config
-        self.tag_adr_len = cache_config.cache_adr_bits-cache_config.cl_bits
+        tag_adr_len = cache_config.line_select_adr_bits
 
       
         
@@ -53,7 +55,6 @@ class TagDataBundle:
         @always_comb
         def comb():
             t_len = self.tag_value_len + 2
-            #tagdata.next=ConcatSignal(self.valid,self.dirty,self.address)
             tagdata.next[t_len-1] = self.valid
             tagdata.next[t_len-2] = self.dirty
             tagdata.next[t_len-2:] = self.address
@@ -73,17 +74,51 @@ class TagDataBundle:
         return instances()    
 
 
-# @block
-# def cache_way_instance(bundle,clock,reset):
+@block
+def cache_way_instance(bundle,clock,reset,config):
 
     
-#     c = bundle.config
+    c = bundle.config
+
+    tag_index = Signal(modbv(0)[c.line_select_adr_bits:]) # Tag index to be read
+    tag_in = TagDataBundle(c.tag_ram_bits)
+    tag_buffer = TagDataBundle(c.tag_ram_bits) # Last read Tag RAM item
+    buffer_index = Signal(modbv(0)[c.line_select_adr_bits:])  # Index of last read Tag RAM item
+
+    
+    t_i = tag_ram_instance(tag_in,tag_buffer,bundle.we,tag_index,clock,reset,config)
     
 
+    @always_comb
+    def assign():
+        # TODO: Check correctness of indicies
+        tag_index.next =  bundle.adr[c.tag_ram_bits:c.cl_bits_slave]
+        tag_in.address.next = bundle.adr[:c.tag_ram_bits+1]
+        tag_in.valid.next = bundle.valid
+        tag_in.dirty.next = bundle.dirty
 
-   
+    @always_comb
+    def hit_miss():
+        # Check hit/miss
+        index_match = buffer_index == tag_index
+        tag_match = tag_buffer.valid and tag_buffer.address == tag_in.address
 
+        bundle.hit.next = index_match and tag_match and bundle.en
+        if bundle.en and index_match and not tag_match:
+            bundle.miss.next = True
+            bundle.dirty_miss.next = tag_buffer.dirty
+        else:
+            bundle.miss.next = False
+            bundle.dirty_miss.next = False
 
+        # Tag Output
+        bundle.tag_valid.next = tag_buffer.valid
+        bundle.tag_value = tag_buffer.address
+        bundle.buffer_index = buffer_index
+        bundle.tag_index = tag_index
 
-#     @always_comb
-#     def comb():
+    @always_seq(clock.posedge,reset)
+    def seq():
+        buffer_index.next = tag_index
+
+    return instances()    

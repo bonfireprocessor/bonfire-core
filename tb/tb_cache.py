@@ -4,12 +4,14 @@ from myhdl import *
 
 from tb.ClkDriver import *
 
-from rtl.cache.cache_way import TagDataBundle
-from rtl.cache.tag_ram import tag_ram_instance 
-from rtl.cache.config import CacheConfig
+
 
 @block
-def tb(test_conversion=False):
+def tb_tagram(test_conversion=False):
+
+    from rtl.cache.cache_way import TagDataBundle
+    from rtl.cache.tag_ram import tag_ram_instance 
+    from rtl.cache.config import CacheConfig
 
     conf = CacheConfig()
 
@@ -26,7 +28,7 @@ def tb(test_conversion=False):
     
     t_r_i = tag_ram_instance(t_in,t_out,we,adr,clock,reset,conf)
     if test_conversion:
-        t_r_i.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="tb_cache")
+        t_r_i.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="tag_ram")
 
 
     @instance
@@ -61,3 +63,61 @@ def tb(test_conversion=False):
         raise StopSimulation
 
     return instances()
+
+@block
+def tb_cache_way(test_conversion=False):
+    from rtl.cache.cache_way import cache_way_instance, CacheWayBundle
+    from rtl.cache.config import CacheConfig
+
+    conf = CacheConfig()
+    conf.print_config()
+
+    clock = Signal(bool(0))
+    clk_driver= ClkDriver(clock)
+    reset = ResetSignal(0, active=1, isasync=False)
+
+    w = CacheWayBundle(conf)
+
+    cw_inst = cache_way_instance(w,clock,reset,conf)
+    if test_conversion:
+        cw_inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="cache_way")
+
+
+    def miss_and_update(adr):
+        print("tag miss and update with adr:{}".format(adr))
+        conf.print_address(adr)
+        w.adr.next = adr
+        w.en.next = 1
+        yield clock.posedge
+        # wait for response
+        while not (w.hit or w.miss):
+            yield clock.posedge
+        assert w.miss and not w.hit, "Miss=1 hit=0 expected"
+        assert not w.tag_valid
+        assert not w.dirty_miss
+        # Write Tag
+        w.we.next = True
+        w.valid.next = True
+        w.dirty.next = True
+        yield clock.posedge
+        yield clock.posedge
+
+        assert w.tag_valid, "after tag update: tag_valid should be set"
+        assert w.hit, "after tag update: hit should be set"
+        assert not w.miss, "after tag update: miss should not be set"
+        print("OK")
+
+
+    @instance
+    def stimulus():
+
+
+        yield clock.posedge
+        #for i in range(0,c.tag_ram_size):
+        adr = modbv(0)[conf.address_bits:]
+        yield miss_and_update(adr)
+        
+        raise StopSimulation
+
+    return instances()    
+            
