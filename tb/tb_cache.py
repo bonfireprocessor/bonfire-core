@@ -100,6 +100,8 @@ def tb_cache_way(test_conversion=False):
         w.valid.next = True
         w.dirty.next = True
         yield clock.posedge
+        w.we.next = False
+
         yield clock.posedge
 
         assert w.tag_valid, "after tag update: tag_valid should be set"
@@ -113,9 +115,9 @@ def tb_cache_way(test_conversion=False):
 
 
         yield clock.posedge
-        #for i in range(0,c.tag_ram_size):
-        adr = modbv(0)[conf.address_bits:]
-        yield miss_and_update(adr)
+        for i in range(0,16): #  conf.tag_ram_size):
+            adr = conf.create_address(0,i,0)
+            yield miss_and_update(adr)
         
         raise StopSimulation
 

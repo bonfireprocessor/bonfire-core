@@ -6,6 +6,7 @@ License: See LICENSE
 
 from __future__ import print_function
 from math import log2
+from myhdl import modbv
 
 def int_log2(v):
     l = log2(v)
@@ -49,28 +50,29 @@ class CacheConfig:
         self.tag_ram_bits = address_bits - self.line_select_adr_bits - self.cl_bits - self.word_select_bits
  
         self.address_bits = address_bits # Number of bits of chacheable address range
+        self.tag_value_adr_bit_low = self.address_bits - self.tag_ram_bits # Lowest bit of tag value part of cachable address
       
     # Simulation only methods, cannot be converted  
     def create_address(self,value_part,line_part,word_select_part):
         adr = modbv(0)[self.address_bits:]
-        adr[:self.tag_ram_bits+1]=value_part
-        adr[self.tag_ram_bits:self.cl_bits_slave]=line_part
+        adr[self.address_bits:self.tag_value_adr_bit_low]=value_part
+        adr[self.tag_value_adr_bit_low:self.cl_bits_slave]=line_part
         adr[self.cl_bits_slave:]=word_select_part
         return adr 
 
     def print_address(self,adr):
-        print("Adr:{}".format(hex(adr)))
-        v_low = self.address_bits - self.tag_ram_bits
+        print("Adr:{}".format(adr))
+        v_low = self.tag_value_adr_bit_low 
         value_part= adr[ self.address_bits:v_low]
         assert len(value_part)==self.tag_ram_bits
         print("Tag Value part from bit {} to {} ({} bits) : {}:({})".format(self.address_bits-1,
-                v_low, len(value_part), bin(value_part), hex(value_part)))      
+                v_low, len(value_part), bin(value_part), value_part))      
         line_part =  adr[v_low:self.cl_bits_slave]
         assert len(line_part)==self.line_select_adr_bits
         print("Cache line (tag index) part from bit {} to {} ({} bits) : {}:({})".format(v_low-1,self.cl_bits_slave, 
-              len(line_part),  bin(line_part), hex(line_part)))
+              len(line_part),  bin(line_part), line_part))
         wp =  adr[self.cl_bits_slave:]
-        print("word select part from bit {} to {} ({} bits) : {}:({})".format(self.cl_bits_slave-1,0, len(wp), bin(wp),hex(wp)))
+        print("word select part from bit {} to {} ({} bits) : {}:({})".format(self.cl_bits_slave-1,0, len(wp), bin(wp), wp))
 
        
     def print_config(self):
