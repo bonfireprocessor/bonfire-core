@@ -157,12 +157,21 @@ def tb_cache(test_conversion=False,config=CacheConfig()):
             yield clock.posedge
         db_slave.en_o.next = False
         
+    loop_success = False    
 
-
+    def read_loop(start_adr,length):
+        loop_success = False
+        for i in range(0,length):
+            adr = start_adr + i *4
+            yield db_read(adr)
+            print(db_slave.db_rd)
+            assert db_slave.db_rd == adr, "Read failure at address {}: {}".format(hex(adr),db_slave.db_rd)
+               
 
     @instance
     def stimulus():
-        yield db_read(0)
+        yield read_loop(0,16)
+
         print(db_slave.db_rd)
         yield clock.posedge
         raise StopSimulation
