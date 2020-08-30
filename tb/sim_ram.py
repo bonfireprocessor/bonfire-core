@@ -6,7 +6,7 @@ License: See LICENSE
 from __future__ import print_function
 
 from myhdl import *
-from math import log
+from rtl.util import int_log2
 
 
 
@@ -27,7 +27,7 @@ class sim_ram:
             bus: Data bus (class DbusBundle)
             clock, reset : Clock and reset 
         """        
-        adr_len=int(log(len(ram),2))      
+        adr_len = int_log2(len(ram))      
 
         we_o = Signal(modbv(0)[bus.xlen/8:])
         db_wr = Signal(modbv(0)[bus.xlen:])

@@ -3,10 +3,11 @@ Bonfire Core Cache
 (c) 2019,2020 The Bonfire Project
 License: See LICENSE
 """
-from myhdl import Signal,intbv,modbv,ConcatSignal, \
+from myhdl import Signal,intbv,modbv,ConcatSignal,  \
                   block,always_comb,always_seq,instances, enum, now
 
 from rtl.util import int_log2
+
 
 import rtl.cache.cache_way as cache_way
 from  rtl.cache.config import CacheConfig
@@ -25,7 +26,7 @@ class CacheMasterWishboneBundle(Wishbone_master_bundle):
         adrHigh=32,
         adrLow=int_log2(config.master_width_bytes),
         dataWidth=config.master_data_width,
-        b4_pipelined=True,
+        b4_pipelined=False,
         bte_signals=True)
 
 
@@ -52,11 +53,15 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
     # local Signals
     write_back_enable = Signal(bool(0))
-    cache_offset_counter = Signal(intbv(0,max=config.line_size))
-    master_offset_counter = Signal(intbv(0,max=config.line_size))
+    cache_offset_counter = Signal(modbv(0)[config.cl_bits:]) 
+    master_offset_counter = Signal(modbv(0)[config.cl_bits:])
 
     slave_rd_ack = Signal(bool(0))
     slave_write_enable = Signal(bool(0))
+
+    # Splitted slave adr
+    slave_adr_splitted = cache_way.AddressBundle(config)
+    s_adr_i = slave_adr_splitted.from_bit_vector(slave.adr_o)
 
 
     wbm_enable = Signal(bool(0)) # Enable signal for master Wishbone bus
@@ -68,7 +73,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
 
     if config.num_ways == 1:
-        tag_control = cache_way.CacheWayBundle(config=config)
+        tag_control = cache_way.CacheWayBundle(config)
         tc_i = cache_way.cache_way_instance(tag_control,clock,reset)
 
         @always_comb
@@ -112,9 +117,20 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
                     cache_ram.slave_we[(i+1)*4:i*4].next = 0
 
 
+    @always_comb
+    def proc_slave_write_enable():
+         slave_write_enable.next = slave.en_o and slave.we_o and tag_control.hit
 
     @always_comb
     def cache_control_comb():
+
+        # Tag Control
+
+        tag_control.en.next = slave.en_o
+        tag_control.we.next = (master.wbm_ack_i and wbm_state==t_wbm_state.wb_finish) or slave_write_enable
+        tag_control.dirty.next = slave_write_enable
+        tag_control.valid.next = not write_back_enable
+        tag_control.adr.next = slave.adr_o
 
         # Cache RAM control signals
         # Slave side
@@ -124,17 +140,81 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
                                    ( write_back_enable and wbm_state == t_wbm_state.wb_idle )
 
         cache_ram.master_we.next = master.wbm_ack_i and not write_back_enable
-
+        cache_ram.master_db_wr.next = master.wbm_db_i
+       
         # Slave bus
-        slave_write_enable.next = slave.en_o and slave.we_o and tag_control.hit
         slave.ack_i.next = slave_rd_ack or slave_write_enable
+
+        # Master bus
+        master.wbm_cyc_o.next = wbm_enable
+        master.wbm_stb_o.next = wbm_enable
+        master.wbm_db_o.next = cache_ram.master_db_rd
+                            
 
     @always_seq(clock.posedge,reset)
     def proc_slave_rd_ack():
         if slave_rd_ack:
             slave_rd_ack.next = False
-        elif tag_control.hit and slave.en_o and slave.we_o:
+        elif tag_control.hit and slave.en_o and not slave.we_o:
             slave_rd_ack.next = True
+
+
+    @always_comb
+    def proc_master_adr():
+                   
+        if write_back_enable:
+            sig_temp = ConcatSignal(tag_control.tag_value,
+                                    tag_control.buffer_index,master_offset_counter)
+        else:
+            sig_temp = ConcatSignal(slave_adr_splitted.tag_value,
+                                    slave_adr_splitted.tag_index,
+                                    master_offset_counter)   
+        master.wbm_adr_o.next = sig_temp    
+
+
+    # State engine for cache refill/writeback
+    @always_seq(clock.posedge,reset)
+    def master_rw():
+
+        if wbm_state == t_wbm_state.wb_idle:
+            if tag_control.miss and not tag_control.hit:
+                wbm_enable.next = True
+                for i in range(0,len(master.wbm_sel_o)):
+                    master.wbm_sel_o.next[i] = True
+                
+                master.wbm_cti_o.next = 0b010    
+                if write_back_enable:
+                    cache_offset_counter.next = master_offset_counter + 1
+                    master.wbm_we_o.next = True  
+                    wbm_state.next = t_wbm_state.wb_burst_write
+                else:
+                    master.wbm_we_o.next = False
+                    wbm_state.next = t_wbm_state.wb_burst_read    
+
+
+        elif wbm_state == t_wbm_state.wb_burst_read or wbm_state == t_wbm_state.wb_burst_write:
+            n = master_offset_counter + 1
+            if master.wbm_ack_i:
+                if n == master_offset_counter.max-1:
+                    master.wbm_cti_o.next = 0b111
+                    wbm_state.next = t_wbm_state.wb_finish
+                master_offset_counter.next = n
+                cache_offset_counter.next = n + 1
+
+        elif wbm_state == t_wbm_state.wb_finish:
+            if master.wbm_ack_i:
+                wbm_enable.next = False
+                master.wbm_we_o.next = False
+                master_offset_counter.next = 0
+                cache_offset_counter.next = 0
+                wbm_state.next = t_wbm_state.wb_retire
+
+        else:
+            assert wbm_state == t_wbm_state.wb_retire
+            wbm_state.next = t_wbm_state.wb_idle
+
+
+
 
 
     return instances()

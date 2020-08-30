@@ -125,7 +125,8 @@ def cache_unit_tests():
     from tb import tb_cache
 
     #test(tb_cache.tb_tagram(),trace=False)
-    test(tb_cache.tb_cache_way(test_conversion=True),trace=False)
+    #test(tb_cache.tb_cache_way(test_conversion=True),trace=False)
+    test(tb_cache.tb_cache(test_conversion=False),trace=True)
 
 
 ### Main....    

@@ -5,7 +5,7 @@ License: See LICENSE
 """
 from __future__ import print_function
 
-from myhdl import Signal,modbv, \
+from myhdl import Signal,modbv, intbv, \
                   block,always,instances, now
 
 class CacheRAMBundle:
@@ -16,7 +16,7 @@ class CacheRAMBundle:
         self.slave_en = Signal(bool(0))
         self.slave_adr = Signal(intbv(0,max=c.cache_size_m_words))
         self.slave_db_rd = Signal(modbv(0)[c.master_data_width:])
-        self.slave_db_wr = Signal(modbv(0)[c.master_data_widthn:])
+        self.slave_db_wr = Signal(modbv(0)[c.master_data_width:])
         self.slave_we = Signal(modbv(0)[c.master_width_bytes:])
         # Master Interface
         self.master_en = Signal(bool(0))
@@ -36,7 +36,7 @@ def cache_ram_instance(bundle,clock):
 
     cache_ram =  [Signal(modbv(0)[c.master_data_width:]) for ii in range(0, c.cache_size_m_words)]
 
-    @always
+    @always(clock.posedge)
     def seq():
 
         # Write collision check, only relevant in simulation
@@ -49,8 +49,8 @@ def cache_ram_instance(bundle,clock):
 
         if bundle.slave_en:
             for b in range(0,c.master_width_bytes):
-                if bundle.slave_we[i]:
-                    cache_ram[slave_adr][(b+1)*8:b*8].next = bundle.slave_db_wr[(b+1)*8:b*8]
+                if bundle.slave_we[b]:
+                    cache_ram[slave_adr].next[(b+1)*8:b*8] = bundle.slave_db_wr[(b+1)*8:b*8]
 
             # Read first RAM !! 
             bundle.slave_db_rd.next = cache_ram[bundle.slave_adr]
