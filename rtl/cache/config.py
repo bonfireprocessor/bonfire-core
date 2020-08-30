@@ -5,13 +5,9 @@ License: See LICENSE
 """
 
 from __future__ import print_function
-from math import log2
 from myhdl import modbv
+from rtl.util import int_log2
 
-def int_log2(v):
-    l = log2(v)
-    assert int(l)==l, "{} must be power of 2".format(v)
-    return int(l)
 
 
 

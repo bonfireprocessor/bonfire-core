@@ -8,14 +8,19 @@ from __future__ import print_function
 
 from myhdl import *
 
+from rtl.config import BonfireConfig
+
 class DbusBundle:
     """
     Simple Databus with enough features to be extended to Wishbone B4
     Can support pipelined mode, similar to Wishbone B4 pipelined mode
     Signal names are from the master side
     """
-    def __init__(self,config,readOnly=False):
-        xlen=config.xlen
+    def __init__(self,config=None,len=32,readOnly=False):
+        if isinstance(config,BonfireConfig):
+            xlen=config.xlen
+        else:
+            xlen=len    
 
         self.xlen=xlen
         self.readOnly= readOnly

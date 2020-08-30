@@ -74,8 +74,30 @@ class TagDataBundle:
         return instances()    
 
 
+class AddressBundle:
+    def __init__(self,config):
+        self.config = config
+        c = config 
+        self.tag_value = Signal(modbv(0)[c.tag_ram_bits:])
+        self.tag_index = Signal(modbv(0)[c.line_select_adr_bits:])
+        self.word_index = Signal(modbv(0)[c.cl_bits_slave:])
+
+    @block
+    def  from_bit_vector(self,adr):
+        c = self.config
+
+        @always_comb
+        def comb():
+           
+            self.tag_value.next = adr[c.address_bits:c.tag_value_adr_bit_low]
+            self.tag_index.next =  adr[c.tag_value_adr_bit_low:c.cl_bits_slave]
+            self.word_index.next = adr[c.cl_bits_slave:]
+
+        return instances()    
+
+
 @block
-def cache_way_instance(bundle,clock,reset,config):
+def cache_way_instance(bundle,clock,reset):
 
     
     c = bundle.config
@@ -85,15 +107,17 @@ def cache_way_instance(bundle,clock,reset,config):
     tag_buffer = TagDataBundle(c.tag_ram_bits) # Last read Tag RAM item
     buffer_index = Signal(modbv(0)[c.line_select_adr_bits:])  # Index of last read Tag RAM item
 
-    
-    t_i = tag_ram_instance(tag_in,tag_buffer,bundle.we,tag_index,clock,reset,config)
+    slave_adr_splitted = AddressBundle(c)
+    s_adr_i = slave_adr_splitted.from_bit_vector(bundle.adr)
+
+    t_i = tag_ram_instance(tag_in,tag_buffer,bundle.we,tag_index,clock,reset,c)
     
 
     @always_comb
     def assign():
         # TODO: Check correctness of indicies
-        tag_index.next =  bundle.adr[c.tag_ram_bits:c.cl_bits_slave]
-        tag_in.address.next = bundle.adr[:c.tag_ram_bits+1]
+        tag_index.next =  slave_adr_splitted.tag_index
+        tag_in.address.next = slave_adr_splitted.tag_value
         tag_in.valid.next = bundle.valid
         tag_in.dirty.next = bundle.dirty
 
@@ -113,9 +137,9 @@ def cache_way_instance(bundle,clock,reset,config):
 
         # Tag Output
         bundle.tag_valid.next = tag_buffer.valid
-        bundle.tag_value = tag_buffer.address
-        bundle.buffer_index = buffer_index
-        bundle.tag_index = tag_index
+        bundle.tag_value.next = tag_buffer.address
+        bundle.buffer_index.next = buffer_index
+        bundle.tag_index.next = tag_index
 
     @always_seq(clock.posedge,reset)
     def seq():

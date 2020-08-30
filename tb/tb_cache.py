@@ -78,7 +78,7 @@ def tb_cache_way(test_conversion=False):
 
     w = CacheWayBundle(conf)
 
-    cw_inst = cache_way_instance(w,clock,reset,conf)
+    cw_inst = cache_way_instance(w,clock,reset)
     if test_conversion:
         cw_inst.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="cache_way")
 
