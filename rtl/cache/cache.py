@@ -4,7 +4,7 @@ Bonfire Core Cache
 License: See LICENSE
 """
 from myhdl import Signal,intbv,modbv,ConcatSignal,  \
-                  block,always_comb,always_seq,instances, enum, now
+                  block,always_comb,always_seq, always, instances, enum, now
 
 from rtl.util import int_log2
 
@@ -48,7 +48,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     wbm_state = Signal(t_wbm_state.wb_idle)
 
     # Constants
-    slave_adr_low = int_log2(slave.xlen // 8)
+    slave_adr_low = int_log2(slave.xlen // 8) + slave.adrLow
     slave_adr_high = slave_adr_low + config.set_adr_bits
 
     # local Signals
@@ -59,13 +59,15 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     slave_rd_ack = Signal(bool(0))
     slave_write_enable = Signal(bool(0))
 
+   
+
     # Splitted slave adr
     slave_adr_splitted = cache_way.AddressBundle(config)
     s_adr_i = slave_adr_splitted.from_bit_vector(slave.adr_o)
 
-
     wbm_enable = Signal(bool(0)) # Enable signal for master Wishbone bus
 
+    
 
     # Cache RAM
     cache_ram = CacheRAMBundle(config)
@@ -97,12 +99,22 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     else:
         # Calcluate slave bus address bits for selecting the right 32 slice
         # from the master bus
-        mx_low = slave_adr_low
+        mx_low = slave.adrLow
         mx_high = slave_adr_low + int_log2(config.mux_size)
+        # Debug only signals 
+        slave_db_mux_debug = Signal(modbv(0)[int_log2(config.mux_size):])
+
+        @always(clock.posedge)
+        def mux_seq():
+            for i in range(0,config.mux_size):
+                 if slave.adr_o[mx_high :mx_low] == i:
+                     # Databus Multiplexer, select the 32 Bit word from the cache ram word.
+                    slave.db_rd.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
 
         @always_comb
         def db_mux_n():
             # Data bus multiplexer
+            slave_db_mux_debug.next = slave.adr_o[mx_high :mx_low]
             for i in range(0,config.mux_size):
                 # For writing the Slave bus can just be demutiplexed n times
                 # Write Enable is done on byte lane level
@@ -112,7 +124,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
                      # Write enable line multiplexer
                     cache_ram.slave_we[(i+1)*4:i*4].next = slave.we_o
                     # Databus Multiplexer, select the 32 Bit word from the cache ram word.
-                    slave.db_rd.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
+                    #slave.db_rd.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
                 else:
                     cache_ram.slave_we[(i+1)*4:i*4].next = 0
 

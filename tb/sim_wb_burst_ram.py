@@ -5,7 +5,7 @@ License: See LICENSE
 """
 from __future__ import print_function
 
-from myhdl import Signal,modbv,block,always,enum, concat, instances, now
+from myhdl import Signal,modbv,block,always, always_comb, enum, concat, instances, now
 
 @block
 def ram_interface(ram,wb_bus, pattern_mode, clock, config):
@@ -35,7 +35,8 @@ def ram_interface(ram,wb_bus, pattern_mode, clock, config):
         return d    
 
 
-    @always(clock.posedge)
+    
+    @always_comb
     def mem_read():
         if wb_bus.wbm_stb_o and not wb_bus.wbm_we_o:
             if pattern_mode:

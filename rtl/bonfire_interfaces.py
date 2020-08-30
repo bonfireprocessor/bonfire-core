@@ -9,6 +9,7 @@ from __future__ import print_function
 from myhdl import *
 
 from rtl.config import BonfireConfig
+from rtl.util import int_log2
 
 class DbusBundle:
     """
@@ -24,6 +25,7 @@ class DbusBundle:
 
         self.xlen=xlen
         self.readOnly= readOnly
+        self.adrLow = int_log2(xlen // 8) # Lowest used address bit
         
         self.en_o = Signal(bool(0))
        
@@ -33,7 +35,7 @@ class DbusBundle:
         self.error_i = Signal(bool(0)) # Signals a bus error (will be raised in place of ack_i)
         self.db_rd = Signal(modbv(0)[xlen:])
         if not readOnly:
-            self.we_o = Signal(modbv(0)[xlen/8:]) # Byte wide write enable signals
+            self.we_o = Signal(modbv(0)[xlen // 8:]) # Byte wide write enable signals
             self.db_wr = Signal(modbv(0)[xlen:])
     
 class DebugOutputBundle:

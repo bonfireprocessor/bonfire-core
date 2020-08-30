@@ -1,23 +1,23 @@
 [*]
 [*] GTKWave Analyzer v3.3.86 (w)1999-2017 BSI
-[*] Sun Aug 30 15:36:07 2020
+[*] Sun Aug 30 19:48:12 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_cache.vcd"
-[dumpfile_mtime] "Sun Aug 30 15:34:15 2020"
-[dumpfile_size] 1731948
+[dumpfile_mtime] "Sun Aug 30 19:39:13 2020"
+[dumpfile_size] 1735298
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_cache.gtkw"
 [timestart] 0
-[size] 1570 999
+[size] 1733 999
 [pos] -1 -1
-*-4.320688 65 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-6.320688 189 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb_cache.
 [treeopen] tb_cache.cache_instance0.
 [treeopen] tb_cache.cache_instance0.cache_ram_instance0.
 [treeopen] tb_cache.cache_instance0.cache_way_instance0.
 [treeopen] tb_cache.cache_instance0.cache_way_instance0.tag_ram_instance0.
 [treeopen] tb_cache.ram_interface0.
-[sst_width] 361
-[signals_width] 238
+[sst_width] 360
+[signals_width] 544
 [sst_expanded] 1
 [sst_vpaned_height] 478
 @28
@@ -52,13 +52,20 @@ tb_cache.cache_instance0.master_wbm_cti_o[2:0]
 @22
 tb_cache.cache_instance0.master_wbm_db_i[127:0]
 tb_cache.cache_instance0.master_wbm_db_o[127:0]
+@200
+-
+@28
+tb_cache.cache_instance0.cache_ram_master_adr
+tb_cache.cache_instance0.cache_ram_master_en
+tb_cache.cache_instance0.cache_ram_master_we
+@22
+tb_cache.cache_instance0.cache_ram_master_db_wr[127:0]
 @28
 tb_cache.cache_instance0.master_wbm_we_o
 tb_cache.cache_instance0.wbm_state
 tb_cache.cache_instance0.cache_ram_master_adr
-@25
-tb_cache.cache_instance0.master_offset_counter[1:0]
 @24
+tb_cache.cache_instance0.master_offset_counter[1:0]
 tb_cache.cache_instance0.cache_offset_counter[1:0]
 @200
 -
@@ -67,10 +74,25 @@ tb_cache.cache_instance0.cache_offset_counter[1:0]
 tb_cache.cache_instance0.slave_en_o
 @22
 tb_cache.cache_instance0.slave_adr_o[31:0]
+@23
 tb_cache.db_slave_db_rd[31:0]
 @28
+tb_cache.cache_instance0.cache_way_instance0.bundle_hit
 tb_cache.cache_instance0.slave_ack_i
 tb_cache.cache_instance0.slave_rd_ack
 tb_cache.cache_instance0.slave_write_enable
+@200
+-
+@28
+tb_cache.cache_instance0.cache_ram_slave_adr
+tb_cache.cache_instance0.slave_db_mux_debug[1:0]
+tb_cache.cache_instance0.cache_ram_slave_en
+@22
+tb_cache.cache_instance0.cache_ram_slave_db_rd[127:0]
+@200
+-
+@22
+tb_cache.cache_instance0.cache_ram_instance0.cache_ram.cache_ram(0)[127:0]
+tb_cache.cache_instance0.cache_ram_instance0.cache_ram.cache_ram(1)[127:0]
 [pattern_trace] 1
 [pattern_trace] 0
