@@ -93,7 +93,12 @@ class AddressBundle:
             self.tag_index.next =  adr[c.tag_value_adr_bit_low:c.cl_bits_slave]
             self.word_index.next = adr[c.cl_bits_slave:]
 
-        return instances()    
+        return instances()
+
+    def debug_print(self):
+        print("AddressBundle content: value: {}  index: {} word_index: {}".format(self.tag_value,
+                                                                                  self.tag_index,
+                                                                                  self.word_index))
 
 
 @block

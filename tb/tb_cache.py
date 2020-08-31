@@ -147,12 +147,14 @@ def tb_cache(test_conversion=False,config=CacheConfig()):
 
 
 
-    def db_read(address):
+    def db_read(address): # non pipelined yet
         yield clock.posedge
 
         db_slave.en_o.next = True
         db_slave.we_o.next = 0
         db_slave.adr_o.next = address
+        #yield clock.posedge
+        #db_slave.en_o.next = False # deassert en after first clock
         while not db_slave.ack_i:
             yield clock.posedge
         db_slave.en_o.next = False
@@ -161,18 +163,21 @@ def tb_cache(test_conversion=False,config=CacheConfig()):
 
     def read_loop(start_adr,length):
         loop_success = False
+        adr = modbv(0)[32:0]
         for i in range(0,length):
-            adr = start_adr + i *4
+            adr[:] = start_adr + i *4
             yield db_read(adr)
-            print(db_slave.db_rd)
-            assert db_slave.db_rd == adr, "Read failure at address {}: {}".format(hex(adr),db_slave.db_rd)
+            print("read_loop @{}: {}:{}".format(now(),adr,db_slave.db_rd))
+            # if db_slave.db_rd != adr:
+            #     print( "@{} Read failure at address {}: {}".format(now(),hex(adr),db_slave.db_rd))
+            assert db_slave.db_rd == adr, "@{} Read failure at address {}: {}".format(now(),hex(adr),db_slave.db_rd)
                
 
     @instance
     def stimulus():
+        config.print_config()
         yield read_loop(0,16)
 
-        print(db_slave.db_rd)
         yield clock.posedge
         raise StopSimulation
 
