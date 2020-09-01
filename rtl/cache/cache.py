@@ -102,6 +102,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
         if slave.en_o and tag_control.hit and not slave_rd_ack:
             print("@{} Cache hit for address: {}, cache RAM adr:{}".format(now(),slave.adr_o,cache_ram.slave_adr))
+            assert tag_control.buffer_index == slave_adr_splitted.tag_index, "Tag Index mismatch"
             slave_adr_splitted.debug_print()
 
     # Cache RAM Bus Multiplexers
@@ -119,13 +120,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         # Debug only signals 
         slave_db_mux_debug = Signal(modbv(0)[int_log2(config.mux_size):])
 
-        # @always(clock.posedge)
-        # def mux_seq():
-        #     for i in range(0,config.mux_size):
-        #          if slave.adr_o[mx_high :mx_low] == i:
-        #              # Databus Multiplexer, select the 32 Bit word from the cache ram word.
-        #             slave.db_rd.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
-
+        
         @always_comb
         def db_mux_n():
             # Data bus multiplexer
@@ -159,7 +154,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         tag_control.we.next = (master.wbm_ack_i and wbm_state==t_wbm_state.wb_finish) or slave_write_enable
         tag_control.dirty.next = slave_write_enable
         tag_control.valid.next = not write_back_enable
-        tag_control.adr.next = slave.adr_o
+        tag_control.adr.next = slave__adr_slice
 
         # Cache RAM control signals
         # Slave side

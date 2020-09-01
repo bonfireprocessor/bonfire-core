@@ -6,7 +6,7 @@ from uncore import tb_soc
 
 from rtl import config
 
-import getopt, sys 
+import getopt, sys, traceback
 
 
 
@@ -21,7 +21,8 @@ def test(inst,**kwagrs):
             d=10000
         inst.run_sim(duration=d)
     except AssertionError as a:
-        print("Test failure: ".join(a.args))
+        print("Test failure: "," ".join(a.args))
+        traceback.print_exc()
         inst.quit_sim()
         print("stopping simulation run because of test failure")
         sys.exit(0)
@@ -126,7 +127,7 @@ def cache_unit_tests():
 
     #test(tb_cache.tb_tagram(),trace=False)
     #test(tb_cache.tb_cache_way(test_conversion=True),trace=False)
-    test(tb_cache.tb_cache(test_conversion=False),trace=True)
+    test(tb_cache.tb_cache(test_conversion=False,cache_size_m_words=128),trace=True)
 
 
 ### Main....    

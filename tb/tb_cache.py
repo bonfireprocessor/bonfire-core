@@ -12,7 +12,7 @@ def tb_tagram(test_conversion=False):
     from rtl.cache.cache_way import TagDataBundle
     from rtl.cache.tag_ram import tag_ram_instance 
     
-    conf = CacheConfig()
+    conf = CacheConfig(**kwargs)
 
     clock=Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
@@ -124,11 +124,23 @@ def tb_cache_way(test_conversion=False):
 
 
 @block
-def tb_cache(test_conversion=False,config=CacheConfig()):
+def tb_cache(test_conversion=False,
+                 master_data_width = 128,
+                 line_size = 4, # Line size in MASTER_DATA_WIDTH  words
+                 cache_size_m_words = 2048, # Cache Size in MASTER_DATA_WIDTH Bit words
+                 address_bits = 30, #  Number of bits of chacheable address range
+                 num_ways = 1 # Number of cache ways
+            ):  
 
     from rtl.cache.cache import CacheMasterWishboneBundle, CacheControlBundle, cache_instance
     from rtl.bonfire_interfaces import DbusBundle
     from tb.sim_wb_burst_ram import ram_interface
+
+    config = CacheConfig(master_data_width=master_data_width,
+                         line_size=line_size,
+                         cache_size_m_words=cache_size_m_words,
+                         address_bits=address_bits,
+                         num_ways=num_ways)
 
     clock=Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
@@ -162,10 +174,12 @@ def tb_cache(test_conversion=False,config=CacheConfig()):
     loop_success = False    
 
     def read_loop(start_adr,length):
-        loop_success = False
-        adr = modbv(0)[32:0]
+       
+        print("Start loop at:")
+        config.print_address(start_adr)
+       
         for i in range(0,length):
-            adr[:] = start_adr + i *4
+            adr = modbv((start_adr + i) << 2)[32:]
             yield db_read(adr)
             print("read_loop @{}: {}:{}".format(now(),adr,db_slave.db_rd))
             # if db_slave.db_rd != adr:
@@ -176,7 +190,12 @@ def tb_cache(test_conversion=False,config=CacheConfig()):
     @instance
     def stimulus():
         config.print_config()
-        yield read_loop(0,16)
+        line_size = 2**config.cl_bits_slave # Line size in slave words
+
+        # Read two lines
+        yield read_loop(config.create_address(0,0,0),line_size*2)
+        # Read two lines with same line index, but different tag value
+        yield read_loop(config.create_address(1,0,0),line_size*2)
 
         yield clock.posedge
         raise StopSimulation
