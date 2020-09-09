@@ -129,7 +129,8 @@ def tb_cache(test_conversion=False,
                  line_size = 4, # Line size in MASTER_DATA_WIDTH  words
                  cache_size_m_words = 2048, # Cache Size in MASTER_DATA_WIDTH Bit words
                  address_bits = 30, #  Number of bits of chacheable address range
-                 num_ways = 1 # Number of cache ways
+                 num_ways = 1, # Number of cache ways
+                 pipelined = True
             ):  
 
     from rtl.cache.cache import CacheMasterWishboneBundle, CacheControlBundle, cache_instance
@@ -159,6 +160,46 @@ def tb_cache(test_conversion=False,
 
 
 
+    
+
+
+    pipelined_read_on = Signal(bool(0))
+   
+    address_queue = []
+
+    def db_read_pipelined(address): # pipelined read start, does not wait on ack
+
+        db_slave.en_o.next = True
+        db_slave.we_o.next = 0
+        db_slave.adr_o.next = address
+        address_queue.append(address)
+        yield clock.posedge
+        # Block on stall
+        while db_slave.stall_i:
+            yield clock.posedge
+
+    @always(clock.posedge)
+    def pipelined_read_ack():
+        if pipelined_read_on:
+            if db_slave.ack_i:
+                ack_address = address_queue.pop(0)
+                pipelined_read_on.next = len(address_queue) > 0
+
+                print("read_ack @{}: {}:{}".format(now(),ack_address,db_slave.db_rd))
+                assert db_slave.db_rd == ack_address, "@{} Read failure at address {}: {}".format(now(),hex(ack_address),db_slave.db_rd)
+
+
+    def read_loop_pipelined(start_adr,length):
+        pipelined_read_on.next = True
+        print("Start loop at:")
+        config.print_address(start_adr)
+       
+        for i in range(0,length):
+            adr = modbv((start_adr + i) << 2)[32:]
+            yield db_read_pipelined(adr)
+            
+
+
     def db_read(address): # non pipelined yet
         yield clock.posedge
 
@@ -169,9 +210,8 @@ def tb_cache(test_conversion=False,
         #db_slave.en_o.next = False # deassert en after first clock
         while not db_slave.ack_i:
             yield clock.posedge
-        db_slave.en_o.next = False
-        
-    loop_success = False    
+            db_slave.en_o.next = False # deassert en after first clock
+   
 
     def read_loop(start_adr,length):
        
@@ -182,8 +222,8 @@ def tb_cache(test_conversion=False,
             adr = modbv((start_adr + i) << 2)[32:]
             yield db_read(adr)
             print("read_loop @{}: {}:{}".format(now(),adr,db_slave.db_rd))
-            # if db_slave.db_rd != adr:
-            #     print( "@{} Read failure at address {}: {}".format(now(),hex(adr),db_slave.db_rd))
+            if db_slave.db_rd != adr:
+                print( "@{} Read failure at address {}: {}".format(now(),hex(adr),db_slave.db_rd))
             assert db_slave.db_rd == adr, "@{} Read failure at address {}: {}".format(now(),hex(adr),db_slave.db_rd)
                
 
@@ -192,10 +232,14 @@ def tb_cache(test_conversion=False,
         config.print_config()
         line_size = 2**config.cl_bits_slave # Line size in slave words
 
-        # Read two lines
-        yield read_loop(config.create_address(0,0,0),line_size*2)
-        # Read two lines with same line index, but different tag value
-        yield read_loop(config.create_address(1,0,0),line_size*2)
+        if not pipelined:
+            # Read two lines
+            yield read_loop(config.create_address(0,0,0),line_size*2)
+            # Read two lines with same line index, but different tag value
+            yield read_loop(config.create_address(1,0,0),line_size*2)
+        else:
+            yield read_loop_pipelined(config.create_address(0,0,0),line_size*2)
+            yield read_loop_pipelined(config.create_address(1,0,0),line_size*2)
 
         yield clock.posedge
         raise StopSimulation
