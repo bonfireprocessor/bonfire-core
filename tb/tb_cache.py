@@ -166,6 +166,7 @@ def tb_cache(test_conversion=False,
     pipelined_read_on = Signal(bool(0))
    
     address_queue = []
+    queue_len = Signal(intbv(0))
 
     def db_read_pipelined(address): # pipelined read start, does not wait on ack
 
@@ -173,6 +174,7 @@ def tb_cache(test_conversion=False,
         db_slave.we_o.next = 0
         db_slave.adr_o.next = address
         address_queue.append(address)
+        queue_len.next = len(address_queue)
         yield clock.posedge
         # Block on stall
         while db_slave.stall_i:
@@ -182,8 +184,9 @@ def tb_cache(test_conversion=False,
     def pipelined_read_ack():
         if pipelined_read_on:
             if db_slave.ack_i:
+                assert queue_len > 0, "ack raised on empy queue"
                 ack_address = address_queue.pop(0)
-                pipelined_read_on.next = len(address_queue) > 0
+                queue_len.next = len(address_queue)
 
                 print("read_ack @{}: {}:{}".format(now(),ack_address,db_slave.db_rd))
                 assert db_slave.db_rd == ack_address, "@{} Read failure at address {}: {}".format(now(),hex(ack_address),db_slave.db_rd)
@@ -232,6 +235,7 @@ def tb_cache(test_conversion=False,
         config.print_config()
         line_size = 2**config.cl_bits_slave # Line size in slave words
 
+        yield clock.posedge
         if not pipelined:
             # Read two lines
             yield read_loop(config.create_address(0,0,0),line_size*2)

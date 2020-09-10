@@ -103,13 +103,13 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         pass # TODO: Add support for num_ways > 1
 
 
-    @always(clock.posedge)
-    def debug_output():
+    # @always(clock.posedge)
+    # def debug_output():
 
-        if slave.en_o and tag_control.hit and not slave_rd_ack:
-            print("@{} Cache hit for address: {}, cache RAM adr:{}".format(now(),slave_adr_slice,cache_ram.slave_adr))
-            assert tag_control.buffer_index == slave_adr_splitted.tag_index, "Tag Index mismatch"
-            slave_adr_splitted.debug_print()
+    #     if slave.en_o and tag_control.hit and not slave_rd_ack:
+    #         print("@{} Cache hit for address: {}, cache RAM adr:{}".format(now(),slave_adr_slice,cache_ram.slave_adr))
+    #         assert tag_control.buffer_index == slave_adr_splitted.tag_index, "Tag Index mismatch"
+    #         slave_adr_splitted.debug_print()
 
     
 
@@ -144,7 +144,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
                     # Databus Multiplexer, select the 32 Bit word from the cache ram word.
                     slave.db_rd.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
                 else:
-                    cache_ram.slave_we[(i+1)*4:i*4].next = 0
+                    cache_ram.slave_we[(i+1)*4:i*4].next = 0    
 
 
     @always_comb
@@ -175,7 +175,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         cache_ram.master_db_wr.next = master.wbm_db_i
        
         # Slave bus
-        slave.ack_i.next = slave_rd_ack or slave_write_enable
+        slave.ack_i.next = slave_rd_ack  or slave_write_enable
         slave.stall_i.next = slave_stall
 
         # Master bus
@@ -186,7 +186,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
     @always(clock.posedge)
     def proc_reg_adr():
-        if slave.en_o and not tag_control.hit:
+        if slave.en_o and not tag_control.hit and not slave_stall:
             slave_adr_reg.next = slave.adr_o[slave_adr_high:slave_adr_low]
 
 
