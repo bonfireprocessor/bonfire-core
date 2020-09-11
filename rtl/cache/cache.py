@@ -126,19 +126,23 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         mx_low = 0
         mx_high = mx_low + int_log2(config.mux_size)
         # Debug only signals 
-        slave_db_mux_debug = Signal(modbv(0)[int_log2(config.mux_size):])
+        slave_db_mux_reg = Signal(modbv(0)[int_log2(config.mux_size):])
 
+        @always(clock.posedge)
+        def db_mux_sync():
+            if tag_control.hit and  ( slave.en_o or  en_r ) and not slave.we_o:
+                slave_db_mux_reg.next = slave_adr_slice[mx_high :mx_low]
+               
         
         @always_comb
         def db_mux_n():
             # Data bus multiplexer
-            slave_db_mux_debug.next = slave_adr_slice[mx_high :mx_low]
             for i in range(0,config.mux_size):
                 # For writing the Slave bus can just be demutiplexed n times
                 # Write Enable is done on byte lane level
                 cache_ram.slave_db_wr[(i+1)*32:i*32].next = slave.db_wr
 
-                if slave_adr_slice[mx_high :mx_low] == i:
+                if slave_db_mux_reg == i:
                      # Write enable line multiplexer
                     cache_ram.slave_we[(i+1)*4:i*4].next = slave.we_o
                     # Databus Multiplexer, select the 32 Bit word from the cache ram word.
@@ -153,8 +157,6 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
     @always_comb
     def cache_control_comb():
-
-        
 
         # Tag Control
 
@@ -197,13 +199,13 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
             # Stall bus when no immediate hit on new bus cycle
             slave_stall.next = True
             en_r.next = True
-
-        if slave_rd_ack:
-            slave_rd_ack.next = False
-        elif tag_control.hit and  ( slave.en_o or  en_r ) and not slave.we_o:
+       
+        if tag_control.hit and  ( slave.en_o or  en_r ) and not slave.we_o:
             slave_rd_ack.next = True
             slave_stall.next = False
             en_r.next = False
+        else:
+           slave_rd_ack.next = False     
 
 
     @always_comb

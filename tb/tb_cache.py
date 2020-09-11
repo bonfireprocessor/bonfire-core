@@ -158,11 +158,6 @@ def tb_cache(test_conversion=False,
     ram_i = ram_interface(ram,wb_master,pattern_mode,clock,config)
     c_i = cache_instance(db_slave,wb_master,clock,reset,config)
 
-
-
-    
-
-
     pipelined_read_on = Signal(bool(0))
    
     address_queue = []
