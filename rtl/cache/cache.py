@@ -51,8 +51,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     slave_adr_low = slave.adrLow  # int_log2(slave.xlen // 8) + slave.adrLow
     slave_adr_high = slave_adr_low + config.address_bits
 
-    # local Signals
-    write_back_enable = Signal(bool(0))
+   
     cache_offset_counter = Signal(modbv(0)[config.cl_bits:])
     master_offset_counter = Signal(modbv(0)[config.cl_bits:])
 
@@ -95,7 +94,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         def comb():
             cache_ram.slave_adr.next = ConcatSignal(slave_adr_splitted.tag_index,slave_adr_splitted.word_index[config.cl_bits_slave:config.cl_bits])
 
-            if write_back_enable:
+            if tag_control.dirty_miss:
                 cache_ram.master_adr.next = ConcatSignal(tag_control.buffer_index,cache_offset_counter)
             else:
                 cache_ram.master_adr.next = ConcatSignal(tag_control.tag_index,master_offset_counter)
@@ -154,10 +153,6 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
 
     @always_comb
-    def proc_write_back_enable():
-        write_back_enable.next = tag_control.dirty_miss
-
-    @always_comb
     def proc_slave_write_enable():
         if  ( slave.en_o or en_r ) and slave.we_o != 0 and tag_control.hit:
             slave_write_enable.next = True # slave.en_o and slave.we_o != 0 and tag_control.hit
@@ -172,7 +167,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         tag_control.en.next = slave.en_o or en_r
         tag_control.we.next = (master.wbm_ack_i and wbm_state==t_wbm_state.wb_finish) or slave_write_enable
         tag_control.dirty.next = slave_write_enable
-        tag_control.valid.next = not write_back_enable
+        tag_control.valid.next = not tag_control.dirty_miss
         tag_control.adr.next = slave_adr_slice
 
         # Cache RAM control signals
@@ -180,9 +175,9 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         cache_ram.slave_en.next = tag_control.hit and ( slave.en_o or en_r )
         # Master side
         cache_ram.master_en.next = ( master.wbm_ack_i and wbm_enable ) or \
-                                   ( write_back_enable and wbm_state == t_wbm_state.wb_idle )
+                                   ( tag_control.dirty_miss and wbm_state == t_wbm_state.wb_idle )
 
-        cache_ram.master_we.next = master.wbm_ack_i and not write_back_enable
+        cache_ram.master_we.next = master.wbm_ack_i and not tag_control.dirty_miss
         cache_ram.master_db_wr.next = master.wbm_db_i
 
         # Slave bus
@@ -220,7 +215,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     @always_comb
     def proc_master_adr():
 
-        if write_back_enable:
+        if tag_control.dirty_miss:
             sig_temp = ConcatSignal(tag_control.tag_value,
                                     tag_control.buffer_index,master_offset_counter)
         else:
@@ -241,7 +236,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
                     master.wbm_sel_o.next[i] = True
 
                 master.wbm_cti_o.next = 0b010
-                if write_back_enable:
+                if tag_control.dirty_miss:
                     cache_offset_counter.next = master_offset_counter + 1
                     master.wbm_we_o.next = True
                     wbm_state.next = t_wbm_state.wb_burst_write
