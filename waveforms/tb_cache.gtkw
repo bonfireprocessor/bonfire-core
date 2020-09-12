@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Fri Sep 11 10:48:55 2020
+[*] Fri Sep 11 15:15:50 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_cache.vcd"
-[dumpfile_mtime] "Fri Sep 11 10:48:00 2020"
-[dumpfile_size] 154794
+[dumpfile_mtime] "Fri Sep 11 15:15:20 2020"
+[dumpfile_size] 206368
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_cache.gtkw"
-[timestart] 44
+[timestart] 0
 [size] 1920 1031
 [pos] -1 -1
-*-4.320688 109 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.320688 75 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb_cache.
 [treeopen] tb_cache.cache_instance0.
 [treeopen] tb_cache.cache_instance0.cache_ram_instance0.
@@ -72,6 +72,10 @@ tb_cache.cache_instance0.slave_en_o
 @22
 tb_cache.cache_instance0.slave_adr_o[31:0]
 @28
+tb_cache.cache_instance0.slave_we_o[3:0]
+@22
+tb_cache.cache_instance0.slave_db_wr[31:0]
+@28
 tb_cache.cache_instance0.slave_stall_i
 tb_cache.cache_instance0.slave_ack_i
 @22
@@ -82,15 +86,13 @@ tb_cache.cache_instance0.slave_db_rd[31:0]
 @28
 tb_cache.cache_instance0.cache_ram_slave_en
 tb_cache.cache_instance0.cache_ram_slave_adr
-@25
+@24
 tb_cache.cache_instance0.slave_db_mux_reg[1:0]
 @22
+tb_cache.cache_instance0.cache_ram_slave_we[15:0]
 tb_cache.cache_instance0.cache_ram_slave_db_rd[127:0]
 @200
 -
-@28
-tb_cache.cache_instance0.en_r
-@200
 -
 @22
 tb_cache.cache_instance0.slave_adr_reg[29:0]

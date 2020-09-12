@@ -53,7 +53,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
     # local Signals
     write_back_enable = Signal(bool(0))
-    cache_offset_counter = Signal(modbv(0)[config.cl_bits:]) 
+    cache_offset_counter = Signal(modbv(0)[config.cl_bits:])
     master_offset_counter = Signal(modbv(0)[config.cl_bits:])
 
     # Slave bus control
@@ -71,14 +71,14 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
         if en_r:
             slave_adr_slice.next = slave_adr_reg
-        else:    
+        else:
             slave_adr_slice.next = slave.adr_o[slave_adr_high:slave_adr_low]
 
     # Splitted slave adr
     slave_adr_splitted = cache_way.AddressBundle(config)
     s_adr_i = slave_adr_splitted.from_bit_vector(slave_adr_slice)
 
-    
+
 
     wbm_enable = Signal(bool(0)) # Enable signal for master Wishbone bus
 
@@ -111,7 +111,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     #         assert tag_control.buffer_index == slave_adr_splitted.tag_index, "Tag Index mismatch"
     #         slave_adr_splitted.debug_print()
 
-    
+
 
     # Cache RAM Bus Multiplexers
     if config.mux_size == 1:
@@ -125,35 +125,44 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         # from the master bus
         mx_low = 0
         mx_high = mx_low + int_log2(config.mux_size)
-        # Debug only signals 
+        # Debug only signals
         slave_db_mux_reg = Signal(modbv(0)[int_log2(config.mux_size):])
 
         @always(clock.posedge)
         def db_mux_sync():
-            if tag_control.hit and  ( slave.en_o or  en_r ) and not slave.we_o:
+            if tag_control.hit and  ( slave.en_o or  en_r ):
                 slave_db_mux_reg.next = slave_adr_slice[mx_high :mx_low]
-               
-        
+
+
         @always_comb
         def db_mux_n():
             # Data bus multiplexer
             for i in range(0,config.mux_size):
-                # For writing the Slave bus can just be demutiplexed n times
-                # Write Enable is done on byte lane level
-                cache_ram.slave_db_wr[(i+1)*32:i*32].next = slave.db_wr
-
                 if slave_db_mux_reg == i:
-                     # Write enable line multiplexer
-                    cache_ram.slave_we[(i+1)*4:i*4].next = slave.we_o
                     # Databus Multiplexer, select the 32 Bit word from the cache ram word.
                     slave.db_rd.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
+            
+            for i in range(0,config.mux_size):
+                # For writing the Slave bus can just be demutiplexed n times
+                # Write Enable is done on byte lane level
+                cache_ram.slave_db_wr.next[(i+1)*32:i*32] = slave.db_wr
+                # Write enable line multiplexer
+                if slave_adr_slice[mx_high :mx_low] == i:
+                    cache_ram.slave_we.next[(i+1)*4:i*4] = slave.we_o
                 else:
-                    cache_ram.slave_we[(i+1)*4:i*4].next = 0    
+                    cache_ram.slave_we.next[(i+1)*4:i*4] = 0
 
 
     @always_comb
+    def proc_write_back_enable():
+        write_back_enable.next = tag_control.dirty_miss
+
+    @always_comb
     def proc_slave_write_enable():
-         slave_write_enable.next = slave.en_o and slave.we_o and tag_control.hit
+        if  ( slave.en_o or en_r ) and slave.we_o != 0 and tag_control.hit:
+            slave_write_enable.next = True # slave.en_o and slave.we_o != 0 and tag_control.hit
+        else:
+            slave_write_enable.next = False
 
     @always_comb
     def cache_control_comb():
@@ -168,23 +177,23 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
         # Cache RAM control signals
         # Slave side
-        cache_ram.slave_en.next = tag_control.hit and slave.en_o or en_r
+        cache_ram.slave_en.next = tag_control.hit and ( slave.en_o or en_r )
         # Master side
         cache_ram.master_en.next = ( master.wbm_ack_i and wbm_enable ) or \
                                    ( write_back_enable and wbm_state == t_wbm_state.wb_idle )
 
         cache_ram.master_we.next = master.wbm_ack_i and not write_back_enable
         cache_ram.master_db_wr.next = master.wbm_db_i
-       
+
         # Slave bus
-        slave.ack_i.next = slave_rd_ack  or slave_write_enable
+        slave.ack_i.next = slave_rd_ack #  or slave_write_enable
         slave.stall_i.next = slave_stall
 
         # Master bus
         master.wbm_cyc_o.next = wbm_enable
         master.wbm_stb_o.next = wbm_enable
         master.wbm_db_o.next = cache_ram.master_db_rd
-                            
+
 
     @always(clock.posedge)
     def proc_reg_adr():
@@ -199,26 +208,26 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
             # Stall bus when no immediate hit on new bus cycle
             slave_stall.next = True
             en_r.next = True
-       
-        if tag_control.hit and  ( slave.en_o or  en_r ) and not slave.we_o:
+
+        if tag_control.hit and  ( slave.en_o or  en_r ):
             slave_rd_ack.next = True
             slave_stall.next = False
             en_r.next = False
         else:
-           slave_rd_ack.next = False     
+           slave_rd_ack.next = False
 
 
     @always_comb
     def proc_master_adr():
-                   
+
         if write_back_enable:
             sig_temp = ConcatSignal(tag_control.tag_value,
                                     tag_control.buffer_index,master_offset_counter)
         else:
             sig_temp = ConcatSignal(slave_adr_splitted.tag_value,
                                     slave_adr_splitted.tag_index,
-                                    master_offset_counter)   
-        master.wbm_adr_o.next = sig_temp    
+                                    master_offset_counter)
+        master.wbm_adr_o.next = sig_temp
 
 
     # State engine for cache refill/writeback
@@ -230,15 +239,15 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
                 wbm_enable.next = True
                 for i in range(0,len(master.wbm_sel_o)):
                     master.wbm_sel_o.next[i] = True
-                
-                master.wbm_cti_o.next = 0b010    
+
+                master.wbm_cti_o.next = 0b010
                 if write_back_enable:
                     cache_offset_counter.next = master_offset_counter + 1
-                    master.wbm_we_o.next = True  
+                    master.wbm_we_o.next = True
                     wbm_state.next = t_wbm_state.wb_burst_write
                 else:
                     master.wbm_we_o.next = False
-                    wbm_state.next = t_wbm_state.wb_burst_read    
+                    wbm_state.next = t_wbm_state.wb_burst_read
 
 
         elif wbm_state == t_wbm_state.wb_burst_read or wbm_state == t_wbm_state.wb_burst_write:

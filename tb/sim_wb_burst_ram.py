@@ -49,9 +49,9 @@ def ram_interface(ram,wb_bus, pattern_mode, clock, config):
     @always(clock.posedge)
     def mem_simul():
         if wb_bus.wbm_cyc_o and wb_bus.wbm_stb_o and wb_bus.wbm_we_o:
-            for i in range(0,len(wb.wbm_sel_o)):
-                if wb.wbm_sel_o[i]:
-                    ram[wb.wbm_adr_o].next[(i+1)*8:i*8] = wb.wbm_db_o[(i+1)*8:i*8]
+            for i in range(0,len(wb_bus.wbm_sel_o)):
+                if wb_bus.wbm_sel_o[i]:
+                    ram[wb_bus.wbm_adr_o].next[(i+1)*8:i*8] = wb_bus.wbm_db_o[(i+1)*8:i*8]
 
         if m_state == t_mstate.m_idle:
             if wb_bus.wbm_cyc_o and wb_bus.wbm_stb_o:

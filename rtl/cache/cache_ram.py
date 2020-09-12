@@ -50,7 +50,7 @@ def cache_ram_instance(bundle,clock):
         if bundle.slave_en:
             for b in range(0,c.master_width_bytes):
                 if bundle.slave_we[b]:
-                    cache_ram[slave_adr].next[(b+1)*8:b*8] = bundle.slave_db_wr[(b+1)*8:b*8]
+                    cache_ram[bundle.slave_adr].next[(b+1)*8:b*8] = bundle.slave_db_wr[(b+1)*8:b*8]
 
             # Read first RAM !! 
             bundle.slave_db_rd.next = cache_ram[bundle.slave_adr]
