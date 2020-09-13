@@ -134,6 +134,7 @@ def tb_cache(test_conversion=False,
                  cache_size_m_words = 2048, # Cache Size in MASTER_DATA_WIDTH Bit words
                  address_bits = 30, #  Number of bits of chacheable address range
                  num_ways = 1, # Number of cache ways
+                 pipelined = False,
                  verbose = False
             ):
 
@@ -219,7 +220,7 @@ def tb_cache(test_conversion=False,
 
 
 
-    def db_write(address,data,pipelined=False):
+    def db_write(address,data,blocking=False):
         yield clock.posedge
 
         db_slave.en_o.next = True
@@ -235,7 +236,7 @@ def tb_cache(test_conversion=False,
 
         db_slave.en_o.next = False
         db_slave.we_o.next = 0
-        if not pipelined:
+        if blocking:
             while not db_slave.ack_i:
                 yield clock.posedge
                 db_slave.en_o.next = False # deassert en after first clock
@@ -261,25 +262,28 @@ def tb_cache(test_conversion=False,
             #print_t("Read from last line of cache")
             #yield read_loop(config.create_address(0,2**config.line_select_adr_bits-1,0),line_size,pipelined)
 
-        yield loop_test(False)
-        yield loop_test(True)
+        def basic_write_test(pipelined):
+            blocking = not pipelined
+
+            pattern_mode.next = False
+            yield clock.posedge
+            print_t("Basic write test")
+            yield db_write(0,0xdeadbeef,blocking)
+            yield db_write(4,0xabcd8000,blocking)
+
+            yield db_read(0,0xdeadbeef,blocking)
+            yield db_read(4,0xabcd8000,blocking)
+            print_t("Write back test")
+            adr = config.create_address(1,0,0) << 2
+            yield db_write(adr,0x55aa55ff,blocking)
+            yield db_read(adr,0x55aa55ff,blocking)
+            print_t("cross check")
+            yield db_read(0,0xdeadbeef,blocking)
 
 
-        pattern_mode.next = False
 
-        yield clock.posedge
-        print_t("Basic write test")
-        yield db_write(0,0xdeadbeef)
-        yield db_write(4,0xabcd8000)
-
-        yield db_read(0,0xdeadbeef,True)
-        yield db_read(4,0xabcd8000,True)
-        print_t("Write back test")
-        adr = config.create_address(1,0,0) << 2
-        yield db_write(adr,0x55aa55ff)
-        yield db_read(adr,0x55aa55ff,True)
-        print_t("cross check")
-        yield db_read(0,0xdeadbeef,True)
+        yield loop_test(pipelined)
+        yield basic_write_test(pipelined)
 
         yield clock.posedge
         raise StopSimulation

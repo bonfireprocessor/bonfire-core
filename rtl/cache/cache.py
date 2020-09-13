@@ -56,9 +56,9 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     master_offset_counter = Signal(modbv(0)[config.cl_bits:])
 
     # Slave bus control
-    slave_rd_ack = Signal(bool(0))
+    slave_ack = Signal(bool(0))
     slave_write_enable = Signal(bool(0))
-    slave_stall =  Signal(bool(0))
+   
 
     # Slave adress slice stripped from lower (not used...) bits
     slave_adr_slice = Signal(modbv(0)[config.address_bits:])
@@ -66,6 +66,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     en_r = Signal(bool(0)) # Registered slave en signal
     slave_we_r = Signal(modbv(0)[len(slave.we_o):])
     slave_we = Signal(modbv(0)[len(slave.we_o):])
+    slave_write_r = Signal(modbv(0)[slave.xlen:])
 
     @always_comb
     def proc_adr_slice():
@@ -148,7 +149,10 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
             for i in range(0,config.mux_size):
                 # For writing the Slave bus can just be demutiplexed n times
                 # Write Enable is done on byte lane level
-                cache_ram.slave_db_wr.next[(i+1)*32:i*32] = slave.db_wr
+                if en_r:
+                    cache_ram.slave_db_wr.next[(i+1)*32:i*32] = slave_write_r
+                else:
+                    cache_ram.slave_db_wr.next[(i+1)*32:i*32] = slave.db_wr
                 # Write enable line multiplexer
                 if slave_adr_slice[mx_high :mx_low] == i:
                     cache_ram.slave_we.next[(i+1)*4:i*4] = slave_we
@@ -185,8 +189,8 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         cache_ram.master_db_wr.next = master.wbm_db_i
 
         # Slave bus
-        slave.ack_i.next = slave_rd_ack #  or slave_write_enable
-        slave.stall_i.next = slave_stall
+        slave.ack_i.next = slave_ack
+        slave.stall_i.next = en_r and slave.en_o
 
         # Master bus
         master.wbm_cyc_o.next = wbm_enable
@@ -194,27 +198,27 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         master.wbm_db_o.next = cache_ram.master_db_rd
 
 
+    # Registers that do not need to be reset
     @always(clock.posedge)
-    def proc_reg_adr():
-        if slave.en_o and not tag_control.hit and not slave_stall:
+    def proc_reg_slave():
+        if slave.en_o and not ( en_r or tag_control.hit ):
             slave_adr_reg.next = slave.adr_o[slave_adr_high:slave_adr_low]
+            slave_we_r.next = slave.we_o
+            slave_write_r.next = slave.db_wr
 
 
     @always_seq(clock.posedge,reset)
     def proc_slave_control():
 
-        if slave.en_o and not tag_control.hit:
-            # Stall bus when no immediate hit on new bus cycle
-            slave_stall.next = True
+        if slave.en_o and not ( en_r or tag_control.hit ):            
             en_r.next = True
-            slave_we_r.next = slave.we_o
+            
 
         if tag_control.hit and  ( slave.en_o or  en_r ):
-            slave_rd_ack.next = True
-            slave_stall.next = False
+            slave_ack.next = True
             en_r.next = False
         else:
-           slave_rd_ack.next = False
+           slave_ack.next = False
 
 
     @always_comb
