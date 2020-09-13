@@ -32,7 +32,7 @@ class CacheMasterWishboneBundle(Wishbone_master_bundle):
 
 
 @block
-def cache_instance(slave,master,clock,reset,config=CacheConfig()):
+def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
     """
     slave : DbusBundle - slave interface connected to the "CPU side" of the cache
     master: CacheMasterWishboneBundle - master interface connected to the "outer memory"
@@ -48,7 +48,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     wbm_state = Signal(t_wbm_state.wb_idle)
 
     # Constants
-    slave_adr_low = slave.adrLow  # int_log2(slave.xlen // 8) + slave.adrLow
+    slave_adr_low = db_slave.adrLow  # int_log2(slave.xlen // 8) + slave.adrLow
     slave_adr_high = slave_adr_low + config.address_bits
 
    
@@ -64,9 +64,9 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     slave_adr_slice = Signal(modbv(0)[config.address_bits:])
     slave_adr_reg =  Signal(modbv(0)[config.address_bits:])
     en_r = Signal(bool(0)) # Registered slave en signal
-    slave_we_r = Signal(modbv(0)[len(slave.we_o):])
-    slave_we = Signal(modbv(0)[len(slave.we_o):])
-    slave_write_r = Signal(modbv(0)[slave.xlen:])
+    slave_we_r = Signal(modbv(0)[len(db_slave.we_o):])
+    slave_we = Signal(modbv(0)[len(db_slave.we_o):])
+    slave_write_r = Signal(modbv(0)[db_slave.xlen:])
 
     @always_comb
     def proc_adr_slice():
@@ -75,8 +75,8 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
             slave_adr_slice.next = slave_adr_reg
             slave_we.next = slave_we_r
         else:
-            slave_adr_slice.next = slave.adr_o[slave_adr_high:slave_adr_low]
-            slave_we.next = slave.we_o
+            slave_adr_slice.next = db_slave.adr_o[slave_adr_high:slave_adr_low]
+            slave_we.next = db_slave.we_o
 
     # Splitted slave adr
     slave_adr_splitted = cache_way.AddressBundle(config)
@@ -121,9 +121,9 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     if config.mux_size == 1:
          @always_comb
          def db_mux_1():
-             cache_ram.slave_db_wr.next =  slave.db_wr
+             cache_ram.slave_db_wr.next =  db_slave.db_wr
              cache_ram.slave_we.next = slave_we
-             slave.db_rd.next = cache_ram.slave_db_rd
+             db_slave.db_rd.next = cache_ram.slave_db_rd
     else:
         # Calcluate slave bus address bits for selecting the right 32 slice
         # from the master bus
@@ -134,7 +134,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
         @always(clock.posedge)
         def db_mux_sync():
-            if tag_control.hit and  ( slave.en_o or  en_r ):
+            if tag_control.hit and  ( db_slave.en_o or  en_r ):
                 slave_db_mux_reg.next = slave_adr_slice[mx_high :mx_low]
 
 
@@ -144,7 +144,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
             for i in range(0,config.mux_size):
                 if slave_db_mux_reg == i:
                     # Databus Multiplexer, select the 32 Bit word from the cache ram word.
-                    slave.db_rd.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
+                    db_slave.db_rd.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
             
             for i in range(0,config.mux_size):
                 # For writing the Slave bus can just be demutiplexed n times
@@ -152,7 +152,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
                 if en_r:
                     cache_ram.slave_db_wr.next[(i+1)*32:i*32] = slave_write_r
                 else:
-                    cache_ram.slave_db_wr.next[(i+1)*32:i*32] = slave.db_wr
+                    cache_ram.slave_db_wr.next[(i+1)*32:i*32] = db_slave.db_wr
                 # Write enable line multiplexer
                 if slave_adr_slice[mx_high :mx_low] == i:
                     cache_ram.slave_we.next[(i+1)*4:i*4] = slave_we
@@ -162,7 +162,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
     @always_comb
     def proc_slave_write_enable():
-        if  ( slave.en_o or en_r ) and slave_we != 0 and tag_control.hit:
+        if  ( db_slave.en_o or en_r ) and slave_we != 0 and tag_control.hit:
             slave_write_enable.next = True # slave.en_o and slave.we_o != 0 and tag_control.hit
         else:
             slave_write_enable.next = False
@@ -172,7 +172,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
         # Tag Control
 
-        tag_control.en.next = slave.en_o or en_r
+        tag_control.en.next = db_slave.en_o or en_r
         tag_control.we.next = (master.wbm_ack_i and wbm_state==t_wbm_state.wb_finish) or slave_write_enable
         tag_control.dirty.next = slave_write_enable
         tag_control.valid.next = not tag_control.dirty_miss
@@ -180,7 +180,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
 
         # Cache RAM control signals
         # Slave side
-        cache_ram.slave_en.next = tag_control.hit and ( slave.en_o or en_r )
+        cache_ram.slave_en.next = tag_control.hit and ( db_slave.en_o or en_r )
         # Master side
         cache_ram.master_en.next = ( master.wbm_ack_i and wbm_enable ) or \
                                    ( tag_control.dirty_miss and wbm_state == t_wbm_state.wb_idle )
@@ -189,8 +189,8 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
         cache_ram.master_db_wr.next = master.wbm_db_i
 
         # Slave bus
-        slave.ack_i.next = slave_ack
-        slave.stall_i.next = en_r and slave.en_o
+        db_slave.ack_i.next = slave_ack
+        db_slave.stall_i.next = en_r and db_slave.en_o
 
         # Master bus
         master.wbm_cyc_o.next = wbm_enable
@@ -201,20 +201,20 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     # Registers that do not need to be reset
     @always(clock.posedge)
     def proc_reg_slave():
-        if slave.en_o and not ( en_r or tag_control.hit ):
-            slave_adr_reg.next = slave.adr_o[slave_adr_high:slave_adr_low]
-            slave_we_r.next = slave.we_o
-            slave_write_r.next = slave.db_wr
+        if db_slave.en_o and not ( en_r or tag_control.hit ):
+            slave_adr_reg.next = db_slave.adr_o[slave_adr_high:slave_adr_low]
+            slave_we_r.next = db_slave.we_o
+            slave_write_r.next = db_slave.db_wr
 
 
     @always_seq(clock.posedge,reset)
     def proc_slave_control():
 
-        if slave.en_o and not ( en_r or tag_control.hit ):            
+        if db_slave.en_o and not ( en_r or tag_control.hit ):            
             en_r.next = True
             
 
-        if tag_control.hit and  ( slave.en_o or  en_r ):
+        if tag_control.hit and  ( db_slave.en_o or  en_r ):
             slave_ack.next = True
             en_r.next = False
         else:

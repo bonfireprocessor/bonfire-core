@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Sun Sep 13 10:07:15 2020
+[*] Sun Sep 13 14:00:17 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_cache.vcd"
-[dumpfile_mtime] "Sun Sep 13 10:05:32 2020"
-[dumpfile_size] 131357
+[dumpfile_mtime] "Sun Sep 13 13:58:54 2020"
+[dumpfile_size] 147988
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_cache.gtkw"
 [timestart] 0
 [size] 1920 1031
 [pos] -1 -1
-*-5.320688 145 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.320688 92 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb_cache.
 [treeopen] tb_cache.cache_instance0.
 [treeopen] tb_cache.cache_instance0.cache_ram_instance0.
@@ -22,14 +22,20 @@
 [sst_vpaned_height] 441
 @28
 tb_cache.clock
-@22
-tb_cache.cache_instance0.AddressBundle0_from_bit_vector0.self_word_index[3:0]
 @200
 -
 @28
-tb_cache.queue_len
+tb_cache.cache_instance0.db_slave_en_o
+@22
+tb_cache.cache_instance0.db_slave_we_o[3:0]
+tb_cache.cache_instance0.db_slave_adr_o[31:0]
+tb_cache.cache_instance0.db_slave_db_wr[31:0]
+@28
+tb_cache.cache_instance0.db_slave_stall_i
+tb_cache.cache_instance0.db_slave_ack_i
+@23
+tb_cache.cache_instance0.db_slave_db_rd[31:0]
 @200
--
 -
 @28
 tb_cache.cache_instance0.master_wbm_cyc_o
@@ -62,27 +68,17 @@ tb_cache.cache_instance0.cache_offset_counter[1:0]
 @200
 -
 @28
-tb_cache.cache_instance0.slave_en_o
-@22
-tb_cache.cache_instance0.slave_adr_o[31:0]
-@28
-tb_cache.cache_instance0.slave_we_o[3:0]
-@22
-tb_cache.cache_instance0.slave_db_wr[31:0]
-@28
-tb_cache.cache_instance0.slave_stall_i
-tb_cache.cache_instance0.slave_ack_i
-@22
-tb_cache.cache_instance0.slave_db_rd[31:0]
-@28
-tb_cache.cache_instance0.slave_write_enable
-tb_cache.cache_instance0.en_r
+tb_cache.cache_instance0.slave_we[3:0]
 @200
 -
 -
 @28
 tb_cache.cache_instance0.cache_ram_slave_en
 tb_cache.cache_instance0.cache_ram_slave_adr
+@24
+tb_cache.cache_instance0.slave_db_mux_reg[1:0]
+@28
+tb_cache.cache_instance0.slave_write_enable
 @22
 tb_cache.cache_instance0.cache_ram_slave_we[15:0]
 tb_cache.cache_instance0.cache_ram_slave_db_rd[127:0]
@@ -93,8 +89,6 @@ tb_cache.cache_instance0.cache_ram_slave_db_wr[127:0]
 @22
 tb_cache.cache_instance0.slave_adr_reg[29:0]
 tb_cache.cache_instance0.slave_adr_slice[29:0]
-@29
-tb_cache.cache_instance0.slave_db_mux_reg[1:0]
 @28
 tb_cache.cache_instance0.cache_way_instance0.bundle_en
 tb_cache.cache_instance0.cache_way_instance0.bundle_hit
