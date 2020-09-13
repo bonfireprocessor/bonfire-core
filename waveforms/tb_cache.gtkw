@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.66 (w)1999-2015 BSI
-[*] Fri Sep 11 15:15:50 2020
+[*] Sun Sep 13 10:07:15 2020
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_cache.vcd"
-[dumpfile_mtime] "Fri Sep 11 15:15:20 2020"
-[dumpfile_size] 206368
+[dumpfile_mtime] "Sun Sep 13 10:05:32 2020"
+[dumpfile_size] 131357
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_cache.gtkw"
 [timestart] 0
 [size] 1920 1031
 [pos] -1 -1
-*-5.320688 75 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.320688 145 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb_cache.
 [treeopen] tb_cache.cache_instance0.
 [treeopen] tb_cache.cache_instance0.cache_ram_instance0.
@@ -27,20 +27,14 @@ tb_cache.cache_instance0.AddressBundle0_from_bit_vector0.self_word_index[3:0]
 @200
 -
 @28
-tb_cache.pipelined_read_on
 tb_cache.queue_len
 @200
 -
-@28
-tb_cache.cache_instance0.cache_way_instance0.bundle_en
-tb_cache.cache_instance0.cache_way_instance0.bundle_hit
-tb_cache.cache_instance0.cache_way_instance0.bundle_miss
-tb_cache.cache_instance0.cache_way_instance0.tag_ram_instance0.we
-@200
 -
 @28
 tb_cache.cache_instance0.master_wbm_cyc_o
 tb_cache.cache_instance0.master_wbm_stb_o
+tb_cache.cache_instance0.master_wbm_we_o
 @22
 tb_cache.cache_instance0.master_wbm_adr_o[27:0]
 tb_cache.cache_instance0.master_wbm_sel_o[15:0]
@@ -80,27 +74,41 @@ tb_cache.cache_instance0.slave_stall_i
 tb_cache.cache_instance0.slave_ack_i
 @22
 tb_cache.cache_instance0.slave_db_rd[31:0]
+@28
+tb_cache.cache_instance0.slave_write_enable
+tb_cache.cache_instance0.en_r
 @200
 -
 -
 @28
 tb_cache.cache_instance0.cache_ram_slave_en
 tb_cache.cache_instance0.cache_ram_slave_adr
-@24
-tb_cache.cache_instance0.slave_db_mux_reg[1:0]
 @22
 tb_cache.cache_instance0.cache_ram_slave_we[15:0]
 tb_cache.cache_instance0.cache_ram_slave_db_rd[127:0]
+tb_cache.cache_instance0.cache_ram_slave_db_wr[127:0]
 @200
 -
 -
 @22
 tb_cache.cache_instance0.slave_adr_reg[29:0]
 tb_cache.cache_instance0.slave_adr_slice[29:0]
+@29
+tb_cache.cache_instance0.slave_db_mux_reg[1:0]
+@28
+tb_cache.cache_instance0.cache_way_instance0.bundle_en
+tb_cache.cache_instance0.cache_way_instance0.bundle_hit
+tb_cache.cache_instance0.cache_way_instance0.bundle_miss
+tb_cache.cache_instance0.cache_way_instance0.tag_ram_instance0.we
+@22
 tb_cache.cache_instance0.slave_adr_splitted_tag_index[4:0]
 tb_cache.cache_instance0.slave_adr_splitted_tag_value[20:0]
 tb_cache.cache_instance0.slave_adr_splitted_word_index[3:0]
+tb_cache.cache_instance0.cache_way_instance0.bundle_tag_index[4:0]
 @28
-tb_cache.queue_len
+tb_cache.cache_instance0.slave_write_enable
+@22
+tb_cache.cache_instance0.cache_ram_instance0.cache_ram.cache_ram(0)[127:0]
+tb_cache.ram_interface0.ram.ram(0)[127:0]
 [pattern_trace] 1
 [pattern_trace] 0
