@@ -6,6 +6,10 @@ from tb.ClkDriver import *
 
 from rtl.cache.config import CacheConfig
 
+
+def print_t(s):
+    print("@{}: {}".format(now(),s))
+
 @block
 def tb_tagram(test_conversion=False):
 
@@ -130,7 +134,6 @@ def tb_cache(test_conversion=False,
                  cache_size_m_words = 2048, # Cache Size in MASTER_DATA_WIDTH Bit words
                  address_bits = 30, #  Number of bits of chacheable address range
                  num_ways = 1, # Number of cache ways
-                 pipelined = True,
                  verbose = False
             ):
 
@@ -159,90 +162,62 @@ def tb_cache(test_conversion=False,
     ram_i = ram_interface(ram,wb_master,pattern_mode,clock,config)
     c_i = cache_instance(db_slave,wb_master,clock,reset,config)
 
-    pipelined_mode = Signal(bool(0))
-
     address_queue = []
     queue_len = Signal(intbv(0))
-    outstanding_writes = Signal(intbv(0))
+   
 
-    def db_read_pipelined(address,verify=None,blocking=False): # pipelined read start, does not wait on ack
+
+    @always(clock.posedge)
+    def monitor_ack():
+
+        if  db_slave.ack_i:
+            ack_address = address_queue.pop(0)
+            queue_len.next = len(address_queue)
+            assert queue_len > 0, "ack raised on empy queue"
+            if ack_address[2]=="r":               
+                if verbose:
+                    print_t("read_ack: {}:{}".format(ack_address[0],db_slave.db_rd))
+                    
+                if ack_address[1] != None:
+                    assert db_slave.db_rd == ack_address[1], \
+                      "@{}: read from {}, verify failed expected: {}, read:{}".format(now(),
+                            hex(ack_address[0]), hex(ack_address[1]),db_slave.db_rd)
+            else:
+                if verbose:
+                    print_t("write ack at {}:".format(ack_address[0]))
+               
+            assert not db_slave.stall_i, "@{} db_slave ack_i while stall_i raised".format(now())
+
+
+
+    def db_read(address,verify=None,blocking=False): # pipelined read start, does not wait on ack
 
         db_slave.en_o.next = True
         db_slave.we_o.next = 0
         db_slave.adr_o.next = address
-        address_queue.append((address,verify))
+        address_queue.append((address,verify,"r"))
         queue_len.next = len(address_queue)
         yield clock.posedge
         # Block on stall
         while db_slave.stall_i:
             yield clock.posedge
-        db_slave.en_o.next = False  
-          
+        db_slave.en_o.next = False
+
         if blocking:
             while not db_slave.ack_i:
                 yield clock.posedge
-        
 
 
-    @always(clock.posedge)
-    def pipelined_ack():
-        if pipelined_mode:
-            if  db_slave.ack_i:
-                if db_slave.we_o == 0:
-                    assert queue_len > 0, "ack raised on empy queue"
-                    ack_address = address_queue.pop(0)
-                    queue_len.next = len(address_queue)
-                    if verbose:
-                        print("read_ack @{}: {}:{}".format(now(),ack_address[0],db_slave.db_rd))
-                    if ack_address[1] != None:    
-                        assert db_slave.db_rd == ack_address[1], \
-                          "@{}: read from {}, verify failed expected: {}, read:{}".format(now(),
-                                hex(ack_address[0]), hex(ack_address[1]),db_slave.db_rd)
-                else:
-                    assert outstanding_writes > 0, " @{} ack raised without outstanding write".format(now())
-                    outstanding_writes.next = outstanding_writes - 1
-
-                assert not db_slave.stall_i, "@{} db_slave ack_i while stall_i raised".format(now())
-
-
-    def read_loop_pipelined(start_adr,length):
-        pipelined_mode.next = True
-        print("Start loop at:")
-        config.print_address(start_adr)
-
-        for i in range(0,length):
-            adr = modbv((start_adr + i) << 2)[32:]
-            yield db_read_pipelined(adr,adr)
-
-        db_slave.en_o.next = False
-
-
-    def db_read(address,verify=None): # non pipelined yet
-        yield clock.posedge
-
-        db_slave.en_o.next = True
-        db_slave.we_o.next = 0
-        db_slave.adr_o.next = address
-        while not db_slave.ack_i:
-            yield clock.posedge
-            db_slave.en_o.next = False # deassert en after first clock
-
-        if not verify==None:
-            assert verify==db_slave.db_rd, \
-              "read from {}, verify failed expected: {}, read:{}".format(hex(address),hex(verify),db_slave.db_rd)
-
-    def read_loop(start_adr,length):
+    def read_loop(start_adr,length,pipelined=False):
 
         print("Start loop at:")
         config.print_address(start_adr)
 
         for i in range(0,length):
             adr = modbv((start_adr + i) << 2)[32:]
-            yield db_read(adr)
-            print("read_loop @{}: {}:{}".format(now(),adr,db_slave.db_rd))
-            if db_slave.db_rd != adr:
-                print( "@{} Read failure at address {}: {}".format(now(),hex(adr),db_slave.db_rd))
-            assert db_slave.db_rd == adr, "@{} Read failure at address {}: {}".format(now(),hex(adr),db_slave.db_rd)
+            yield db_read(adr,adr,not pipelined)
+
+
 
     def db_write(address,data,pipelined=False):
         yield clock.posedge
@@ -251,66 +226,60 @@ def tb_cache(test_conversion=False,
         db_slave.we_o.next = 0b1111
         db_slave.adr_o.next = address
         db_slave.db_wr.next = data
-        outstanding_writes.next = outstanding_writes + 1
+        address_queue.append((address,None,"w"))
+        queue_len.next = len(address_queue)
         yield clock.posedge
         # Block on stall
         while db_slave.stall_i:
             yield clock.posedge
 
-        db_slave.en_o.next = False           
+        db_slave.en_o.next = False
+        db_slave.we_o.next = 0
         if not pipelined:
             while not db_slave.ack_i:
                 yield clock.posedge
                 db_slave.en_o.next = False # deassert en after first clock
 
-            # assert not db_slave.stall_i, "Stall asserted during ack on write"
-            # yield clock.posedge
-            # assert not db_slave.ack_i, "Ack not deasserted after write"
-        
-
-
-    def print_t(s):
-        print("@{}: {}".format(now(),s))
-
+            
 
     @instance
     def stimulus():
         config.print_config()
         line_size = 2**config.cl_bits_slave # Line size in slave words
 
-        if pipelined:
-            rl = read_loop_pipelined
-        else:
-            rl = read_loop
+        def loop_test(pipelined):
+            print_t("Loop test pipelined" if pipelined else "Loop test" )
+            for i in range(0,1):
+                yield clock.posedge
+                yield clock.posedge
 
-        # for i in range(0,1):
-        #     yield clock.posedge
-        #     yield clock.posedge
+                print_t("Read two lines")
+                yield read_loop(config.create_address(0,0,0),line_size*2,pipelined)
+                print_t("Read two lines with same line index, but different tag value")
+                yield read_loop(config.create_address(1,0,0),line_size*2,pipelined)
 
-        #     print_t("Read two lines")
-        #     yield rl(config.create_address(0,0,0),line_size*2)
-        #     print_t("Read two lines with same line index, but different tag value")
-        #     yield rl(config.create_address(1,0,0),line_size*2)
+            #print_t("Read from last line of cache")
+            #yield read_loop(config.create_address(0,2**config.line_select_adr_bits-1,0),line_size,pipelined)
 
-        # print_t("Read from last line of cache")
-        # yield rl(config.create_address(0,2**config.line_select_adr_bits-1,0),line_size)
+        yield loop_test(False)
+        yield loop_test(True)
+
 
         pattern_mode.next = False
-        pipelined_mode.next = True
 
         yield clock.posedge
         print_t("Basic write test")
         yield db_write(0,0xdeadbeef)
         yield db_write(4,0xabcd8000)
-      
-        yield db_read_pipelined(0,0xdeadbeef,True)
-        yield db_read_pipelined(4,0xabcd8000,True)
+
+        yield db_read(0,0xdeadbeef,True)
+        yield db_read(4,0xabcd8000,True)
         print_t("Write back test")
         adr = config.create_address(1,0,0) << 2
         yield db_write(adr,0x55aa55ff)
-        yield db_read_pipelined(adr,0x55aa55ff,True)
+        yield db_read(adr,0x55aa55ff,True)
         print_t("cross check")
-        yield db_read_pipelined(0,0xdeadbeef,True)
+        yield db_read(0,0xdeadbeef,True)
 
         yield clock.posedge
         raise StopSimulation

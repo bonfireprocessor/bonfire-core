@@ -64,14 +64,18 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
     slave_adr_slice = Signal(modbv(0)[config.address_bits:])
     slave_adr_reg =  Signal(modbv(0)[config.address_bits:])
     en_r = Signal(bool(0)) # Registered slave en signal
+    slave_we_r = Signal(modbv(0)[len(slave.we_o):])
+    slave_we = Signal(modbv(0)[len(slave.we_o):])
 
     @always_comb
     def proc_adr_slice():
 
         if en_r:
             slave_adr_slice.next = slave_adr_reg
+            slave_we.next = slave_we_r
         else:
             slave_adr_slice.next = slave.adr_o[slave_adr_high:slave_adr_low]
+            slave_we.next = slave.we_o
 
     # Splitted slave adr
     slave_adr_splitted = cache_way.AddressBundle(config)
@@ -117,7 +121,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
          @always_comb
          def db_mux_1():
              cache_ram.slave_db_wr.next =  slave.db_wr
-             cache_ram.slave_we.next = slave.we_o
+             cache_ram.slave_we.next = slave_we
              slave.db_rd.next = cache_ram.slave_db_rd
     else:
         # Calcluate slave bus address bits for selecting the right 32 slice
@@ -147,14 +151,14 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
                 cache_ram.slave_db_wr.next[(i+1)*32:i*32] = slave.db_wr
                 # Write enable line multiplexer
                 if slave_adr_slice[mx_high :mx_low] == i:
-                    cache_ram.slave_we.next[(i+1)*4:i*4] = slave.we_o
+                    cache_ram.slave_we.next[(i+1)*4:i*4] = slave_we
                 else:
                     cache_ram.slave_we.next[(i+1)*4:i*4] = 0
 
 
     @always_comb
     def proc_slave_write_enable():
-        if  ( slave.en_o or en_r ) and slave.we_o != 0 and tag_control.hit:
+        if  ( slave.en_o or en_r ) and slave_we != 0 and tag_control.hit:
             slave_write_enable.next = True # slave.en_o and slave.we_o != 0 and tag_control.hit
         else:
             slave_write_enable.next = False
@@ -203,6 +207,7 @@ def cache_instance(slave,master,clock,reset,config=CacheConfig()):
             # Stall bus when no immediate hit on new bus cycle
             slave_stall.next = True
             en_r.next = True
+            slave_we_r.next = slave.we_o
 
         if tag_control.hit and  ( slave.en_o or  en_r ):
             slave_rd_ack.next = True
