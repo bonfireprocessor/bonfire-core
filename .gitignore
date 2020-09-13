@@ -18,5 +18,5 @@ vhdl_gen_tb/*
 /luts.txt
 /tb_simtest.py
 build
-/.vscode/.ropeproject/config.py
-/.vscode/.ropeproject/objectdb
+/.vscode/.ropeproject/*
+
