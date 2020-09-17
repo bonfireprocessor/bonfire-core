@@ -3,7 +3,7 @@ Bonfire Core Cache
 (c) 2019,2020 The Bonfire Project
 License: See LICENSE
 """
-from myhdl import Signal,intbv,modbv,ConcatSignal,  \
+from myhdl import Signal,intbv,modbv, concat,  \
                   block,always_comb,always_seq, always, instances, enum, now
 
 from rtl.util import int_log2
@@ -97,12 +97,12 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
 
         @always_comb
         def comb():
-            cache_ram.slave_adr.next = ConcatSignal(slave_adr_splitted.tag_index,slave_adr_splitted.word_index[config.cl_bits_slave:config.cl_bits])
+            cache_ram.slave_adr.next = concat(slave_adr_splitted.tag_index,slave_adr_splitted.word_index[config.cl_bits_slave:config.cl_bits])
 
             if tag_control.dirty_miss:
-                cache_ram.master_adr.next = ConcatSignal(tag_control.buffer_index,cache_offset_counter)
+                cache_ram.master_adr.next = concat(tag_control.buffer_index,cache_offset_counter)
             else:
-                cache_ram.master_adr.next = ConcatSignal(tag_control.tag_index,master_offset_counter)
+                cache_ram.master_adr.next = concat(tag_control.tag_index,master_offset_counter)
     else:
         pass # TODO: Add support for num_ways > 1
 
@@ -225,14 +225,13 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
     def proc_master_adr():
 
         if tag_control.dirty_miss:
-            sig_temp = ConcatSignal(tag_control.tag_value,
+            master.wbm_adr_o.next = concat(tag_control.tag_value,
                                     tag_control.buffer_index,master_offset_counter)
         else:
-            sig_temp = ConcatSignal(slave_adr_splitted.tag_value,
+            master.wbm_adr_o.next = concat(slave_adr_splitted.tag_value,
                                     slave_adr_splitted.tag_index,
                                     master_offset_counter)
-        master.wbm_adr_o.next = sig_temp
-
+       
 
     # State engine for cache refill/writeback
     @always_seq(clock.posedge,reset)
@@ -245,6 +244,7 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
                     master.wbm_sel_o.next[i] = True
 
                 master.wbm_cti_o.next = 0b010
+                master.wbm_bte_o.next = 0b00
                 if tag_control.dirty_miss:
                     cache_offset_counter.next = master_offset_counter + 1
                     master.wbm_we_o.next = True

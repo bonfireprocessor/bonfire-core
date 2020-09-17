@@ -51,10 +51,13 @@ class TagDataBundle:
 
     @block
     def to_bit_vector(self,tagdata):
+        
+        assert len(self.address) == self.tag_value_len
+        t_len = self.tag_value_len + 2
 
         @always_comb
         def comb():
-            t_len = self.tag_value_len + 2
+           
             tagdata.next[t_len-1] = self.valid
             tagdata.next[t_len-2] = self.dirty
             tagdata.next[t_len-2:] = self.address
@@ -64,9 +67,12 @@ class TagDataBundle:
     @block
     def from_bit_vector(self,tagdata):
 
+        assert len(self.address) == self.tag_value_len
+        t_len = self.tag_value_len + 2
+
         @always_comb
         def comb():
-            t_len = self.tag_value_len + 2
+           
             self.valid.next = tagdata[t_len-1]
             self.dirty.next = tagdata[t_len-2]
             self.address.next = tagdata[t_len-2:]

@@ -146,7 +146,8 @@ def tb_cache(test_conversion=False,
                          line_size=line_size,
                          cache_size_m_words=cache_size_m_words,
                          address_bits=address_bits,
-                         num_ways=num_ways)
+                         num_ways=num_ways
+                         )
 
     clock=Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
@@ -162,6 +163,8 @@ def tb_cache(test_conversion=False,
 
     ram_i = ram_interface(ram,wb_master,pattern_mode,clock,config)
     c_i = cache_instance(db_slave,wb_master,clock,reset,config)
+    if test_conversion:
+        c_i.convert(hdl='VHDL',std_logic_ports=True,path='vhdl_gen', name="cache")
 
     address_queue = []
     queue_len = Signal(intbv(0))
