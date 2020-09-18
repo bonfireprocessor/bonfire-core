@@ -127,7 +127,7 @@ def cache_unit_tests():
 
     #test(tb_cache.tb_tagram(),trace=False)
     #test(tb_cache.tb_cache_way(test_conversion=True),trace=False)
-    test(tb_cache.tb_cache(test_conversion=False,cache_size_m_words=128,verbose=True,pipelined=True),trace=True)
+    test(tb_cache.tb_cache(test_conversion=False ,cache_size_m_words=128, master_data_width=128, verbose=False ,pipelined=True),trace=True)
 
 
 ### Main....    

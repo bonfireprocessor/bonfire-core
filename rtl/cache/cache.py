@@ -94,18 +94,10 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
     if config.num_ways == 1:
         tag_control = cache_way.CacheWayBundle(config)
         tc_i = cache_way.cache_way_instance(tag_control,clock,reset)
-
-        @always_comb
-        def comb():
-            cache_ram.slave_adr.next = concat(slave_adr_splitted.tag_index,slave_adr_splitted.word_index[config.cl_bits_slave:config.cl_bits])
-
-            if tag_control.dirty_miss:
-                cache_ram.master_adr.next = concat(tag_control.buffer_index,cache_offset_counter)
-            else:
-                cache_ram.master_adr.next = concat(tag_control.tag_index,master_offset_counter)
+      
     else:
         pass # TODO: Add support for num_ways > 1
-
+        
 
     # @always(clock.posedge)
     # def debug_output():
@@ -121,15 +113,19 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
     if config.mux_size == 1:
          @always_comb
          def db_mux_1():
-             cache_ram.slave_db_wr.next =  db_slave.db_wr
+             if en_r:
+                 cache_ram.slave_db_wr.next =  slave_write_r
+             else:    
+                cache_ram.slave_db_wr.next =  db_slave.db_wr
+
              cache_ram.slave_we.next = slave_we
              db_slave.db_rd.next = cache_ram.slave_db_rd
+             cache_ram.slave_adr.next = concat(slave_adr_splitted.tag_index,slave_adr_splitted.word_index)
     else:
         # Calcluate slave bus address bits for selecting the right 32 slice
         # from the master bus
         mx_low = 0
         mx_high = mx_low + int_log2(config.mux_size)
-        # Debug only signals
         slave_db_mux_reg = Signal(modbv(0)[int_log2(config.mux_size):])
 
         @always(clock.posedge)
@@ -159,6 +155,8 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
                 else:
                     cache_ram.slave_we.next[(i+1)*4:i*4] = 0
 
+            # Slave address bus       
+            cache_ram.slave_adr.next = concat(slave_adr_splitted.tag_index,slave_adr_splitted.word_index[config.cl_bits_slave:config.cl_bits])
 
     @always_comb
     def proc_slave_write_enable():
@@ -181,12 +179,18 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
         # Cache RAM control signals
         # Slave side
         cache_ram.slave_en.next = tag_control.hit and ( db_slave.en_o or en_r )
+
         # Master side
         cache_ram.master_en.next = ( master.wbm_ack_i and wbm_enable ) or \
                                    ( tag_control.dirty_miss and wbm_state == t_wbm_state.wb_idle )
 
         cache_ram.master_we.next = master.wbm_ack_i and not tag_control.dirty_miss
         cache_ram.master_db_wr.next = master.wbm_db_i
+
+        if tag_control.dirty_miss:
+            cache_ram.master_adr.next = concat(tag_control.buffer_index,cache_offset_counter)
+        else:
+            cache_ram.master_adr.next = concat(tag_control.tag_index,master_offset_counter)
 
         # Slave bus
         db_slave.ack_i.next = slave_ack

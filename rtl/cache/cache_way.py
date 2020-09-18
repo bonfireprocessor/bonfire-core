@@ -34,7 +34,7 @@ class CacheWayBundle:
         self.hit = Signal(bool(0))
         self.miss = Signal(bool(0))
         self.dirty_miss = Signal(bool(0))
-        self.tag_valid = Signal(bool(0))
+        #self.tag_valid = Signal(bool(0)) # seems not required currently
         self.tag_value = Signal(modbv(0)[cache_config.tag_ram_bits:])
 
 
@@ -123,6 +123,8 @@ def cache_way_instance(bundle,clock,reset):
 
     t_i = tag_ram_instance(tag_in,tag_buffer,bundle.we,tag_index,clock,reset,c)
     
+    assert len(tag_index) == len(slave_adr_splitted.tag_index)
+    assert len(tag_in.address) == len(slave_adr_splitted.tag_value)
 
     @always_comb
     def assign():
@@ -147,7 +149,7 @@ def cache_way_instance(bundle,clock,reset):
             bundle.dirty_miss.next = False
 
         # Tag Output
-        bundle.tag_valid.next = tag_buffer.valid
+        #bundle.tag_valid.next = tag_buffer.valid
         bundle.tag_value.next = tag_buffer.address
         bundle.buffer_index.next = buffer_index
         bundle.tag_index.next = tag_index
