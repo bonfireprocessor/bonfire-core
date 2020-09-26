@@ -57,7 +57,7 @@ def cache_dbslave_connect(db_slave,bus_input,bus_output,hit,clock,reset,config):
     @always_comb
     def proc_input_comb():
 
-        bus_input.slave_en.next = en_r and db_slave.en_o
+        bus_input.slave_en.next = en_r or db_slave.en_o
         db_slave.stall_i.next = en_r and db_slave.en_o
 
         if en_r:
@@ -175,9 +175,14 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
         mx_high = mx_low + int_log2(config.mux_size)
         slave_db_mux_reg = Signal(modbv(0)[int_log2(config.mux_size):])
 
+        # Calculate bit range from word_index to select the cache word of a line in cache ram 
+       
+        wi_low = mx_high
+        wi_high = wi_low + config.cl_bits
+
         @always(clock.posedge)
         def db_mux_sync():
-            if tag_control.hit and  ( db_slave.en_o or  en_r ):
+            if tag_control.hit and  bus_input.slave_en:
                 slave_db_mux_reg.next = bus_input.slave_adr_slice[mx_high :mx_low]
 
 
@@ -201,7 +206,7 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
                     cache_ram.slave_we.next[(i+1)*4:i*4] = 0
 
             # Slave address bus       
-            cache_ram.slave_adr.next = concat(slave_adr_splitted.tag_index,slave_adr_splitted.word_index[config.cl_bits_slave:config.cl_bits])
+            cache_ram.slave_adr.next = concat(slave_adr_splitted.tag_index,slave_adr_splitted.word_index[wi_high:wi_low])
 
     @always_comb
     def proc_slave_write_enable():

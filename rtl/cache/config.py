@@ -47,6 +47,9 @@ class CacheConfig:
  
         self.address_bits = address_bits # Number of bits of chacheable address range
         self.tag_value_adr_bit_low = self.address_bits - self.tag_ram_bits # Lowest bit of tag value part of cachable address
+
+        line_size_slave=2**self.cl_bits_slave
+        assert line_size_slave == line_size * self.mux_size, "line size does not match bus mux factor"
       
     # Simulation only methods, cannot be converted  
     def create_address(self,value_part,line_part,word_select_part):
@@ -76,7 +79,7 @@ class CacheConfig:
         template= """
         Cache size: {cache_size_m_words} * {master_data_width} bits ( {cache_size_bytes} Bytes )
         Cache size in bytes: {cache_size_bytes}
-        Line size: {line_size} * {master_width_bytes} Bytes
+        Line size: {line_size} * {master_data_width} bits or {line_size_slave} * 32 Bits
         Number of ways: {num_ways}
         
         Tag ram size: {tag_ram_size} * {tag_ram_bits} bits (without control bits)
@@ -85,5 +88,7 @@ class CacheConfig:
         Cache organization: 
         {tag_ram_size} sets * {num_ways} ways * {set_bytes} Bytes"""
         
-        print(template.format(set_bytes=self.line_size * self.master_width_bytes,**self.__dict__))
+        print(template.format(set_bytes=self.line_size * self.master_width_bytes,
+                              line_size_slave=2**self.cl_bits_slave,
+                              **self.__dict__))
 
