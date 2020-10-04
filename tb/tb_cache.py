@@ -284,7 +284,8 @@ def tb_cache(test_conversion=False,
             yield db_read(0,0xdeadbeef,blocking)
 
 
-
+        yield clock.posedge
+        yield db_read(0xc,0xc,not pipelined)
         yield loop_test(pipelined)
         yield basic_write_test(pipelined)
 

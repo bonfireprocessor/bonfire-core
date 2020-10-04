@@ -57,8 +57,8 @@ def cache_ram_instance(bundle,clock,simulation_checks=False):
                 if bundle.slave_we[b]:
                     cache_ram[bundle.slave_adr].next[(b+1)*8:b*8] = bundle.slave_db_wr[(b+1)*8:b*8]
 
-            # Read first RAM !! 
-            bundle.slave_db_rd.next = cache_ram[bundle.slave_adr]
+        #TODO: Check why an addtional mux/FF is generated when reading is gated by slave_en.  
+        bundle.slave_db_rd.next = cache_ram[bundle.slave_adr]
 
     @always(clock.posedge)
     def seq_master():

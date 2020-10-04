@@ -51,7 +51,7 @@ def cache_dbslave_connect(db_slave,bus_input,bus_output,hit,clock,reset,config):
     def proc_output_comb():
 
         db_slave.ack_i.next = slave_ack
-        db_slave.db_rd = bus_output.slave_read
+        db_slave.db_rd.next = bus_output.slave_read
 
 
     # Registers that do not need to be reset

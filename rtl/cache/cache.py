@@ -48,11 +48,11 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
     t_wbm_state = enum('wb_idle','wb_burst_read','wb_burst_write','wb_finish','wb_retire')
     wbm_state = Signal(t_wbm_state.wb_idle)
 
-   
+
     cache_offset_counter = Signal(modbv(0)[config.cl_bits:])
     master_offset_counter = Signal(modbv(0)[config.cl_bits:])
     slave_cache_we = Signal(bool(0))
-   
+
 
     # Slave Interface
     bus_input = BusInputBundle(config,db_slave.xlen)
@@ -63,7 +63,7 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
     s_adr_i = slave_adr_splitted.from_bit_vector(bus_input.slave_adr_slice)
 
     # Enable signal for master Wishbone bus
-    wbm_enable = Signal(bool(0)) 
+    wbm_enable = Signal(bool(0))
 
     # Cache RAM
     cache_ram = CacheRAMBundle(config)
@@ -73,12 +73,12 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
     if config.num_ways == 1:
         tag_control = cache_way.CacheWayBundle(config)
         tc_i = cache_way.cache_way_instance(tag_control,clock,reset)
-      
+
     else:
         pass # TODO: Add support for num_ways > 1
-        
 
-    s_i = cache_dbslave_connect(db_slave,bus_input,bus_output,tag_control.hit,clock,reset,config)    
+
+    s_i = cache_dbslave_connect(db_slave,bus_input,bus_output,tag_control.hit,clock,reset,config)
 
     # @always(clock.posedge)
     # def debug_output():
@@ -107,8 +107,8 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
         mx_high = mx_low + int_log2(config.mux_size)
         slave_db_mux_reg = Signal(modbv(0)[int_log2(config.mux_size):])
 
-        # Calculate bit range from word_index to select the cache word of a line in cache ram 
-       
+        # Calculate bit range from word_index to select the cache word of a line in cache ram
+
         wi_low = mx_high
         wi_high = wi_low + config.cl_bits
 
@@ -121,23 +121,25 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
         @always_comb
         def db_mux_n():
             # Data bus multiplexer
+            bus_output.slave_read.next = 0 # Avoid latch
             for i in range(0,config.mux_size):
                 if slave_db_mux_reg == i:
                     # Databus Multiplexer, select the 32 Bit word from the cache ram word.
                     bus_output.slave_read.next = cache_ram.slave_db_rd[(i+1)*32:(i*32)]
-            
+
+            cache_ram.slave_db_wr.next = 0
             for i in range(0,config.mux_size):
                 # For writing the Slave bus can just be demutiplexed n times
                 # Write Enable is done on byte lane level
                 cache_ram.slave_db_wr.next[(i+1)*32:i*32] = bus_input.slave_write
-                
+
                 # Write enable line multiplexer
                 if bus_input.slave_adr_slice[mx_high :mx_low] == i:
                     cache_ram.slave_we.next[(i+1)*4:i*4] = bus_input.slave_we
                 else:
                     cache_ram.slave_we.next[(i+1)*4:i*4] = 0
 
-            # Slave address bus       
+            # Slave address bus
             cache_ram.slave_adr.next = concat(slave_adr_splitted.tag_index,slave_adr_splitted.word_index[wi_high:wi_low])
 
     @always_comb
@@ -174,8 +176,8 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
         else:
             cache_ram.master_adr.next = concat(tag_control.tag_index,master_offset_counter)
 
-       
-    
+
+
         # Master bus
         master.wbm_cyc_o.next = wbm_enable
         master.wbm_stb_o.next = wbm_enable
@@ -192,7 +194,7 @@ def cache_instance(db_slave,master,clock,reset,config=CacheConfig()):
             master.wbm_adr_o.next = concat(slave_adr_splitted.tag_value,
                                     slave_adr_splitted.tag_index,
                                     master_offset_counter)
-       
+
 
     # State engine for cache refill/writeback
     @always_seq(clock.posedge,reset)
