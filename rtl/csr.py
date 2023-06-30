@@ -63,6 +63,7 @@ class CSRUnitBundle(PipelineControl):
         mpie = Signal(bool(0))
 
         csr_in = Signal(modbv(0)[self.xlen:])
+        csr_out = Signal(modbv(0)[self.xlen:])
 
         # Flags
         inv_op = Signal(bool(0))
@@ -78,11 +79,11 @@ class CSRUnitBundle(PipelineControl):
             op = self.funct3_i[2:0]
             inv_op.next = 0
             if op == 0b01:
-                self.result_o.next = self.op1_i # CSRRW
+                csr_out.next = self.op1_i # CSRRW
             elif op == 0b10:
-                self.result_o.next = csr_in | self.op1_i #CSRRS
+                csr_out.next = csr_in | self.op1_i #CSRRS
             elif op == 0b11:
-                self.result_o.next = csr_in & ~self.op1_i #CSRRC
+                csr_out.next = csr_in & ~self.op1_i #CSRRC
             else:
                 inv_op.next = 1
 
@@ -90,34 +91,30 @@ class CSRUnitBundle(PipelineControl):
         @always_comb
         def csr_select():
             rw = self.csr_adr[12:10]
-            priv = self.csr_adr[10:9]
+            priv = self.csr_adr[10:8]
             grp = self.csr_adr[8:6]
             reg = self.csr_adr[6:]
 
             csr_in.next = 0
+            inv_reg.next = False
 
-            inv_reg.next = 0
-
-
-            if priv == 0b11:
-                if rw == 0b11: # Read Only Registers
-                    if reg == CSRAdr.isa:
-                        csr_in.next[self.xlen:self.xlen-1]=0b01                        
-                    elif reg == CSRAdr.vendorid or reg == CSRAdr.archid or CSRAdr.hartid:
-                        pass
-                    elif reg == CSRAdr.impid:
-                        csr_in.next = 0x8000 # Dummy Value
+            if self.taken:
+                if priv == 0b11:
+                    if rw == 0b11: # Read Only Registers
+                        if reg == CSRAdr.isa:
+                            csr_in.next[self.xlen:self.xlen-1]=0b01                        
+                        elif reg == CSRAdr.vendorid or reg == CSRAdr.archid or reg == CSRAdr.hartid:
+                            pass
+                        elif reg == CSRAdr.impid:
+                            csr_in.next = 0x8000 # Dummy Value
+                        else:
+                            inv_reg.next = True
+                    elif rw == 0: # Read Write Registers
+                        inv_reg.next = 1 # Not implemnted yet 
                     else:
-                        inv_reg.next = 1
-                elif rw == 0: # Read Write Registers
-                    inv_reg.next = 1 # Not implemnted yet 
+                        inv_reg.next = True
                 else:
-                    inv_reg.next = 1
-            else:
-                inv_reg.next = 1
-
-
-
+                    inv_reg.next = True
 
         @always_comb
         def csr_out():
@@ -125,7 +122,8 @@ class CSRUnitBundle(PipelineControl):
                 invalid = inv_op or inv_reg
                 self.invalid_op_o.next = invalid
                 if not invalid:
-                    valid.next = 1
+                    valid.next = True
+                    self.result_o.next = csr_in
 
         return instances()
         

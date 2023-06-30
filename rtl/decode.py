@@ -7,6 +7,7 @@ License: See LICENSE
 from myhdl import *
 from rtl.instructions import Opcodes as op
 from rtl.instructions import ArithmeticFunct3  as f3
+from rtl.instructions import SystemFunct3
 from rtl.util import signed_resize
 
 from rtl.pipeline_control import *
@@ -65,6 +66,7 @@ class DecodeBundle(PipelineControl):
         self.displacement_o = Signal(intbv(0)[12:])
         self.jump_dest_o = Signal(modbv(0)[xlen:])
         self.next_ip_o = Signal(modbv(0)[xlen:])
+        self.csr_adr_o = Signal(modbv(0)[12:])
 
         # Functional unit control
         self.alu_cmd = Signal(bool(0))
@@ -230,7 +232,16 @@ class DecodeBundle(PipelineControl):
                         self.displacement_o.next = get_S_immediate(self.word_i)
                     elif opcode==op.RV32_LOAD:
                         self.load_cmd.next = True
-                        self.displacement_o.next = get_I_immediate(self.word_i) 
+                        self.displacement_o.next = get_I_immediate(self.word_i)
+                    elif opcode==op.RV32_SYSTEM:
+                        if self.word_i[15:12]==SystemFunct3.RV32_F3_PRIV:
+                            inv=True # TODO implement later
+                        else:
+                            self.csr_cmd.next = True
+                            self.csr_adr_o = self.word_i[32:20]
+                            if self.word_i[14]: # Immediate
+                                rs1_immediate.next = True
+                                rs1_imm_value.next = self.word_i[20:15]
                     else:
                         inv=True
                     self.valid_o.next = not inv

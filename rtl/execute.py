@@ -104,9 +104,14 @@ class ExecuteBundle(PipelineControl):
             self.ls.displacement_i.next = decode.displacement_o
             self.ls.store_i.next = decode.store_cmd
 
+            #csr Unit Input Wirings
+            self.csr.csr_adr.next = decode.csr_adr_o
+            self.csr.op1_i = decode.op1_o
+            self.csr.funct3_i = decode.funct3_o
+
             # Pipeline  
-            busy.next = self.alu.busy_o or self.ls.busy_o or jump_busy
-            valid.next = self.alu.valid_o or self.ls.valid_o  or jump_we
+            busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy
+            valid.next = self.alu.valid_o or self.ls.valid_o  or self.csr.valid_o  or jump_we
 
             if self.config.jump_bypass:
                 decode.kill_i.next =  self.taken and jump
@@ -118,6 +123,7 @@ class ExecuteBundle(PipelineControl):
 
             self.alu.en_i.next = decode.alu_cmd and self.taken
             self.ls.en_i.next = ( decode.store_cmd or decode.load_cmd ) and self.taken
+            self.csr.en_i.next = decode.csr_cmd and self.taken
 
             # Debug Interface
             debugport.jump_exec.next = self.taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd)
@@ -135,10 +141,12 @@ class ExecuteBundle(PipelineControl):
            
             elif self.ls.valid_o:
                 self.result_o.next = self.ls.result_o
+            elif self.csr.valid_o:
+                self.result_o.next = self.csr.result_o    
             else:
                 self.result_o.next = 0
 
-            self.reg_we_o.next =  self.alu.valid_o or self.ls.we_o  or jump_we
+            self.reg_we_o.next =  self.alu.valid_o or self.ls.we_o  or self.csr.valid_o or jump_we
 
             if self.taken:
                 self.rd_adr_o.next = decode.rd_adr_o
