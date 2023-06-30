@@ -59,6 +59,7 @@ class CSRUnitBundle(PipelineControl):
 
         # Status Registers
         mtvec = Signal(modbv(0)[self.xlen:2])
+        mscratch = Signal(modbv(0)[self.xlen:])
         mie = Signal(bool(0))
         mpie = Signal(bool(0))
 
@@ -68,13 +69,17 @@ class CSRUnitBundle(PipelineControl):
         # Flags
         inv_op = Signal(bool(0))
         inv_reg = Signal(bool(0))
+        csr_we = Signal(bool(0)) # Write Enable for CSRs
+    
+        # Write address
+        wr_reg = Signal(modbv(0)[7:])
 
 
         p_inst = self.pipeline_instance(busy,valid)
 
 
         @always_comb
-        def csr_op():
+        def csr_op_proc():
     
             op = self.funct3_i[2:0]
             inv_op.next = 0
@@ -89,15 +94,16 @@ class CSRUnitBundle(PipelineControl):
 
 
         @always_comb
-        def csr_select():
+        def csr_select_proc():
             rw = self.csr_adr[12:10]
             priv = self.csr_adr[10:8]
             grp = self.csr_adr[8:6]
-            reg = self.csr_adr[6:]
+            reg = self.csr_adr[7:]
 
             csr_in.next = 0
             inv_reg.next = False
-
+            csr_we.next = False
+            wr_reg.next = reg
           
             if priv == 0b11:
                 if rw == 0b11: # Read Only Registers                                            
@@ -108,17 +114,23 @@ class CSRUnitBundle(PipelineControl):
                     else:
                         inv_reg.next = True
                 elif rw == 0: # Read Write Registers
+                    csr_we.next = True    
                     if reg == CSRAdr.isa:
                         csr_in.next[32:30]=0b01
+                    elif reg == CSRAdr.tvec:
+                        csr_in.next[self.xlen:2] = mtvec
+                    elif reg == CSRAdr.scratch:
+                        csr_in.next = mscratch     
                     else:    
                         inv_reg.next = True
+                        csr_we.next = False
                 else:
                     inv_reg.next = True
             else:
                 inv_reg.next = True
 
         @always_comb
-        def csr_out():
+        def csr_result_proc():
             valid.next = False
             if self.taken:
                 invalid = inv_op or inv_reg
@@ -127,5 +139,15 @@ class CSRUnitBundle(PipelineControl):
                     valid.next = True
                     self.result_o.next = csr_in
 
+        @always_seq(clock.posedge,reset=reset)
+        def seq():
+            if self.taken and csr_we:
+                if wr_reg == CSRAdr.isa:
+                    pass # not implemented yet   
+                elif wr_reg == CSRAdr.tvec:
+                    mtvec.next = csr_out[self.xlen:2]         
+                elif wr_reg == CSRAdr.scratch:
+                    mscratch.next = csr_out
+                                           
         return instances()
         

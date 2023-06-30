@@ -13,10 +13,17 @@ _start:
 la s0, monitor
 add gp,s0,0x200 // test result area
 
-//la t1, trap_failure
-//csrw mtvec,t1
+la s2, trap_failure 
+csrw mtvec,s2
 
-li a0, -1 // preset a0 with failure code
+csrr t4,mtvec
+jal store // same as check macrp because s2 contains the comparison value
+
+li t1, 0xdeadbeef
+csrw mscratch,t1
+csrr t4,mscratch
+check(0xdeadbeef)
+
 
 csrr t4,mimpid
 check(0x8000)
