@@ -98,26 +98,28 @@ class CSRUnitBundle(PipelineControl):
             csr_in.next = 0
             inv_reg.next = False
 
-            if self.taken:
-                if priv == 0b11:
-                    if rw == 0b11: # Read Only Registers
-                        if reg == CSRAdr.isa:
-                            csr_in.next[self.xlen:self.xlen-1]=0b01                        
-                        elif reg == CSRAdr.vendorid or reg == CSRAdr.archid or reg == CSRAdr.hartid:
-                            pass
-                        elif reg == CSRAdr.impid:
-                            csr_in.next = 0x8000 # Dummy Value
-                        else:
-                            inv_reg.next = True
-                    elif rw == 0: # Read Write Registers
-                        inv_reg.next = 1 # Not implemnted yet 
+          
+            if priv == 0b11:
+                if rw == 0b11: # Read Only Registers                                            
+                    if reg == CSRAdr.vendorid or reg == CSRAdr.archid or reg == CSRAdr.hartid:
+                        pass
+                    elif reg == CSRAdr.impid:
+                        csr_in.next = 0x8000 # Dummy Value
                     else:
+                        inv_reg.next = True
+                elif rw == 0: # Read Write Registers
+                    if reg == CSRAdr.isa:
+                        csr_in.next[32:30]=0b01
+                    else:    
                         inv_reg.next = True
                 else:
                     inv_reg.next = True
+            else:
+                inv_reg.next = True
 
         @always_comb
         def csr_out():
+            valid.next = False
             if self.taken:
                 invalid = inv_op or inv_reg
                 self.invalid_op_o.next = invalid

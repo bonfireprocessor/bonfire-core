@@ -18,16 +18,17 @@ add gp,s0,0x200 // test result area
 
 li a0, -1 // preset a0 with failure code
 
+csrr t4,mimpid
+check(0x8000)
+csrr t4,misa
+check(0x40000000)
 csrr t4,mvendorid
 check(0)
 csrr t4,marchid
 check(0)
 csrr t4,mhartid
 check(0)
-csrr t4,mimpid
-check(0x8000)
-csrr t4,misa
-check(0x20000000)
+
 
 
 // // Read mcycle/h and write to monitor

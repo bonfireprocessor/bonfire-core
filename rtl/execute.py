@@ -106,8 +106,8 @@ class ExecuteBundle(PipelineControl):
 
             #csr Unit Input Wirings
             self.csr.csr_adr.next = decode.csr_adr_o
-            self.csr.op1_i = decode.op1_o
-            self.csr.funct3_i = decode.funct3_o
+            self.csr.op1_i.next = decode.op1_o
+            self.csr.funct3_i.next = decode.funct3_o
 
             # Pipeline  
             busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy
