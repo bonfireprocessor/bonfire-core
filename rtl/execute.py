@@ -7,7 +7,7 @@ from __future__ import print_function
 
 from myhdl import *
 
-from rtl import alu, loadstore
+from rtl import alu, loadstore, csr
 
 from rtl.instructions import BranchFunct3  as b3
 from rtl.instructions import Opcodes
@@ -25,6 +25,7 @@ class ExecuteBundle(PipelineControl):
         #functional units
         self.alu=alu.AluBundle(xlen)
         self.ls = loadstore.LoadStoreBundle(config)
+        self.csr =csr.CSRUnitBundle(config)
 
         # output
         self.result_o = Signal(intbv(0)[xlen:])
@@ -67,6 +68,7 @@ class ExecuteBundle(PipelineControl):
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
+        csr_inst = self.csr.CSRUnit(clock,reset)
 
         p_inst = self.pipeline_instance(busy,valid)
 

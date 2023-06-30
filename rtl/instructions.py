@@ -103,6 +103,22 @@ class MulDivFunct:
     RV32_F3_REM     = 6
     RV32_F3_REMU    = 7
 
+
+class CSRAdr:
+    status = 0
+    isa = 1
+    tvec = 5
+    vendorid = 0x11
+    archid = 0x12
+    impid = 0x13
+    hartid = 0x14
+    scratch = 0x40
+    epc = 0x41
+    cause = 0x42
+    tval = 0x43
+    ip = 0x44
+
+
 # Local Variables:
 # flycheck-flake8-maximum-line-length: 120
 # flycheck-flake8rc: ".flake8rc"

@@ -52,7 +52,7 @@ Currently bonfire-core has only three stage pipeline implemented. It is separate
 
 The Pipeline integration tests can be invoked with
 ````
-python tb_run.py --ut_loadstore
+python tb_run.py --pipeline
 ````
 
 #### Core integration test
