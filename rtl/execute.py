@@ -7,7 +7,7 @@ from __future__ import print_function
 
 from myhdl import *
 
-from rtl import alu, loadstore, csr
+from rtl import alu, loadstore, csr, trap
 
 from rtl.instructions import BranchFunct3  as b3
 from rtl.instructions import Opcodes
@@ -26,6 +26,7 @@ class ExecuteBundle(PipelineControl):
         self.alu=alu.AluBundle(xlen)
         self.ls = loadstore.LoadStoreBundle(config)
         self.csr =csr.CSRUnitBundle(config)
+        self.trapCSR = trap.TrapCSRBundle(config)
 
         # output
         self.result_o = Signal(intbv(0)[xlen:])
@@ -53,6 +54,7 @@ class ExecuteBundle(PipelineControl):
         """
 
         assert self.config.loadstore_outstanding==1, "SimpleExecute requires config.loadstore_outstanding==1"
+        assert not self.config.RVC, "Compressed ISA not implemented yet"
 
         busy = Signal(bool(0))
         valid = Signal(bool(0))
@@ -68,7 +70,8 @@ class ExecuteBundle(PipelineControl):
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
-        csr_inst = self.csr.CSRUnit(clock,reset)
+        
+        csr_inst = self.csr.CSRUnit(self.trapCSR,clock,reset)
 
         p_inst = self.pipeline_instance(busy,valid)
 

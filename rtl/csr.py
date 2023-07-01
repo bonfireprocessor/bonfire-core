@@ -10,8 +10,6 @@ from rtl.pipeline_control import *
 
 from rtl.instructions import  CSRAdr
 
-from rtl.util import signed_resize
-
 
 class CSRUnitBundle(PipelineControl):
     def __init__(self,config):
@@ -23,45 +21,29 @@ class CSRUnitBundle(PipelineControl):
         self.funct3_i = Signal(modbv(0)[3:])
         self.op1_i = Signal(modbv(0)[xlen:])
         self.csr_adr = Signal(modbv(0)[12:])
-        #self.op2_i = Signal(modbv(0)[xlen:])
-        #self.rd_i = Signal(modbv(0)[5:])
-
-        # Status register Inputs
-        # mepc and mcause are managed in the execution unit
-        self.mepc_i = Signal(modbv(0)[xlen:])
-        self.mcause_i = Signal(modbv(0)[xlen:])
        
 
-        # Outputs
+
+        #Pipeline Output
         self.result_o = Signal(modbv(0)[xlen:])
-        #self.rd_o = Signal(modbv(0)[5:])
-        #self.we_o = Signal(bool(0))
         self.invalid_op_o = Signal(bool(0))
 
-        # Status Register outputs
-
-        self.mtvec_o = Signal(modbv(0)[xlen:2])
-        
-
-        self.mie_o =Signal(bool(0))
-        self.mpie_o = Signal(bool(0))
-
+       
         PipelineControl.__init__(self)
 
 
+    def expand_ip(self,ip):
+        res = modbv(0)[self.xlen:]
+        res[self.xlen:self.config.ip_low]=ip
+        return res
+
  
     @block
-    def CSRUnit(self,clock,reset):
+    def CSRUnit(self,trap_csrs, clock,reset):
         
         # Pipeline control
         busy = Signal(bool(0))
         valid = Signal(bool(0))
-
-        # Status Registers
-        mtvec = Signal(modbv(0)[self.xlen:2])
-        mscratch = Signal(modbv(0)[self.xlen:])
-        mie = Signal(bool(0))
-        mpie = Signal(bool(0))
 
         csr_in = Signal(modbv(0)[self.xlen:])
         csr_out = Signal(modbv(0)[self.xlen:])
@@ -69,13 +51,13 @@ class CSRUnitBundle(PipelineControl):
         # Flags
         inv_op = Signal(bool(0))
         inv_reg = Signal(bool(0))
-        csr_we = Signal(bool(0)) # Write Enable for CSRs
-    
-        # Write address
-        wr_reg = Signal(modbv(0)[7:])
 
+        # CSR write interface
+        csr_we = Signal(bool(0)) # Write Enable for CSRs
+        wr_adr = Signal(modbv(0)[7:])
 
         p_inst = self.pipeline_instance(busy,valid)
+        p_csr_write_inst = trap_csrs.csr_write(csr_we,wr_adr,csr_out,clock,reset)
 
 
         @always_comb
@@ -103,7 +85,7 @@ class CSRUnitBundle(PipelineControl):
             csr_in.next = 0
             inv_reg.next = False
             csr_we.next = False
-            wr_reg.next = reg
+            wr_adr.next = reg
           
             if priv == 0b11:
                 if rw == 0b11: # Read Only Registers                                            
@@ -118,9 +100,15 @@ class CSRUnitBundle(PipelineControl):
                     if reg == CSRAdr.isa:
                         csr_in.next[32:30]=0b01
                     elif reg == CSRAdr.tvec:
-                        csr_in.next[self.xlen:2] = mtvec
+                        csr_in.next = self.expand_ip(trap_csrs.mtvec) 
                     elif reg == CSRAdr.scratch:
-                        csr_in.next = mscratch     
+                        csr_in.next = trap_csrs.mscratch
+                    elif reg == CSRAdr.epc:
+                        csr_in.next = self.expand_ip(trap_csrs.mepc)  
+                    elif reg == CSRAdr.cause:
+                        csr_in.next = trap_csrs.mcause   
+                    elif reg == CSRAdr.tval:
+                        csr_in.next = trap_csrs.mtval                    
                     else:    
                         inv_reg.next = True
                         csr_we.next = False
@@ -139,15 +127,15 @@ class CSRUnitBundle(PipelineControl):
                     valid.next = True
                     self.result_o.next = csr_in
 
-        @always_seq(clock.posedge,reset=reset)
-        def seq():
-            if self.taken and csr_we:
-                if wr_reg == CSRAdr.isa:
-                    pass # not implemented yet   
-                elif wr_reg == CSRAdr.tvec:
-                    mtvec.next = csr_out[self.xlen:2]         
-                elif wr_reg == CSRAdr.scratch:
-                    mscratch.next = csr_out
+        # @always_seq(clock.posedge,reset=reset)
+        # def seq():
+        #     if self.taken and csr_we:
+        #         if wr_reg == CSRAdr.isa:
+        #             pass # not implemented yet   
+        #         elif wr_reg == CSRAdr.tvec:
+        #             mtvec.next = csr_out[self.xlen:2]         
+        #         elif wr_reg == CSRAdr.scratch:
+        #             mscratch.next = csr_out
                                            
         return instances()
         
