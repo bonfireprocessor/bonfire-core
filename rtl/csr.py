@@ -9,6 +9,7 @@ from myhdl import *
 from rtl.pipeline_control import *
 
 from rtl.instructions import  CSRAdr
+from rtl.trap import CSR_ReadViewBundle
 
 
 class CSRUnitBundle(PipelineControl):
@@ -52,12 +53,18 @@ class CSRUnitBundle(PipelineControl):
         inv_op = Signal(bool(0))
         inv_reg = Signal(bool(0))
 
-        # CSR write interface
+       
         csr_we = Signal(bool(0)) # Write Enable for CSRs
-        wr_adr = Signal(modbv(0)[7:])
+        csr_select_adr = Signal(modbv(0)[7:]) # Currently selected CSR
+
+        #Read Interface
+        trap_csr_read_view = CSR_ReadViewBundle(self.config)
+
+
 
         p_inst = self.pipeline_instance(busy,valid)
-        p_csr_write_inst = trap_csrs.csr_write(csr_we,wr_adr,csr_out,clock,reset)
+        p_csr_write_inst = trap_csrs.csr_write(csr_we,csr_select_adr,csr_out,clock,reset)
+        p_csr_read_inst = trap_csr_read_view.csr_read(csr_select_adr,trap_csrs)
 
 
         @always_comb
@@ -85,7 +92,7 @@ class CSRUnitBundle(PipelineControl):
             csr_in.next = 0
             inv_reg.next = False
             csr_we.next = False
-            wr_adr.next = reg
+            csr_select_adr.next = reg
           
             if priv == 0b11:
                 if rw == 0b11: # Read Only Registers                                            
@@ -99,16 +106,8 @@ class CSRUnitBundle(PipelineControl):
                     csr_we.next = True    
                     if reg == CSRAdr.isa:
                         csr_in.next[32:30]=0b01
-                    elif reg == CSRAdr.tvec:
-                        csr_in.next = self.expand_ip(trap_csrs.mtvec) 
-                    elif reg == CSRAdr.scratch:
-                        csr_in.next = trap_csrs.mscratch
-                    elif reg == CSRAdr.epc:
-                        csr_in.next = self.expand_ip(trap_csrs.mepc)  
-                    elif reg == CSRAdr.cause:
-                        csr_in.next = trap_csrs.mcause   
-                    elif reg == CSRAdr.tval:
-                        csr_in.next = trap_csrs.mtval                    
+                    elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
+                        csr_in.next = trap_csr_read_view.data            
                     else:    
                         inv_reg.next = True
                         csr_we.next = False

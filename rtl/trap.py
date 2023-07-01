@@ -16,6 +16,7 @@ class TrapCSRBundle:
         self.xlen = config.xlen
         xlen = config.xlen
 
+        #Status Registers
         self.mepc = Signal(modbv(0)[xlen:config.ip_low])
         self.mcause = Signal(modbv(0)[xlen:])
         self.mtvec = Signal(modbv(0)[self.xlen:config.ip_low])
@@ -24,8 +25,6 @@ class TrapCSRBundle:
         self.mpie = Signal(bool(0))
         self.mtval = Signal(modbv(0)[xlen:])
 
-
-  
 
     @block
     def csr_write(self,we,adr,data,clock,reset):
@@ -54,5 +53,46 @@ class TrapCSRBundle:
                     self.mepc.next = data
                 elif adr == CSRAdr.tval:
                     self.mtval.next = data
+
+        return instances()
+    
+
+class CSR_ReadViewBundle:
+    def __init__(self,config):
+        self.config=config
+        self.xlen = config.xlen
+        xlen=config.xlen
+
+        self.valid = Signal(bool(0))
+        self.data = Signal(modbv(0)[xlen:])
+       
+       
+
+
+    def expand_ip(self,ip):
+        res = modbv(0)[self.xlen:]
+        res[self.xlen:self.config.ip_low]=ip
+        return res
+
+    @block
+    def csr_read(self,reg,trap_csrs):
+
+        @always_comb
+        def comb():
+            self.valid.next = True    
+            
+            if reg == CSRAdr.tvec:
+                self.data.next = self.expand_ip(trap_csrs.mtvec) 
+            elif reg == CSRAdr.scratch:
+                self.data.next = trap_csrs.mscratch
+            elif reg == CSRAdr.epc:
+                self.data.next = self.expand_ip(trap_csrs.mepc)  
+            elif reg == CSRAdr.cause:
+                self.data.next = trap_csrs.mcause   
+            elif reg == CSRAdr.tval:
+                self.data.next = trap_csrs.mtval                    
+            else:    
+                self.valid.next=False
+
 
         return instances()
