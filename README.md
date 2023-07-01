@@ -159,7 +159,9 @@ The following fork of riscv-compliance has a target for bonfire-core:
 
 https://github.com/bonfireprocessor/riscv-compliance
 
-More information can be found in the readme file: https://github.com/bonfireprocessor/riscv-compliance/riscv-target/bonfire-core/README.md
+More information can be found in the readme file:
+
+https://github.com/bonfireprocessor/riscv-compliance/blob/master/riscv-target/bonfire-core/README.md
 
 The compliance test can be run with the command:
 ```
@@ -171,6 +173,7 @@ It will run the following test suites:
     rv32i rv32Zicsr
 
 The result should look like this:
+
 For rv32Zicsr
 
 ```
@@ -244,7 +247,7 @@ The status "ignored" on four tests is intentionally, because without privilege m
 
 ### Compliance suite technical details
 
-The forked test suite contains the target `bonfire-core`. In the `device/rv32i` and `device/rv32Zicsr subdirectory the target specific `Makefile.include` and the adapted header files are contained. The Makefile will call tb_run.py with the elf, hex and sig parameters as outlined above. Please refer to the Makefile for supported parameters. 
+The forked test suite contains the target `bonfire-core`. In the `device/rv32i` and `device/rv32Zicsr` subdirectory the target specific `Makefile.include` and the adapted header files are contained. The Makefile will call tb_run.py with the elf, hex and sig parameters as outlined above. Please refer to the Makefile for supported parameters. 
 
 ## Generating bonfire-core 
 ... todo
