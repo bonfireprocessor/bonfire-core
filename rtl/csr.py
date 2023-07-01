@@ -70,7 +70,7 @@ class CSRUnitBundle(PipelineControl):
         @always_comb
         def csr_op_proc():
     
-            op = self.funct3_i[2:0]
+            op = modbv(self.funct3_i[2:0])[2:]
             inv_op.next = 0
             if op == 0b01:
                 csr_out.next = self.op1_i # CSRRW
@@ -84,10 +84,10 @@ class CSRUnitBundle(PipelineControl):
 
         @always_comb
         def csr_select_proc():
-            rw = self.csr_adr[12:10]
-            priv = self.csr_adr[10:8]
-            grp = self.csr_adr[8:6]
-            reg = self.csr_adr[7:]
+            rw = modbv(self.csr_adr[12:10])[2:]
+            priv = modbv(self.csr_adr[10:8])[2:]
+            grp = modbv(self.csr_adr[8:6])[2:]
+            reg = modbv(self.csr_adr[7:])[7:]
 
             csr_in.next = 0
             inv_reg.next = False
@@ -102,15 +102,14 @@ class CSRUnitBundle(PipelineControl):
                         csr_in.next = 0x8000 # Dummy Value
                     else:
                         inv_reg.next = True
-                elif rw == 0: # Read Write Registers
-                    csr_we.next = True    
+                elif rw == 0: # Read Write Registers                      
                     if reg == CSRAdr.isa:
                         csr_in.next[32:30]=0b01
                     elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
+                        csr_we.next = self.taken 
                         csr_in.next = trap_csr_read_view.data            
                     else:    
-                        inv_reg.next = True
-                        csr_we.next = False
+                        inv_reg.next = True                        
                 else:
                     inv_reg.next = True
             else:

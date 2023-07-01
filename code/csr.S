@@ -2,9 +2,18 @@
 .global _start
 .extern monitor
 
+#include "encoding.h"
+
 #define check(_result) \
   li s2,_result; \
   jal store \
+
+#define check_csr(_csr,_result) \
+    csrr t4,_csr; \
+    li s2,_result; \
+    jal store \
+
+
 
 _start:
 
@@ -21,21 +30,36 @@ jal store // same as check macrp because s2 contains the comparison value
 
 li t1, 0xdeadbeef
 csrw mscratch,t1
-csrr t4,mscratch
-check(0xdeadbeef)
+check_csr(mscratch,0xdeadbeef)
 
 
-csrr t4,mimpid
-check(0x8000)
-csrr t4,misa
-check(0x40000000)
-csrr t4,mvendorid
-check(0)
-csrr t4,marchid
-check(0)
-csrr t4,mhartid
-check(0)
+check_csr(mimpid,0x8000)
+check_csr(misa,0x40000000)
+check_csr(mvendorid,0)
+check_csr(marchid,0)
+check_csr(mhartid,0)
 
+
+check_csr(mstatus,0x1800)
+
+csrsi mstatus,MSTATUS_MIE
+check_csr(mstatus,0x1808)
+
+csrci mstatus, MSTATUS_MIE
+check_csr(mstatus,0x1800)
+
+li t4,MSTATUS_MPIE
+csrs mstatus,t4
+check(MSTATUS_MPIE) // Check if csrs instruction globbers rs register
+check_csr(mstatus,0x1880)
+
+li t1,MSTATUS_MPIE 
+csrc mstatus,t1
+check_csr(mstatus,0x1800)
+
+li t1,0xdead0000
+csrw mepc,t1
+check_csr(mepc,0xdead0000)
 
 
 // // Read mcycle/h and write to monitor

@@ -238,7 +238,7 @@ class DecodeBundle(PipelineControl):
                             inv=True # TODO implement later
                         else:
                             self.csr_cmd.next = True
-                            self.csr_adr_o = self.word_i[32:20]
+                            self.csr_adr_o.next = self.word_i[32:20]
                             if self.word_i[14]: # Immediate
                                 rs1_immediate.next = True
                                 rs1_imm_value.next = self.word_i[20:15]

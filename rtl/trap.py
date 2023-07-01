@@ -18,7 +18,8 @@ class TrapCSRBundle:
 
         #Status Registers
         self.mepc = Signal(modbv(0)[xlen:config.ip_low])
-        self.mcause = Signal(modbv(0)[xlen:])
+        self.mcause = Signal(modbv(max=config.max_mcause))
+        self.mcause_irq = Signal(bool(0))
         self.mtvec = Signal(modbv(0)[self.xlen:config.ip_low])
         self.mscratch = Signal(modbv(0)[self.xlen:])
         self.mie = Signal(bool(0))
@@ -35,27 +36,41 @@ class TrapCSRBundle:
         clock: clock signal
         reset : reset signal
         """
+
+        upper = self.config.xlen
+        lower = self.config.ip_low
+
         @always(clock.posedge)
         def seq():
+
+           
+
             if reset:
-                self.mtvec.next = False
+                self.mtvec.next = 0
                 self.mie.next = False
                 self.mpie.next = False
 
             elif we:
                 if adr == CSRAdr.tvec:
-                    self.mtvec.next = data[self.xlen:2]
+                    self.mtvec.next = data[upper:lower]
                 elif adr == CSRAdr.scratch:
                     self.mscratch.next = data
                 elif adr == CSRAdr.cause:
                     self.mcause.next = data
                 elif adr == CSRAdr.epc:
-                    self.mepc.next = data
+                    self.mepc.next = data[upper:lower]
                 elif adr == CSRAdr.tval:
                     self.mtval.next = data
+                elif adr == CSRAdr.status:
+                    self.mie.next = data[3]
+                    self.mpie.next = data[7]
+                elif adr == CSRAdr.cause:
+                    self.mcause.next = data
+                    self.mcause_irq.next = data[31]        
 
         return instances()
-    
+
+
 
 class CSR_ReadViewBundle:
     def __init__(self,config):
@@ -65,33 +80,37 @@ class CSR_ReadViewBundle:
 
         self.valid = Signal(bool(0))
         self.data = Signal(modbv(0)[xlen:])
-       
-       
 
-
-    def expand_ip(self,ip):
-        res = modbv(0)[self.xlen:]
-        res[self.xlen:self.config.ip_low]=ip
-        return res
 
     @block
     def csr_read(self,reg,trap_csrs):
 
+        upper = self.config.xlen
+        lower = self.config.ip_low
+
         @always_comb
         def comb():
-            self.valid.next = True    
-            
+            self.valid.next = True
+            self.data.next=0
+
             if reg == CSRAdr.tvec:
-                self.data.next = self.expand_ip(trap_csrs.mtvec) 
+                self.data.next[upper:lower] = trap_csrs.mtvec
             elif reg == CSRAdr.scratch:
                 self.data.next = trap_csrs.mscratch
             elif reg == CSRAdr.epc:
-                self.data.next = self.expand_ip(trap_csrs.mepc)  
+                self.data.next[upper:lower] = trap_csrs.mepc
             elif reg == CSRAdr.cause:
-                self.data.next = trap_csrs.mcause   
+                self.data.next = trap_csrs.mcause
             elif reg == CSRAdr.tval:
-                self.data.next = trap_csrs.mtval                    
-            else:    
+                self.data.next = trap_csrs.mtval
+            elif reg == CSRAdr.status:
+                self.data.next[13:11]=0b11
+                self.data.next[7]=trap_csrs.mpie
+                self.data.next[3]=trap_csrs.mie
+            elif reg == CSRAdr.cause:
+                self.data.next = trap_csrs.mcause
+                self.data.next[31] = trap_csrs.mcause_irq   
+            else:
                 self.valid.next=False
 
 
