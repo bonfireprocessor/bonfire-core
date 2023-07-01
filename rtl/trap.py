@@ -18,7 +18,7 @@ class TrapCSRBundle:
 
         #Status Registers
         self.mepc = Signal(modbv(0)[xlen:config.ip_low])
-        self.mcause = Signal(modbv(max=config.max_mcause))
+        self.mcause = Signal(modbv(0)[config.mcause_len:0])
         self.mcause_irq = Signal(bool(0))
         self.mtvec = Signal(modbv(0)[self.xlen:config.ip_low])
         self.mscratch = Signal(modbv(0)[self.xlen:])
@@ -43,8 +43,6 @@ class TrapCSRBundle:
         @always(clock.posedge)
         def seq():
 
-           
-
             if reset:
                 self.mtvec.next = 0
                 self.mie.next = False
@@ -66,7 +64,7 @@ class TrapCSRBundle:
                     self.mpie.next = data[7]
                 elif adr == CSRAdr.cause:
                     self.mcause.next = data
-                    self.mcause_irq.next = data[31]        
+                    self.mcause_irq.next = data[31]
 
         return instances()
 
@@ -109,7 +107,7 @@ class CSR_ReadViewBundle:
                 self.data.next[3]=trap_csrs.mie
             elif reg == CSRAdr.cause:
                 self.data.next = trap_csrs.mcause
-                self.data.next[31] = trap_csrs.mcause_irq   
+                self.data.next[31] = trap_csrs.mcause_irq
             else:
                 self.valid.next=False
 

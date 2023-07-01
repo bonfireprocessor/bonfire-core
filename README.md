@@ -1,8 +1,8 @@
-## A RISC-V Core in MyHDL
+# A RISC-V Core in MyHDL
 
 Bonfire Core is an modular, configurable RISC-V core written in MyHDL. 
 
-### First milestone
+## First milestone
 The first design milestone is reached and passes the following goals:
 
 * Implement rv32i subset without any privilege mode features (no CSRs, no interrupts, no traps). 
@@ -15,7 +15,7 @@ This is of course not enough to have a fully usable CPU, but allows to check the
 
 The FPGA implementation is not part of this project, it is part of the bonfire-basic-soc project, contained in an experimental "bonfire_core" branch. The implementation cuts a few corners, because the single purpose of it is to have a PoC running on an FPGA. The implementation was tested on a Digilent Arty A7 board and the Trion T8 based FireAnt board. 
 
-### Prerequisites
+## Prerequisites
 * Python - Currently the code is tested with Python 2.7.12 and Python 3.5.2 - other versions may work
 
 * MyHDL 0.11
@@ -26,11 +26,11 @@ The FPGA implementation is not part of this project, it is part of the bonfire-b
 
 I think there are enough tutorials how to install all these tools (including the RISC-V toolchain) so I will not repeat it here. 
 
-### Running tests
+## Running tests
 
 Currently bonfire-core does not use any test framework, like pyunit. There is a test runner tb_run.py which allows to run various tests. It has a very basic command line interface, which not really robust error handling. There are several classes of tests:
 
-#### Module unit tests
+### Module unit tests
 They test a singe module. Most of the tests benches are self-checking and raise an assertion on error. A few (like the barrel shifter) just output the results, so they need visual inspection of correctness. Some tests (like tb_decoder) are very rudimentary at the moment and should be improved.
 The module unit tests can be invoked with 
 
@@ -38,7 +38,7 @@ The module unit tests can be invoked with
 python tb_run.py --ut_modules
 ````
 
-#### Load store unit tests
+### Load store unit tests
 The load store unit tests can be invoked separatly and indpendant of the other unit tests. Reason is, that the loadstore module is quite complex, because it is already prepared to support a pipelined LSU, allowing back-to-back load/stores. It tests the LSU with different configurations and pipeline depths. 
 
 The Load/Store unit tests can be invoked with 
@@ -47,7 +47,7 @@ The Load/Store unit tests can be invoked with
 python tb_run.py --ut_loadstore
 ````
 
-#### Pipeline integration tests
+### Pipeline integration tests
 Currently bonfire-core has only three stage pipeline implemented. It is separated into a backend and the fetch unit. The pipeline integration tests test the backend alone and together with the fetch unit. 
 
 The Pipeline integration tests can be invoked with
@@ -55,7 +55,7 @@ The Pipeline integration tests can be invoked with
 python tb_run.py --pipeline
 ````
 
-#### Core integration test
+### Core integration test
 This test runs the complete bonfire-core in a test bench environment with 16KB of memory at address 0 and a monitor port at address range 0x10000000 - 0x1fffffff.
 
 Writes to the monitor range will be reported to the console. In addition a write to monitor base address will stop the test bench.
@@ -132,16 +132,19 @@ Shifter instance with config 5 3
 
 These files are mainly for intended for debugging the core. For a more complete test the riscv-compliance suite is used.
 
-#### Writing a vcd file
+### Writing a vcd file
 The parameter `--vcd=<filename>` will enable writing a vcd file (only supported for the core integration test)
 
 
-#### Writing a test signature file
+
+## RISC-V Compliance testing
+
+### Writing a test signature file
 The RISC-V compliance  suite works in a way that every test will create a signature dump which is compared against a golden reference. The test code will write the signature into its memory, between the symbols `begin_signature` and `end_signature`
 
 The test bench uses pyelftools to extract both symbols from the elf file of the test and then write a memory dump. The code for this is implemented in function `dump_signature` in `tb/sim_monitor.py`
 
-The following command is used for running compliance tests:
+The following command is used for running the compliance tests:
 
 ```
 python tb_run.py  --elf=<test program elf file> --sign=<signature file name> --hex=<test program hex file>
@@ -152,15 +155,37 @@ Note: A future version may extract the code also from the elf file and make the 
 
 ### Running riscv-compliance
 
-The followinf fork of riscv-compliance has a target for bonfire-core:
+The following fork of riscv-compliance has a target for bonfire-core:
 
 https://github.com/bonfireprocessor/riscv-compliance
 
+More information can be found in the readme file: https://github.com/bonfireprocessor/riscv-compliance/riscv-target/bonfire-core/README.md
+
 The compliance test can be run with the command:
 ```
-make RISCV_TARGET=bonfire-core BONFIRE_CORE_ROOT=<your bonfire-core root directory>
+make PARALELL=1 JOBS="-j" RISCV_TARGET=bonfire-core BONFIRE_CORE_ROOT=<your bonfire-core root directory>
 ```
+
+It will run the following test suites:
+
+    rv32i rv32Zicsr
+
 The result should look like this:
+For rv32Zicsr
+
+```
+Check               I-CSRRC-01 ... OK
+Check              I-CSRRCI-01 ... OK
+Check               I-CSRRS-01 ... OK
+Check              I-CSRRSI-01 ... OK
+Check               I-CSRRW-01 ... OK
+Check              I-CSRRWI-01 ... OK
+--------------------------------
+OK: 6/6 RISCV_TARGET=bonfire-core RISCV_DEVICE=rv32Zicsr RISCV_ISA=rv32Zicsr
+```
+For rv32i:
+
+
 ```
 Compare to reference files ... 
 
@@ -217,14 +242,14 @@ OK: 48/48
 ```
 The status "ignored" on four tests is intentionally, because without privilege mode no exepction handling is possible. The test will fail with an invalid opcode assertion and will not write a signature.
 
-#### Compliance suite technical details
+### Compliance suite technical details
 
-The forked test suite contains the target `bonfire-core`. In the `device/rv32i` subdirectory the target specific `Makefile.include` and the adapted header files are contained. The Makefile will call tb_run.py with the elf, hex and sig parameters as outlined above. Please refer to the Makefile for supported parameters. 
+The forked test suite contains the target `bonfire-core`. In the `device/rv32i` and `device/rv32Zicsr subdirectory the target specific `Makefile.include` and the adapted header files are contained. The Makefile will call tb_run.py with the elf, hex and sig parameters as outlined above. Please refer to the Makefile for supported parameters. 
 
-### Generating bonfire-core 
+## Generating bonfire-core 
 ... todo
 
-#### Simulation the Core with GHDL
+## Simulation the Core with GHDL
 
 From bonfire root directory start:
 

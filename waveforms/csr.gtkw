@@ -1,0 +1,53 @@
+[*]
+[*] GTKWave Analyzer v3.3.100 (w)1999-2019 BSI
+[*] Sat Jul 01 21:02:13 2023
+[*]
+[dumpfile] "E:\Users\thoma\development\eda\bonfire\bonfire-core\waveforms\tb_core.vcd"
+[dumpfile_mtime] "Sat Jul 01 20:52:47 2023"
+[dumpfile_size] 3047004
+[savefile] "E:\Users\thoma\development\eda\bonfire\bonfire-core\waveforms\csr.gtkw"
+[timestart] 2672
+[size] 1536 793
+[pos] -1 -1
+*-5.231575 21 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.BonfireCoreTop0_createInstance0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.AluBundle0_alu0.shift_pipelined0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.AluBundle0_alu0.shift_pipelined0.left_shift_pipelined0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.
+[treeopen] tb.sim_ram0_ram_interface0.
+[sst_width] 294
+[signals_width] 302
+[sst_expanded] 1
+[sst_vpaned_height] 356
+@28
+tb.BonfireCoreTop0_createInstance0.clock
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_current_ip_i[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_word_i[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.CSRUnitBundle1_pipeline_instance0.self_en_i
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.CSRUnitBundle1_pipeline_instance0.self_taken
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_csr_cmd
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.self_op1_i[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.self_funct3_i[2:0]
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.csr_in[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.csr_out[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.self_csr_adr[11:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_csr_result_o[31:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.we
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.self_mie
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.self_mpie
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.CSR_ReadViewBundle0_csr_read0.self_valid
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.CSR_ReadViewBundle0_csr_read0.reg[6:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.CSR_ReadViewBundle0_csr_read0.self_data[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.CSR_ReadViewBundle0_csr_read0.trap_csrs_mepc[29:0]
+[pattern_trace] 1
+[pattern_trace] 0

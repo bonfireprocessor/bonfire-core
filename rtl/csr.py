@@ -22,26 +22,20 @@ class CSRUnitBundle(PipelineControl):
         self.funct3_i = Signal(modbv(0)[3:])
         self.op1_i = Signal(modbv(0)[xlen:])
         self.csr_adr = Signal(modbv(0)[12:])
-       
+
 
 
         #Pipeline Output
         self.result_o = Signal(modbv(0)[xlen:])
         self.invalid_op_o = Signal(bool(0))
 
-       
+
         PipelineControl.__init__(self)
 
 
-    def expand_ip(self,ip):
-        res = modbv(0)[self.xlen:]
-        res[self.xlen:self.config.ip_low]=ip
-        return res
-
- 
     @block
     def CSRUnit(self,trap_csrs, clock,reset):
-        
+
         # Pipeline control
         busy = Signal(bool(0))
         valid = Signal(bool(0))
@@ -53,7 +47,7 @@ class CSRUnitBundle(PipelineControl):
         inv_op = Signal(bool(0))
         inv_reg = Signal(bool(0))
 
-       
+
         csr_we = Signal(bool(0)) # Write Enable for CSRs
         csr_select_adr = Signal(modbv(0)[7:]) # Currently selected CSR
 
@@ -69,7 +63,7 @@ class CSRUnitBundle(PipelineControl):
 
         @always_comb
         def csr_op_proc():
-    
+
             op = modbv(self.funct3_i[2:0])[2:]
             inv_op.next = 0
             if op == 0b01:
@@ -93,23 +87,23 @@ class CSRUnitBundle(PipelineControl):
             inv_reg.next = False
             csr_we.next = False
             csr_select_adr.next = reg
-          
+
             if priv == 0b11:
-                if rw == 0b11: # Read Only Registers                                            
+                if rw == 0b11: # Read Only Registers
                     if reg == CSRAdr.vendorid or reg == CSRAdr.archid or reg == CSRAdr.hartid:
                         pass
                     elif reg == CSRAdr.impid:
                         csr_in.next = 0x8000 # Dummy Value
                     else:
                         inv_reg.next = True
-                elif rw == 0: # Read Write Registers                      
+                elif rw == 0: # Read Write Registers
                     if reg == CSRAdr.isa:
                         csr_in.next[32:30]=0b01
                     elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
-                        csr_we.next = self.taken 
-                        csr_in.next = trap_csr_read_view.data            
-                    else:    
-                        inv_reg.next = True                        
+                        csr_we.next = self.taken
+                        csr_in.next = trap_csr_read_view.data
+                    else:
+                        inv_reg.next = True
                 else:
                     inv_reg.next = True
             else:
@@ -125,15 +119,5 @@ class CSRUnitBundle(PipelineControl):
                     valid.next = True
                     self.result_o.next = csr_in
 
-        # @always_seq(clock.posedge,reset=reset)
-        # def seq():
-        #     if self.taken and csr_we:
-        #         if wr_reg == CSRAdr.isa:
-        #             pass # not implemented yet   
-        #         elif wr_reg == CSRAdr.tvec:
-        #             mtvec.next = csr_out[self.xlen:2]         
-        #         elif wr_reg == CSRAdr.scratch:
-        #             mscratch.next = csr_out
-                                           
+
         return instances()
-        
