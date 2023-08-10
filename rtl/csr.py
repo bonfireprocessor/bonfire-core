@@ -51,6 +51,11 @@ class CSRUnitBundle(PipelineControl):
         csr_we = Signal(bool(0)) # Write Enable for CSRs
         csr_select_adr = Signal(modbv(0)[7:]) # Currently selected CSR
 
+        # CSR Address parts
+        rw = Signal(modbv(0)[2:])
+        priv = Signal(modbv(0)[2:])
+        reg = Signal(modbv(0)[7:])
+
         #Read Interface
         trap_csr_read_view = CSR_ReadViewBundle(self.config)
 
@@ -64,7 +69,7 @@ class CSRUnitBundle(PipelineControl):
         @always_comb
         def csr_op_proc():
 
-            op = modbv(self.funct3_i[2:0])[2:]
+            op = self.funct3_i[2:0]
             inv_op.next = 0
             if op == 0b01:
                 csr_out.next = self.op1_i # CSRRW
@@ -77,11 +82,15 @@ class CSRUnitBundle(PipelineControl):
 
 
         @always_comb
+        def csr_fields_proc():
+            rw.next = self.csr_adr[12:10]
+            priv.next = self.csr_adr[10:8]
+            #grp.next = self.csr_adr[8:6]
+            reg.next  = self.csr_adr[7:]
+
+
+        @always_comb
         def csr_select_proc():
-            rw = modbv(self.csr_adr[12:10])[2:]
-            priv = modbv(self.csr_adr[10:8])[2:]
-            grp = modbv(self.csr_adr[8:6])[2:]
-            reg = modbv(self.csr_adr[7:])[7:]
 
             csr_in.next = 0
             inv_reg.next = False
