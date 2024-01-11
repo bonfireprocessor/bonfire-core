@@ -66,7 +66,8 @@ class DecodeBundle(PipelineControl):
         self.displacement_o = Signal(intbv(0)[12:])
         self.jump_dest_o = Signal(modbv(0)[xlen:])
         self.next_ip_o = Signal(modbv(0)[xlen:])
-        self.csr_adr_o = Signal(modbv(0)[12:])
+        self.priv_funct_12 = Signal(modbv(0)[12:])
+        self.mepc_o = Signal(modbv(0)[xlen:])
 
         # Functional unit control
         self.alu_cmd = Signal(bool(0))
@@ -76,9 +77,10 @@ class DecodeBundle(PipelineControl):
         self.jump_cmd = Signal(bool(0))
         self.jumpr_cmd = Signal(bool(0))
         self.csr_cmd = Signal(bool(0))
+        self.sys_cmd = Signal(bool(0))
         self.invalid_opcode = Signal(bool(0))
 
-       
+
         # Debug
         self.debug_word_o = Signal(intbv(0)[xlen:])
         self.debug_current_ip_o = Signal(intbv(0)[xlen:])
@@ -142,13 +144,13 @@ class DecodeBundle(PipelineControl):
             """
             When kill_i, invalidate output stage else
             While downstream_busy do nothing
-            otherwise decode the next instruction when en_i is set  
+            otherwise decode the next instruction when en_i is set
             """
 
             if self.kill_i:
-                self.valid_o.next = False 
-                self.invalid_opcode.next = False              
-            elif not downstream_busy: 
+                self.valid_o.next = False
+                self.invalid_opcode.next = False
+            elif not downstream_busy:
                 if self.en_i:
                     inv=False
 
@@ -156,17 +158,17 @@ class DecodeBundle(PipelineControl):
                     self.debug_current_ip_o.next = self.current_ip_i
 
                     self.funct3_o.next = self.word_i[15:12]
-                    self.funct3_onehot_o.next = 0 
+                    self.funct3_onehot_o.next = 0
                     index = int(self.word_i[15:12])
-                    self.funct3_onehot_o.next[index] = True 
-                    
+                    self.funct3_onehot_o.next[index] = True
+
                     self.funct7_o.next = self.word_i[32:25]
                     self.rd_adr_o.next = self.word_i[12:7]
 
                     rs1_adr_o_reg.next = self.word_i[20:15]
                     rs2_adr_o_reg.next = self.word_i[25:20]
 
-                    self.next_ip_o.next = self.next_ip_i 
+                    self.next_ip_o.next = self.next_ip_i
 
                     #self.displacement_o.next = 0
                     rs1_immediate.next = False
@@ -181,6 +183,8 @@ class DecodeBundle(PipelineControl):
                     self.csr_cmd.next = False
                     self.invalid_opcode.next = False
 
+                    self.mepc_o.next = self.current_ip_i
+
                     if self.word_i[2:0]!=3:
                         inv=True
 
@@ -190,14 +194,14 @@ class DecodeBundle(PipelineControl):
                         self.alu_cmd.next = True
                         # Workaround for ADDI...
                         if self.word_i[15:12]==f3.RV32_F3_ADD_SUB:
-                            self.funct7_o.next[5] = False  
+                            self.funct7_o.next[5] = False
                         rs2_imm_value.next = signed_resize(get_I_immediate(self.word_i),self.xlen)
                         rs2_immediate.next = True
-                        
+
                     elif opcode==op.RV32_BRANCH:
                         self.branch_cmd.next = True
                         self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(self.word_i).signed()
-                       
+
                         self.branch_cmd.next=True
 
                     elif opcode==op.RV32_JAL:
@@ -206,14 +210,14 @@ class DecodeBundle(PipelineControl):
 
                     elif opcode==op.RV32_JALR:
                         self.jumpr_cmd.next = True
-                         # Use ALU to calculate target 
+                         # Use ALU to calculate target
                         self.alu_cmd.next = True
                         self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
                         self.funct3_o.next = f3.RV32_F3_ADD_SUB
-                        self.funct7_o.next[5] = False  
+                        self.funct7_o.next[5] = False
                         rs2_imm_value.next =  signed_resize(get_I_immediate(self.word_i),self.xlen)
                         rs2_immediate.next = True
-                        
+
                     elif opcode==op.RV32_LUI or opcode==op.RV32_AUIPC:
                         self.alu_cmd.next = True
                         rs1_immediate.next = True
@@ -225,7 +229,7 @@ class DecodeBundle(PipelineControl):
                             rs2_imm_value.next=0
 
                         self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
-                        self.funct3_o.next = f3.RV32_F3_ADD_SUB   
+                        self.funct3_o.next = f3.RV32_F3_ADD_SUB
                         self.funct7_o.next = 0
                     elif opcode==op.RV32_STORE:
                         self.store_cmd.next = True
@@ -234,11 +238,11 @@ class DecodeBundle(PipelineControl):
                         self.load_cmd.next = True
                         self.displacement_o.next = get_I_immediate(self.word_i)
                     elif opcode==op.RV32_SYSTEM:
+                        self.priv_funct_12.next = self.word_i[32:20]
                         if self.word_i[15:12]==SystemFunct3.RV32_F3_PRIV:
-                            inv=True # TODO implement later
+                            self.sys_cmd.next = True
                         else:
                             self.csr_cmd.next = True
-                            self.csr_adr_o.next = self.word_i[32:20]
                             if self.word_i[14]: # Immediate
                                 rs1_immediate.next = True
                                 rs1_imm_value.next = self.word_i[20:15]

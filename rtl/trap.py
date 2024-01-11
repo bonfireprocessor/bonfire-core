@@ -10,6 +10,26 @@ from rtl.pipeline_control import *
 
 from rtl.instructions import  CSRAdr
 
+
+class TrapCSRUpdateBundle:
+     def __init__(self,config):
+        self.config = config
+        self.xlen = config.xlen
+        xlen = config.xlen
+
+        #Status Registers
+        self.mepc = Signal(modbv(0)[xlen:config.ip_low])
+        self.mcause = Signal(modbv(0)[config.mcause_len:0])
+        self.mcause_irq = Signal(bool(0))
+        self.mtval = Signal(modbv(0)[xlen:])
+
+        self.we_mepc=Signal(bool(0))
+        self.we_mcause=Signal(bool(0))
+        self.mstatue_trap_enter=Signal(bool(0))
+        self.mstatue_trap_exit=Signal(bool(0))
+        self.we_mtval=Signal(bool(0))
+      
+
 class TrapCSRBundle:
     def __init__(self,config):
         self.config = config
@@ -28,11 +48,12 @@ class TrapCSRBundle:
 
 
     @block
-    def csr_write(self,we,adr,data,clock,reset):
+    def csr_write(self,we,adr,data,update,clock,reset):
         """
         we: bool Write Enable
         adr : [6:] CSR Adr
         data: [32:] Input Data to wrtie
+        update: TrapCSRUpdateBundle
         clock: clock signal
         reset : reset signal
         """
@@ -48,7 +69,7 @@ class TrapCSRBundle:
                 self.mie.next = False
                 self.mpie.next = False
 
-            elif we:
+            elif we: # Write CSR Register because of CSR instruction
                 if adr == CSRAdr.tvec:
                     self.mtvec.next = data[upper:lower]
                 elif adr == CSRAdr.scratch:
@@ -65,6 +86,20 @@ class TrapCSRBundle:
                 elif adr == CSRAdr.cause:
                     self.mcause.next = data
                     self.mcause_irq.next = data[31]
+            else: # Update CSR register beacuse of trap/irq handliong
+                if update.we_mcause:
+                    self.mcause.next = update.mcause
+                    self.mcause_irq.next = update.mcause_irq
+                if update.we_mepc:
+                    self.mepc.next = update.mepc
+                if update.mstatue_trap_enter: # DIsable MIE and store in MPIE on trap
+                    self.mpie.next = self.mie 
+                    self.mie.next = False
+                if update.mstatue_trap_exit:
+                    self.mie.next = self.mpie
+                if update.mtval:
+                    self.mtval.next = update.mtval    
+                    
 
         return instances()
 
@@ -113,3 +148,11 @@ class CSR_ReadViewBundle:
 
 
         return instances()
+    
+
+# class TrapIRQBundle:
+#     def __init__(self,config):
+#         self.config = config
+#         self.xlen = config.xlen
+#         xlen = config.xlen
+

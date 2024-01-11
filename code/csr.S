@@ -17,8 +17,6 @@
 
 _start:
 
-
-
 la s0, monitor
 add gp,s0,0x200 // test result area
 
@@ -26,7 +24,7 @@ la s2, trap_failure
 csrw mtvec,s2
 
 csrr t4,mtvec
-jal store // same as check macrp because s2 contains the comparison value
+jal store // same as check macro because s2 contains the comparison value
 
 li t1, 0xdeadbeef
 csrw mscratch,t1

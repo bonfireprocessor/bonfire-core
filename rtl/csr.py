@@ -34,7 +34,7 @@ class CSRUnitBundle(PipelineControl):
 
 
     @block
-    def CSRUnit(self,trap_csrs, clock,reset):
+    def CSRUnit(self,trap_csrs, trap_csr_upate,clock,reset):
 
         # Pipeline control
         busy = Signal(bool(0))
@@ -62,7 +62,7 @@ class CSRUnitBundle(PipelineControl):
 
 
         p_inst = self.pipeline_instance(busy,valid)
-        p_csr_write_inst = trap_csrs.csr_write(csr_we,csr_select_adr,csr_out,clock,reset)
+        p_csr_write_inst = trap_csrs.csr_write(csr_we,csr_select_adr,csr_out,trap_csr_upate,clock,reset)
         p_csr_read_inst = trap_csr_read_view.csr_read(csr_select_adr,trap_csrs)
 
 

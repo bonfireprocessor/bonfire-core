@@ -10,7 +10,7 @@ from myhdl import *
 from rtl import alu, loadstore, csr, trap
 
 from rtl.instructions import BranchFunct3  as b3
-from rtl.instructions import Opcodes
+from rtl.instructions import Opcodes, PrivFunct12
 
 from rtl.pipeline_control import *
 
@@ -27,6 +27,7 @@ class ExecuteBundle(PipelineControl):
         self.ls = loadstore.LoadStoreBundle(config)
         self.csr =csr.CSRUnitBundle(config)
         self.trapCSR = trap.TrapCSRBundle(config)
+        self.csrUpdate = trap.TrapCSRUpdateBundle(config)
 
         # output
         self.result_o = Signal(intbv(0)[xlen:])
@@ -71,7 +72,7 @@ class ExecuteBundle(PipelineControl):
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
         
-        csr_inst = self.csr.CSRUnit(self.trapCSR,clock,reset)
+        csr_inst = self.csr.CSRUnit(self.trapCSR,self.csrUpdate,clock,reset)
 
         p_inst = self.pipeline_instance(busy,valid)
 
@@ -108,7 +109,7 @@ class ExecuteBundle(PipelineControl):
             self.ls.store_i.next = decode.store_cmd
 
             #csr Unit Input Wirings
-            self.csr.csr_adr.next = decode.csr_adr_o
+            self.csr.csr_adr.next = decode.priv_funct_12
             self.csr.op1_i.next = decode.op1_o
             self.csr.funct3_i.next = decode.funct3_o
 
@@ -167,6 +168,9 @@ class ExecuteBundle(PipelineControl):
         @always_comb
         def jump_comb():
 
+            upper = self.config.xlen
+            lower = self.config.ip_low
+
             self.invalid_opcode_fault.next = False
             jump.next = False
             jump_dest.next = 0
@@ -198,7 +202,25 @@ class ExecuteBundle(PipelineControl):
                 elif decode.jumpr_cmd:
                     jump_dest.next = self.alu.res_o
                     jump.next = True
-                    jump_we.next = True 
+                    jump_we.next = True
+                elif decode.sys_cmd:
+                    if decode.priv_funct_12==PrivFunct12.RV32_F12_EBREAK or  decode.priv_funct_12==PrivFunct12.RV32_F12_ECALL:
+                        jump_dest.next[upper:lower] = self.trapCSR.mtvec
+                        jump.next = True
+                        self.csrUpdate.mstatue_trap_enter.next=True
+                        self.csrUpdate.we_mcause.next=True
+                        if decode.priv_funct_12[0]: 
+                            self.csrUpdate.mcause.next = 0x3 # EBRAK
+                        else:  
+                            self.csrUpdate.mcause.next = 0xb #ECALL
+                        self.csrUpdate.we_mepc.next=True
+                        self.csrUpdate.mepc.next = decode.mepc_o[upper:lower]
+                    elif decode.priv_funct_12==PrivFunct12.RV32_F12_ERET:
+                        jump_dest.next[upper:lower] = self.trapCSR.mepc
+                        jump.next = True
+                        self.csrUpdate.mstatue_trap_enter.next=True
+                    else:
+                        self.invalid_opcode_fault.next = True    
             
             #TODO: Implement other functional units
 

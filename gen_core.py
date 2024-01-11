@@ -119,7 +119,7 @@ targets:
                               bramAdrWidth=bram_adr_width,
                               handleWarnings=conversion_warnings) 
 
-            filelist = [ "pck_myhdl_011.vhd",name+".vhd"]
+            filelist = [ "pck_myhdl_01142.vhd",name+".vhd"]
             with open(name+".core","w") as corefile:
                 corefile.write(CORE_TEMPLATE.format(vlnv=vlnv,
                                                     filetype="vhdlSource-2008",

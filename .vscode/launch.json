@@ -49,7 +49,19 @@
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
-                "--hex=code/loadsave.hex",
+                "--hex=code/csr.hex",
+                "--vcd=tb_core"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: run core local code verbose",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/tb_run.py",
+            "args": [
+                "-v",
+                "--hex=code/trap.hex",
                 "--vcd=tb_core"
             ],
             "console": "integratedTerminal"
