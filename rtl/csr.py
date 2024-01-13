@@ -91,7 +91,7 @@ class CSRUnitBundle(PipelineControl):
 
         @always_comb
         def csr_select_proc():
-
+           
             csr_in.next = 0
             inv_reg.next = False
             csr_we.next = False

@@ -48,7 +48,7 @@ class ExecuteBundle(PipelineControl):
         """
         Simple execution Unit designed for single stage in-order execution
         decode : DecodeBundle class instance
-        databus : DBusBundle instance  
+        databus : DBusBundle instance
         debugport : DebugOutputBundle instance
         clock : clock
         reset : reset
@@ -71,12 +71,12 @@ class ExecuteBundle(PipelineControl):
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
-        
+
         csr_inst = self.csr.CSRUnit(self.trapCSR,self.csrUpdate,clock,reset)
 
         p_inst = self.pipeline_instance(busy,valid)
 
-        
+
         @always_seq(clock.posedge,reset=reset)
         def seq():
 
@@ -86,12 +86,12 @@ class ExecuteBundle(PipelineControl):
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
                 jump_busy.next = jump and not self.config.jump_bypass
-                   
-                
+
+
                 # # Debug code
-                # if self.debug_exec_jump.next: 
-                #     print(now(), "jump or branch")    
-                
+                # if self.debug_exec_jump.next:
+                #     print(now(), "jump or branch")
+
         @always_comb
         def comb():
 
@@ -113,13 +113,13 @@ class ExecuteBundle(PipelineControl):
             self.csr.op1_i.next = decode.op1_o
             self.csr.funct3_i.next = decode.funct3_o
 
-            # Pipeline  
+            # Pipeline
             busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy
             valid.next = self.alu.valid_o or self.ls.valid_o  or self.csr.valid_o  or jump_we
 
             if self.config.jump_bypass:
                 decode.kill_i.next =  self.taken and jump
-            else:    
+            else:
                 decode.kill_i.next = jump_busy
 
 
@@ -132,21 +132,21 @@ class ExecuteBundle(PipelineControl):
             # Debug Interface
             debugport.jump_exec.next = self.taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd)
             debugport.jump.next = jump
-    
-           
+
+
         @always_comb
-        def mux():   
+        def mux():
             # Output multiplexers
 
             if self.taken and jump_we:
                 self.result_o.next = decode.next_ip_o
             elif self.alu.valid_o:
                 self.result_o.next = self.alu.res_o
-           
+
             elif self.ls.valid_o:
                 self.result_o.next = self.ls.result_o
             elif self.csr.valid_o:
-                self.result_o.next = self.csr.result_o    
+                self.result_o.next = self.csr.result_o
             else:
                 self.result_o.next = 0
 
@@ -157,14 +157,28 @@ class ExecuteBundle(PipelineControl):
             else:
                 self.rd_adr_o.next = rd_adr_reg
 
-            if self.taken and self.config.jump_bypass:  
+            if self.taken and self.config.jump_bypass:
                 self.jump_o.next = jump
                 self.jump_dest_o.next = jump_dest
             else:
                 self.jump_o.next = jump_r and not self.taken # supress jump_o when next instruction after jump is taken
                 self.jump_dest_o.next = jump_dest_r
 
-                     
+
+        @always_comb
+        def mcause_update():
+            # mcause comb logic. Aware that actual update of the mcause csr is enabled
+            # by  elf.csrUpdate.we_mcause.next
+
+            self.csrUpdate.mcause_irq.next = 0
+
+            if decode.priv_funct_12[0]:
+                self.csrUpdate.mcause.next = 0x3 # EBRAK
+            else:
+                self.csrUpdate.mcause.next = 0xb #ECALL
+
+
+
         @always_comb
         def jump_comb():
 
@@ -175,6 +189,20 @@ class ExecuteBundle(PipelineControl):
             jump.next = False
             jump_dest.next = 0
             jump_we.next = False
+
+
+            self.csrUpdate.mstatus_trap_enter.next = False
+            self.csrUpdate.mstatus_trap_exit.next = False
+            self.csrUpdate.we_mcause.next = False
+            self.csrUpdate.we_mtval.next = False
+
+            self.csrUpdate.mtval.next = 0
+
+            # csrUpdate.mepc can be hard wired to decode.mepc_o
+            # bcasue trigger happens with csrUpdate.
+            self.csrUpdate.mepc.next = decode.mepc_o[upper:lower]
+            self.csrUpdate.we_mepc.next = False
+
             if self.en_i and self.taken:
                 if decode.branch_cmd:
 
@@ -198,7 +226,7 @@ class ExecuteBundle(PipelineControl):
                 elif decode.jump_cmd:
                     jump_dest.next = decode.jump_dest_o
                     jump.next = True
-                    jump_we.next = True 
+                    jump_we.next = True
                 elif decode.jumpr_cmd:
                     jump_dest.next = self.alu.res_o
                     jump.next = True
@@ -207,21 +235,16 @@ class ExecuteBundle(PipelineControl):
                     if decode.priv_funct_12==PrivFunct12.RV32_F12_EBREAK or  decode.priv_funct_12==PrivFunct12.RV32_F12_ECALL:
                         jump_dest.next[upper:lower] = self.trapCSR.mtvec
                         jump.next = True
-                        self.csrUpdate.mstatue_trap_enter.next=True
+                        self.csrUpdate.mstatus_trap_enter.next=True
                         self.csrUpdate.we_mcause.next=True
-                        if decode.priv_funct_12[0]: 
-                            self.csrUpdate.mcause.next = 0x3 # EBRAK
-                        else:  
-                            self.csrUpdate.mcause.next = 0xb #ECALL
                         self.csrUpdate.we_mepc.next=True
-                        self.csrUpdate.mepc.next = decode.mepc_o[upper:lower]
                     elif decode.priv_funct_12==PrivFunct12.RV32_F12_ERET:
                         jump_dest.next[upper:lower] = self.trapCSR.mepc
                         jump.next = True
-                        self.csrUpdate.mstatue_trap_enter.next=True
+                        self.csrUpdate.mstatus_trap_exit.next=True
                     else:
-                        self.invalid_opcode_fault.next = True    
-            
+                        self.invalid_opcode_fault.next = True
+
             #TODO: Implement other functional units
 
 

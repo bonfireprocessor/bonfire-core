@@ -106,7 +106,7 @@ def pipeline_integration_tests():
 
 def core_integration_tests(hex,elf,sig,vcd,verbose):   
     tb=tb_core.tb(hexFile=hex,elfFile=elf,sigFile=sig,ramsize=16384,verbose=verbose)
-    test(tb,trace=bool(vcd),filename=vcd,duration=20000)
+    test(tb,trace=bool(vcd),filename=vcd,duration=2000)
     
 
 def soc_test(hex,vcd,elf,sig):

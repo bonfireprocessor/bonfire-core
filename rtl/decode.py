@@ -182,6 +182,7 @@ class DecodeBundle(PipelineControl):
                     self.store_cmd.next = False
                     self.csr_cmd.next = False
                     self.invalid_opcode.next = False
+                    self.sys_cmd.next = False
 
                     self.mepc_o.next = self.current_ip_i
 

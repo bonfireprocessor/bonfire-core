@@ -19,14 +19,14 @@ class TrapCSRUpdateBundle:
 
         #Status Registers
         self.mepc = Signal(modbv(0)[xlen:config.ip_low])
-        self.mcause = Signal(modbv(0)[config.mcause_len:0])
+        self.mcause =  Signal(modbv(0,min=0,max=config.mcause_max))
         self.mcause_irq = Signal(bool(0))
         self.mtval = Signal(modbv(0)[xlen:])
 
         self.we_mepc=Signal(bool(0))
         self.we_mcause=Signal(bool(0))
-        self.mstatue_trap_enter=Signal(bool(0))
-        self.mstatue_trap_exit=Signal(bool(0))
+        self.mstatus_trap_enter=Signal(bool(0))
+        self.mstatus_trap_exit=Signal(bool(0))
         self.we_mtval=Signal(bool(0))
       
 
@@ -38,7 +38,7 @@ class TrapCSRBundle:
 
         #Status Registers
         self.mepc = Signal(modbv(0)[xlen:config.ip_low])
-        self.mcause = Signal(modbv(0)[config.mcause_len:0])
+        self.mcause = Signal(modbv(0,min=0,max=config.mcause_max))
         self.mcause_irq = Signal(bool(0))
         self.mtvec = Signal(modbv(0)[self.xlen:config.ip_low])
         self.mscratch = Signal(modbv(0)[self.xlen:])
@@ -92,10 +92,10 @@ class TrapCSRBundle:
                     self.mcause_irq.next = update.mcause_irq
                 if update.we_mepc:
                     self.mepc.next = update.mepc
-                if update.mstatue_trap_enter: # DIsable MIE and store in MPIE on trap
+                if update.mstatus_trap_enter: # DIsable MIE and store in MPIE on trap
                     self.mpie.next = self.mie 
                     self.mie.next = False
-                if update.mstatue_trap_exit:
+                if update.mstatus_trap_exit:
                     self.mie.next = self.mpie
                 if update.mtval:
                     self.mtval.next = update.mtval    

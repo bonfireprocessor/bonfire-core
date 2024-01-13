@@ -4,6 +4,9 @@
 
 #include "encoding.h"
 
+#define MAGIC 0xdeadbeef
+
+
 #define check(_result) \
   li s2,_result; \
   jal store \
@@ -28,11 +31,13 @@ add gp,s0,0x200 // test result area
 la s2, trap_mstatus
 csrw mtvec,s2
 
-
+li t4, 0
 ecalladr: // Required to verify mepc
 ecall
 // When we come to this point we are ok
+check(MAGIC)  // MAGIC value should be set when trap was really called 
 finish:
+li a0,1 // success
 sw a0,0(s0) // write  to monitor result register
 f0:
 j f0
@@ -42,6 +47,8 @@ trap_mstatus:
 
 check_csra(mepc,ecalladr)
 check_csr(mcause,0xb)
+
+li t4, MAGIC // Verification value
 
 csrr t1,mepc
 addi t1,t1,4
