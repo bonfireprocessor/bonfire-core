@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
-[*] Sat Jan 13 17:12:45 2024
+[*] Sat Jan 13 18:02:29 2024
 [*]
 [dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_core.vcd"
-[dumpfile_mtime] "Sat Jan 13 17:08:06 2024"
-[dumpfile_size] 2808824
+[dumpfile_mtime] "Sat Jan 13 17:51:25 2024"
+[dumpfile_size] 2837411
 [savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_core.gtkw"
 [timestart] 0
 [size] 1920 1027
 [pos] -1 -1
-*-5.070378 535 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.070378 115 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.BonfireCoreTop0_createInstance0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.
@@ -17,7 +17,7 @@
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.
-[sst_width] 323
+[sst_width] 419
 [signals_width] 346
 [sst_expanded] 1
 [sst_vpaned_height] 585
@@ -38,7 +38,6 @@ tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_Simple
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_r
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_sys_cmd
-tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_csrUpdate_we_mepc
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.jump_we
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.decode_branch_cmd
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.decode_jump_cmd
@@ -77,9 +76,20 @@ tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.debugport_rd_adr_o[4:
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_en_o
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.bus_ack_i
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_csrUpdate_we_mepc
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.self_mepc[29:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_trapCSR_mtvec[29:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.update_mstatus_trap_enter
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_csrUpdate_we_mcause
-tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_csrUpdate_mstatue_trap_enter
-tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.ExecuteBundle1_pipeline_instance0.self_en_i
-tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.ExecuteBundle1_pipeline_instance0.self_taken
+@23
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.update_mcause[5:0]
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.update_mepc[29:0]
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.update_mstatus_trap_exit
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.decode_priv_funct_12[11:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.self_mepc[29:0]
 [pattern_trace] 1
 [pattern_trace] 0
