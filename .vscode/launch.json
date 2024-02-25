@@ -7,7 +7,7 @@
         
         {
             "name": "Python: fusesoc generator",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/gen_core.py",
             
@@ -17,7 +17,7 @@
         },
         {
             "name": "Python: run core compliance",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
@@ -31,7 +31,7 @@
         },
         {
             "name": "Python: run soc compliance",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
@@ -45,7 +45,7 @@
         },
         {
             "name": "Python: run core local code",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
@@ -56,7 +56,7 @@
         },
         {
             "name": "Python: run core local code verbose",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
@@ -68,7 +68,7 @@
         },
         {
             "name": "Python: run unit tests",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
@@ -78,7 +78,7 @@
         },
         {
             "name": "Python: run soc",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
@@ -90,27 +90,40 @@
         },
         {
             "name": "Python: gen core",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/gen_core.py",
             "args": [
                 "--extended",
                 "--bram_base=0xc",
                 "--bram_adr_width=11",
-                "--path=vhdl_gen/export"
+                "--path=vhdl_gen/export/extended_core"
             ],
             "console": "integratedTerminal"
         },
         {
             "name": "Python: cache unit tests",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
                 "--ut_cache"
             ],
             "console": "integratedTerminal"
-        }
+        },
+        {
+            "name": "Python: gen soc ",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/gen_soc.py",
+            "args": [
+                "--hexfile=${workspaceFolder}/code/loadsave.hex",
+                "--bram_base=0xc",
+                "--bram_adr_width=11",
+                "--path=vhdl_gen/export/soc"
+            ],
+            "console": "integratedTerminal"
+        },
 
     ]
 }
