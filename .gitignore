@@ -19,4 +19,4 @@ vhdl_gen_tb/*
 /tb_simtest.py
 build
 /.vscode/.ropeproject/*
-
+*.code-workspace
