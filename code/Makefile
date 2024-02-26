@@ -5,7 +5,17 @@ TARGET_CC := $(TARGET_PREFIX)-gcc
 TARGET_LD := $(TARGET_PREFIX)-gcc
 TARGET_SIZE := $(TARGET_PREFIX)-size
 TARGET_OBJCOPY := $(TARGET_PREFIX)-objcopy
-ARCH= rv32im
+
+GCC_VERSION := $(shell $(TARGET_CC) -dumpversion)
+MIN_GCC_VERSION := 10
+
+ifeq ($(shell expr $(GCC_VERSION) \>= $(MIN_GCC_VERSION)), 1)
+    ARCH := rv32i_zicsr
+else
+    ARCH := rv32i
+endif
+
+
 ABI = ilp32
 HEXDUMP ?= hexdump
 LINKDEF?=lxp.ld
@@ -25,3 +35,9 @@ basic_alu.hex : basic_alu.S
 
 
 all: basic_alu.hex simple_loop.hex loop.hex loadsave.hex branch.hex wb_test.hex csr.hex trap.hex
+    
+	
+info:	
+	@echo "GCC version $(GCC_VERSION) detected"
+	@echo "Setting ARCH to $(ARCH)"
+    
