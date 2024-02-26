@@ -49,7 +49,11 @@ class BonfireCoreSoC:
         bram_port_a = ram_dp.RamPort32(readOnly=True)
         bram_port_b = ram_dp.RamPort32()
 
-        ram = ram_dp.DualportedRam(self.hexfile)
+        if LanedMemory:
+            ram = ram_dp.DualportedRamLaned(self.hexfile)
+        else:    
+            ram = ram_dp.DualportedRam(self.hexfile)
+            
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,clock)
         
         led_out_i = self.led_out(clock,reset,led,dbus)

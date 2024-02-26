@@ -6,14 +6,14 @@ TARGET_LD := $(TARGET_PREFIX)-gcc
 TARGET_SIZE := $(TARGET_PREFIX)-size
 TARGET_OBJCOPY := $(TARGET_PREFIX)-objcopy
 
-GCC_VERSION := $(shell $(TARGET_CC) -dumpversion)
-MIN_GCC_VERSION := 10
 
-ifeq ($(shell expr $(GCC_VERSION) \>= $(MIN_GCC_VERSION)), 1)
+GCC_VERSION := $(shell $(TARGET_CC) -dumpversion | cut -f1 -d.)
+ifeq ($(shell echo "$(GCC_VERSION) >= 10" | bc), 1)
     ARCH := rv32i_zicsr
 else
     ARCH := rv32i
 endif
+
 
 
 ABI = ilp32
