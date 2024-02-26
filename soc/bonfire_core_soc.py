@@ -34,7 +34,7 @@ class BonfireCoreSoC:
 
 
     @block
-    def bonfire_core_soc(self,clock,reset,uart_tx,uart_rx,led):
+    def bonfire_core_soc(self,clock,reset,uart_tx,uart_rx,led,LanedMemory=True):
         """      
         clock : cpu clock
         reset : reset signal
@@ -60,7 +60,7 @@ class BonfireCoreSoC:
         return instances()
     
     
-    def gen_soc(self,hdl,name,path,num_leds=4):
+    def gen_soc(self,hdl,name,path,num_leds=4,LanedMemory=True):
         from myhdl import ToVHDLWarning
         import warnings
         
@@ -71,7 +71,7 @@ class BonfireCoreSoC:
         uart_rx = Signal(bool(0))
                          
         
-        inst = self.bonfire_core_soc(clock,reset,uart_tx,uart_rx,leds)
+        inst = self.bonfire_core_soc(clock,reset,uart_tx,uart_rx,leds,LanedMemory=LanedMemory)
         
         with warnings.catch_warnings():
             warnings.filterwarnings(
