@@ -194,6 +194,27 @@ class DualportedRamLaned:
 
 
     @block
+    def port_map(self,laneport,port,out,low,high,wr_index):
+
+        @always_comb
+        def map():
+            laneport.clock.next = port.clock
+            laneport.adrbus.next = port.adrbus
+            laneport.en.next = port.en
+            out.next = laneport.dbout
+
+
+        if not port.readOnly:
+            @always_comb
+            def map_port_write():
+                laneport.dbin.next = port.dbin[high:low]
+                laneport.wren.next[0] = port.wren[wr_index]
+
+        return instances()
+
+
+
+    @block
     def ram_instance(self,porta,portb,clock):
         """
 
@@ -205,49 +226,40 @@ class DualportedRamLaned:
 
         ia = [None for i in range (4)]
         ib = [None for i in range (4)]
-       
+
+        i_map_a =  [None for i in range (4)]
+        i_map_b =  [None for i in range (4)]
+        
+        out_a = [Signal(modbv(0)[8:]) for i  in range(4)]
+        out_b = [Signal(modbv(0)[8:]) for i in range(4)]
+
         for i in range(4):
+            low = i*8
+            high =(i+1)*8
+
             # Create RAM Ports for every lane
             lpa[i] = RamPort(adrWidth=self.adrwidth,dataWidth=8,readOnly=porta.readOnly)
             lpb[i] = RamPort(adrWidth=self.adrwidth,dataWidth=8,readOnly=portb.readOnly)
+
+            #Map 32 Bit Bus to the lanes
+            i_map_a[i] = self.port_map(lpa[i],porta,out_a[i],low,high,i)
+            i_map_b[i] = self.port_map(lpb[i],portb,out_b[i],low,high,i)
+
             # Wire them to the RAM lanes
             ia[i] = port_instance(self.ram[i],lpa[i])
             ib[i] = port_instance(self.ram[i],lpb[i])
 
 
+
         @always_comb
-        def map_ports():
-            for i in range(4):
-                low = i*8
-                high = (i+1)*8
-                lpa[i].clock.next = clock
-                lpa[i].adrbus.next = porta.adrbus
-                lpa[i].en.next = porta.en                    
-                porta.dbout.next[high:low] = lpa[i].dbout
-                
-                lpb[i].clock.next = clock
-                lpb[i].adrbus.next = portb.adrbus
-                lpb[i].en.next = portb.en                                  
-                portb.dbout.next[high:low] = lpb[i].dbout
-          
-        if not porta.readOnly:
-            @always_comb
-            def map_porta_write():
-                for i in range(4):
-                    low = i*8
-                    high = (i+1)*8
-                    lpa[i].dbin.next = porta.dbin[high:low]
-                    lpa[i].wren.next[0] = porta.wren[i]        
+        def map_dbout():
+            porta.dbout.next = concat(out_a[3],out_a[2],out_a[1],out_a[0])
+            portb.dbout.next = concat(out_b[3],out_b[2],out_b[1],out_b[0])
+            # for i in range(4):
+            #     low = i*8
+            #     high =(i+1)*8
 
-        if not portb.readOnly:
-            @always_comb
-            def map_portb_write():
-                for i in range(4):
-                    low = i*8
-                    high = (i+1)*8
-                    lpb[i].dbin.next = portb.dbin[high:low]
-                    lpb[i].wren.next[0] = portb.wren[i]        
-
-
+            #     porta.dbout.next[high:low] = lpa[i].dbout
+            #     portb.dbout.next[high:low] = lpb[i].dbout
 
         return instances()
