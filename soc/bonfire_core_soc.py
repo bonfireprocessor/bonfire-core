@@ -2,7 +2,8 @@ from __future__ import print_function
 
 from myhdl import *
 
-from  uncore import bonfire_core_ex,ram_dp,dbus_interconnect
+from  uncore import bonfire_core_ex,ram_dp
+from uncore.dbus_interconnect import AdrMask
 from rtl import bonfire_interfaces,config
 
 
@@ -10,6 +11,14 @@ class BonfireCoreSoC:
     def __init__(self,config,hexfile=""):
         self.config = config
         self.hexfile = hexfile
+        self.bramMask = AdrMask(32,28,0xc)
+        self.dbusMask = AdrMask(32,28,0x8)
+        self.wbMask = AdrMask(32,28,0x4)
+        self.resetAdr=0xc0000000
+        self.bramAdrWidth=11
+        self.NoReset=False
+        self.LanedMemory=True
+        self.numLeds=4
 
 
 
@@ -29,6 +38,16 @@ class BonfireCoreSoC:
             dbus.ack_i.next = dbus.en_o
             dbus.stall_i.next = False
 
+        return instances()
+    
+    @block
+    def wishbone_dummy(self,wb_bundle):
+        
+        @always_comb
+        def wb_ack():
+            wb_bundle.wbm_ack_i.next = wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o
+            wb_bundle.wbm_db_i.next = 0xdeadbeef
+            
         return instances()
 
     @block
@@ -68,10 +87,30 @@ class BonfireCoreSoC:
             reset.next = res2
 
         return instances()
+    
+    @block
+    def no_reset_logic(self,clock,resetn,o_resetn,i_locked, reset):
+        """"
+        clock : clock signal
+        resetn : in, bool, reset button, active low
+        o_resetn : in, bool, Reset PLL, active low
+        i_locked: in, bool, PLL locked
+        reset : out, bool,  Reset to logic
+        """
+        
+        dummy=Signal(bool(0))
+        
+        @always_comb
+        def dummy_logic():
+            o_resetn.next = not dummy
+            reset.next = dummy
+              
+        
+        return instances()
 
 
     @block
-    def bonfire_core_soc(self,sysclk,resetn,uart0_tx,uart0_rx,led,o_resetn,i_locked, LanedMemory=True):
+    def bonfire_core_soc(self,sysclk,resetn,uart0_tx,uart0_rx,led,o_resetn,i_locked):
         """
         sysclk : cpu clock
         resetn : reset button, active low
@@ -80,6 +119,8 @@ class BonfireCoreSoC:
         led : modbv vector for led(s)
         o_resetn : Output, reset PLL
         """
+        
+        self.config.reset_address=self.resetAdr
 
         reset=ResetSignal(0,active=1,isasync=False)
 
@@ -88,33 +129,41 @@ class BonfireCoreSoC:
         bram_port_a = ram_dp.RamPort32(readOnly=True)
         bram_port_b = ram_dp.RamPort32()
 
-        if LanedMemory:
-            ram = ram_dp.DualportedRamLaned(self.hexfile,adrwidth=11)
+        if self.LanedMemory:
+            ram = ram_dp.DualportedRamLaned(self.hexfile,adrwidth=self.bramAdrWidth)
         else:
-            ram = ram_dp.DualportedRam(self.hexfile,adrwidth=11)
+            ram = ram_dp.DualportedRam(self.hexfile,adrwidth=self.bramAdrWidth)
 
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,sysclk)
 
 
         led_out_i = self.led_out(sysclk,reset,led,dbus)
+        wb_i = self.wishbone_dummy(wb_master)
 
         uart_i = self.uart_dummy(uart0_tx,uart0_rx)
 
-        reset_i = self.reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
+        if self.NoReset:
+            reset_i = self.no_reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
+        else:    
+            reset_i = self.reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
 
-        core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master,dbus,bram_port_a,bram_port_b,sysclk,reset,config=self.config)
+        core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master,dbus,bram_port_a,bram_port_b,
+                                                              sysclk,reset,config=self.config,
+                                                              wb_mask=self.wbMask,
+                                                              db_mask=self.dbusMask,
+                                                              bram_mask=self.bramMask)
 
 
         return instances()
 
 
-    def gen_soc(self,hdl,name,path,num_leds=4,LanedMemory=True):
+    def gen_soc(self,hdl,name,path):
         from myhdl import ToVHDLWarning
         import warnings
 
         sysclk = Signal(bool(0))
         resetn = Signal(bool(1))
-        LED = Signal(modbv(0)[num_leds:])
+        LED = Signal(modbv(0)[self.numLeds:])
         uart0_txd = Signal(bool(1))
         uart0_rxd = Signal(bool(0))
 
@@ -122,7 +171,7 @@ class BonfireCoreSoC:
         i_locked = Signal(bool(0))
 
 
-        inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked, LanedMemory=LanedMemory)
+        inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
 
         with warnings.catch_warnings():
             warnings.filterwarnings(

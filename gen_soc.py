@@ -44,6 +44,7 @@ def gen_test():
         
    
     config=config.BonfireConfig()
+    config.jump_bypass = False
     
     if name_overide:
         n=name_overide

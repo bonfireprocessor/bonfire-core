@@ -88,9 +88,7 @@ def port_instance(ram,port):
 @block
 def dbusToRamPort(dbus,port,clock,readOnly=False):
 
-    ack_rd = Signal(bool(0))
-    ack_wr = Signal(bool(0))
-
+    ack_rd = Signal(bool(0))    
     we = Signal(bool(0))
 
     @always_comb
@@ -99,7 +97,7 @@ def dbusToRamPort(dbus,port,clock,readOnly=False):
         port.en.next = dbus.en_o
         port.adrbus.next = dbus.adr_o[len(port.adrbus)+2:2]
         dbus.db_rd.next = port.dbout
-        dbus.ack_i.next = ack_rd or ack_wr
+      
         dbus.error_i.next = False
         dbus.stall_i.next = False
 
@@ -109,13 +107,20 @@ def dbusToRamPort(dbus,port,clock,readOnly=False):
         def comb_wr():
             port.dbin.next = dbus.db_wr
             port.wren.next = dbus.we_o
-            t_we = dbus.we_o != 0
-            ack_wr.next = dbus.en_o and t_we
+            t_we = dbus.we_o != 0           
             we.next = t_we
-
-    @always(clock.posedge)
-    def seq():
-        ack_rd.next = dbus.en_o and not we
+            dbus.ack_i.next = ack_rd or (t_we and dbus.en_o)
+    
+                  
+        @always(clock.posedge)
+        def seq():
+            ack_rd.next = dbus.en_o and not we
+    else:
+        
+                      
+        @always(clock.posedge)
+        def seq():
+             dbus.ack_i.next = dbus.en_o
 
     return instances()
 

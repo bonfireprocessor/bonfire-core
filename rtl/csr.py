@@ -70,15 +70,19 @@ class CSRUnitBundle(PipelineControl):
         def csr_op_proc():
 
             op = self.funct3_i[2:0]
-            inv_op.next = 0
+
             if op == 0b01:
                 csr_out.next = self.op1_i # CSRRW
+                inv_op.next = 0
             elif op == 0b10:
                 csr_out.next = csr_in | self.op1_i #CSRRS
+                inv_op.next = 0
             elif op == 0b11:
                 csr_out.next = csr_in & ~self.op1_i #CSRRC
+                inv_op.next = 0
             else:
                 inv_op.next = 1
+                csr_out.next = csr_in
 
 
         @always_comb
@@ -91,7 +95,7 @@ class CSRUnitBundle(PipelineControl):
 
         @always_comb
         def csr_select_proc():
-           
+
             csr_in.next = 0
             inv_reg.next = False
             csr_we.next = False
@@ -120,13 +124,10 @@ class CSRUnitBundle(PipelineControl):
 
         @always_comb
         def csr_result_proc():
-            valid.next = False
-            if self.taken:
-                invalid = inv_op or inv_reg
-                self.invalid_op_o.next = invalid
-                if not invalid:
-                    valid.next = True
-                    self.result_o.next = csr_in
-
+           
+            invalid = (inv_op or inv_reg)
+            self.invalid_op_o.next = invalid  and self.taken
+            self.result_o.next = csr_in
+            valid.next = not invalid  and self.taken
 
         return instances()
