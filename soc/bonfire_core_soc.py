@@ -155,6 +155,47 @@ class BonfireCoreSoC:
 
 
         return instances()
+    
+    @block
+    def soc_testbench(self):
+        
+        from tb import ClkDriver
+        
+        sysclk = Signal(bool(0))
+        resetn = Signal(bool(1))
+        LED = Signal(modbv(0)[self.numLeds:])
+        uart0_txd = Signal(bool(1))
+        uart0_rxd = Signal(bool(0))
+
+        o_resetn = Signal(bool(1))
+        i_locked = Signal(bool(0))
+        
+        old_led = Signal(modbv(0)[self.numLeds:])
+        
+        clk_driver_i=ClkDriver.ClkDriver(sysclk,period=10)
+        
+        inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
+        
+        @always(sysclk.posedge)
+        def observer():
+            if LED != old_led: 
+                print("LED status @{}: {}".format(now(),bin(LED)))
+                old_led.next = LED
+                if LED.val==LED.max-1:
+                    raise StopSimulation
+                
+        
+        @instance
+        def do_reset():
+            
+            for i in range(5):
+                yield sysclk.posedge
+            i_locked.next = True
+                    
+            
+        
+        return instances()          
+        
 
 
     def gen_soc(self,hdl,name,path):
@@ -178,5 +219,11 @@ class BonfireCoreSoC:
                 'default',
                 category=ToVHDLWarning)
             inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
+            
+            
+   
+        
+        
+        
 
 

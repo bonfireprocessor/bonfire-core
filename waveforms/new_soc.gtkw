@@ -1,0 +1,57 @@
+[*]
+[*] GTKWave Analyzer v3.3.103 (w)1999-2019 BSI
+[*] Thu Mar 14 19:35:26 2024
+[*]
+[dumpfile] "/home/thomas/development/bonfire/bonfire-core/waveforms/tb_new_soc.vcd"
+[dumpfile_mtime] "Thu Mar 14 19:33:02 2024"
+[dumpfile_size] 1027654
+[savefile] "/home/thomas/development/bonfire/bonfire-core/waveforms/new_soc.gtkw"
+[timestart] 0
+[size] 1920 1027
+[pos] -1 -1
+*-6.246239 99 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] soc_testbench.
+[treeopen] soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.
+[treeopen] soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.
+[treeopen] soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.DualportedRamLaned0_ram_instance0.port_instance0.
+[sst_width] 435
+[signals_width] 307
+[sst_expanded] 1
+[sst_vpaned_height] 301
+@28
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.sysclk
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.BonfireCoreSoC5_reset_logic0.reset
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.BonfireCoreSoC2_led_out0.dbus_en_o
+@22
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.BonfireCoreSoC2_led_out0.dbus_db_wr[31:0]
+@28
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.BonfireCoreSoC2_led_out0.dbus_we_o[3:0]
+@200
+-
+@28
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort0.dbus_en_o
+@22
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort0.dbus_adr_o[31:0]
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort0.dbus_db_rd[31:0]
+@28
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort0.dbus_ack_i
+@200
+-
+@28
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort1.dbus_en_o
+@22
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort1.dbus_adr_o[31:0]
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort1.dbus_db_rd[31:0]
+@28
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort1.dbus_we_o[3:0]
+@22
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort1.dbus_db_wr[31:0]
+@28
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.bonfireCoreExtendedInterface0.dbusToRamPort1.dbus_ack_i
+@200
+-
+@28
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.led[3:0]
+soc_testbench.BonfireCoreSoC1_bonfire_core_soc0.i_locked
+[pattern_trace] 1
+[pattern_trace] 0
