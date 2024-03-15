@@ -1,0 +1,81 @@
+CAPI=2:
+name: ::bonfire-core-soc:0
+
+generators:
+  gen_bonfire_core_soc:
+    interpreter: python3
+    command: gen_soc.py
+    description: "Generates a VHDL version of bonfore-core-soc"
+
+generate:
+  soc_top:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_base: 0xC
+      bram_adr_width: 11
+      conversion_warnings: 'ignore'
+      hexfile: "/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex"
+
+  soc_tb:
+    generator: gen_bonfire_core_soc
+    parameters:
+      gentb: true
+      language: vhdl
+      bram_base: 0xC
+      bram_adr_width: 11
+      conversion_warnings: 'ignore'
+      entity_name: 'tb_bonfire_core_soc'
+      hexfile: "/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex"
+
+
+# filesets:
+  
+#   sim:
+#     depend:
+#     - ::bonfire-util:0
+#     file_type: vhdlSource
+#     files:
+#     - vhdl/monitor.vhd
+#     - vhdl/sim_MainMemory.vhd
+#     - vhdl/tb_bonfire_core.vhd
+
+
+      
+# parameters:
+#   testfile:
+#     datatype: file
+#     description: Initial boot RAM contents (in hex)
+#     paramtype: generic
+#   signature_file:
+#     datatype: file
+#     description: Name of signature dump file (used for riscv-compliance suite)
+#     paramtype: generic
+#     default: ""
+#   enable_sig_dump:
+#     datatype: str
+#     description: "Enable signature dump functionality values: (true/false)"
+#     paramtype: generic
+#     default: 'false'
+#   raise_reset:
+#     datatype: str
+#     description: "Raise 5 clock cyle reset signal at beginning of simulation, values: (true/false)"
+#     paramtype: generic 
+#     default: 'false'
+ 
+
+targets:
+ 
+   
+  sim:
+    default_tool: ghdl
+    #filesets: [ sim ]
+    generate: [ soc_tb ]
+   
+    tools:
+      ghdl:
+        analyze_options: [ --ieee=synopsys ]
+        run_options: [ --ieee-asserts=disable, --stop-time=7000ns, --wave=cpu.ghw ]
+      xsim:
+        xelab_options: [ "--debug typical" ]
+    toplevel: tb_bonfire_core_soc

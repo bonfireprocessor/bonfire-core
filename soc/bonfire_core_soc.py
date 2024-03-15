@@ -192,7 +192,7 @@ class BonfireCoreSoC:
         @always(sysclk.posedge)
         def observer():
             if LED != old_led:
-                print("LED status %s: %s" % (now(),LED))
+                print("LED status @%s ns: %s" % (now(),LED))
                 old_led.next = LED
                 if LED.val==LED.max-1:
                     raise StopSimulation

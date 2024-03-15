@@ -4,6 +4,80 @@ import getopt, sys
 from soc import bonfire_core_soc
 
 
+def get(parameters,key,default):
+
+    try:
+        return parameters[key]
+    except KeyError:
+        return default   
+
+
+
+def fusesoc_gen():
+    import os
+    import yaml
+    from rtl import config
+
+    CORE_TEMPLATE = """CAPI=2:
+name: {vlnv}
+
+filesets:
+    rtl:
+        file_type: {filetype}
+        files: [ {files} ]
+targets:
+    default:
+        filesets: [ rtl ]
+
+"""
+
+    print(sys.argv[1])
+    try:
+        with open(sys.argv[1], mode='r') as f:
+            p=yaml.load(f, Loader=yaml.Loader)
+            print(yaml.dump(p))
+            files_root=p["files_root"]
+            parameters=p["parameters"]
+            print("Generating into: {}".format(os.getcwd()))
+           
+
+            hdl = get(parameters,"language","VHDL")
+            name= get(parameters,"entity_name","bonfire_core_soc_top")
+            vlnv = p["vlnv"]
+            os.system("rm -f *.vhd *.v *.core")
+
+            extended = True
+            bram_base = get(parameters,"bram_base",0xc)
+            bram_adr_width = get(parameters,"bram_adr_width",11)
+            conversion_warnings = get(parameters,"conversion_warnings","default")
+            hexfile=get(parameters,"hexfile","")
+            gen_path = os.getcwd()
+            gentb=get(parameters,"gentb",False)
+            print("Gentb {}".format(gentb))
+            config=config.BonfireConfig()
+            
+            Soc = bonfire_core_soc.BonfireCoreSoC(config,hexfile=hexfile)
+            Soc.gen_soc(hdl,name,gen_path,gentb=gentb)
+            
+            # gen_extended_core(config,hdl,name,gen_path,
+            #                   bram_adr_base=bram_base,
+            #                   bramAdrWidth=bram_adr_width,
+            #                   handleWarnings=conversion_warnings) 
+
+            filelist = [ "pck_myhdl_01142.vhd",name+".vhd"]
+            with open(name+".core","w") as corefile:
+                corefile.write(CORE_TEMPLATE.format(vlnv=vlnv,
+                                                    filetype="vhdlSource-2008",
+                                                    files=",".join(filelist)
+                ))
+
+
+        return True;
+    except FileNotFoundError as err:
+        return False;    
+
+
+
 
 def gen_test():
     from rtl import config
@@ -60,4 +134,8 @@ def gen_test():
     Soc = bonfire_core_soc.BonfireCoreSoC(config,hexfile=hexfile)
     Soc.gen_soc(hdl,n,gen_path,gentb=gentb)
 
-gen_test()
+
+# Main Entry Point
+
+if not fusesoc_gen():
+    gen_test()
