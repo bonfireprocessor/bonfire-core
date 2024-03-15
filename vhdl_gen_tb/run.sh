@@ -1,4 +1,3 @@
-python tb_run.py
-ghdl -a pck_myhdl_011.vhd
-ghdl -a tb_barrel_left_shift_comb.vhd
-ghdl --elab-run tb_barrel_left_shift_comb --wave=xx.ghw
+ghdl -a --std=08 pck_myhdl_01142.vhd
+ghdl -a --std=08 bonfire_core_soc_tb.vhd
+ghdl  --elab-run --std=08   bonfire_core_soc_tb --wave=tbsoc.ghw

@@ -20,6 +20,7 @@ class BonfireCoreSoC:
         self.LanedMemory=True
         self.numLeds=4
         self.ledActiveLow = True
+        self.UseVHDLMemory = False
 
 
 
@@ -191,7 +192,7 @@ class BonfireCoreSoC:
         @always(sysclk.posedge)
         def observer():
             if LED != old_led:
-                print("LED status @{}: {}".format(now(),bin(LED)))
+                print("LED status %s: %s" % (now(),LED))
                 old_led.next = LED
                 if LED.val==LED.max-1:
                     raise StopSimulation
@@ -210,21 +211,25 @@ class BonfireCoreSoC:
 
 
 
-    def gen_soc(self,hdl,name,path):
+    def gen_soc(self,hdl,name,path,gentb=False):
         from myhdl import ToVHDLWarning
         import warnings
 
-        sysclk = Signal(bool(0))
-        resetn = Signal(bool(1))
-        LED = Signal(modbv(0)[self.numLeds:])
-        uart0_txd = Signal(bool(1))
-        uart0_rxd = Signal(bool(0))
+        if gentb:
+            inst = self.soc_testbench()
+        else:    
 
-        o_resetn = Signal(bool(1))
-        i_locked = Signal(bool(0))
+            sysclk = Signal(bool(0))
+            resetn = Signal(bool(1))
+            LED = Signal(modbv(0)[self.numLeds:])
+            uart0_txd = Signal(bool(1))
+            uart0_rxd = Signal(bool(0))
+
+            o_resetn = Signal(bool(1))
+            i_locked = Signal(bool(0))
 
 
-        inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
+            inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
