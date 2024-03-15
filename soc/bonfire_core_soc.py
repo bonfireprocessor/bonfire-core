@@ -19,6 +19,7 @@ class BonfireCoreSoC:
         self.NoReset=False
         self.LanedMemory=True
         self.numLeds=4
+        self.ledActiveLow = True
 
 
 
@@ -39,15 +40,15 @@ class BonfireCoreSoC:
             dbus.stall_i.next = False
 
         return instances()
-    
+
     @block
     def wishbone_dummy(self,wb_bundle):
-        
+
         @always_comb
         def wb_ack():
             wb_bundle.wbm_ack_i.next = wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o
             wb_bundle.wbm_db_i.next = 0xdeadbeef
-            
+
         return instances()
 
     @block
@@ -72,9 +73,9 @@ class BonfireCoreSoC:
 
         res1 = Signal(bool(0))
         res2= Signal(bool(0))
-        
+
         dummy=Signal(bool(1))
-        
+
         @always_comb
         def set_out():
             o_resetn.next = dummy
@@ -87,7 +88,7 @@ class BonfireCoreSoC:
             reset.next = res2
 
         return instances()
-    
+
     @block
     def no_reset_logic(self,clock,resetn,o_resetn,i_locked, reset):
         """"
@@ -97,15 +98,15 @@ class BonfireCoreSoC:
         i_locked: in, bool, PLL locked
         reset : out, bool,  Reset to logic
         """
-        
+
         dummy=Signal(bool(0))
-        
+
         @always_comb
         def dummy_logic():
             o_resetn.next = not dummy
             reset.next = dummy
-              
-        
+
+
         return instances()
 
 
@@ -119,7 +120,7 @@ class BonfireCoreSoC:
         led : modbv vector for led(s)
         o_resetn : Output, reset PLL
         """
-        
+
         self.config.reset_address=self.resetAdr
 
         reset=ResetSignal(0,active=1,isasync=False)
@@ -136,15 +137,24 @@ class BonfireCoreSoC:
 
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,sysclk)
 
+        if self.ledActiveLow:
+            n_led = Signal(modbv(0)[len(led):])
+            led_out_i=self.led_out(sysclk,reset,n_led,dbus)
 
-        led_out_i = self.led_out(sysclk,reset,led,dbus)
+            @always_comb
+            def led_inv_proc():
+                led.next = ~n_led
+
+        else:
+            led_out_i = self.led_out(sysclk,reset,led,dbus)
+
         wb_i = self.wishbone_dummy(wb_master)
 
         uart_i = self.uart_dummy(uart0_tx,uart0_rx)
 
         if self.NoReset:
             reset_i = self.no_reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
-        else:    
+        else:
             reset_i = self.reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
 
         core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master,dbus,bram_port_a,bram_port_b,
@@ -155,12 +165,12 @@ class BonfireCoreSoC:
 
 
         return instances()
-    
+
     @block
     def soc_testbench(self):
-        
+
         from tb import ClkDriver
-        
+
         sysclk = Signal(bool(0))
         resetn = Signal(bool(1))
         LED = Signal(modbv(0)[self.numLeds:])
@@ -169,33 +179,35 @@ class BonfireCoreSoC:
 
         o_resetn = Signal(bool(1))
         i_locked = Signal(bool(0))
-        
+
         old_led = Signal(modbv(0)[self.numLeds:])
-        
+
         clk_driver_i=ClkDriver.ClkDriver(sysclk,period=10)
-        
+
+        self.ledActiveLow = False
+
         inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
-        
+
         @always(sysclk.posedge)
         def observer():
-            if LED != old_led: 
+            if LED != old_led:
                 print("LED status @{}: {}".format(now(),bin(LED)))
                 old_led.next = LED
                 if LED.val==LED.max-1:
                     raise StopSimulation
-                
-        
+
+
         @instance
         def do_reset():
-            
+
             for i in range(5):
                 yield sysclk.posedge
             i_locked.next = True
-                    
-            
-        
-        return instances()          
-        
+
+
+
+        return instances()
+
 
 
     def gen_soc(self,hdl,name,path):
@@ -219,11 +231,11 @@ class BonfireCoreSoC:
                 'default',
                 category=ToVHDLWarning)
             inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
-            
-            
-   
-        
-        
-        
+
+
+
+
+
+
 
 
