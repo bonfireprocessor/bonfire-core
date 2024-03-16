@@ -252,9 +252,30 @@ The forked test suite contains the target `bonfire-core`. In the `device/rv32i` 
 ## Generating bonfire-core 
 ... todo
 
-## Simulation the Core with GHDL
+## (depreceated)  Simulation the Core with GHDL
+
 
 From bonfire root directory start:
 
     fusesoc --config=fusesoc.conf  run --target=sim   bonfire-core --testfile=bonfire-core/code/loadsave.hex
+
+
+# New Bonfire Core SOC
+
+Bonfire Core SoC is a SoC written in MyHDL. 
+It uses FuseSoC and the Generator feature of FuseSoC to generate VHDL files and run simulators and FPGA Build Toolchains.
+
+There is a Generator for generating a Test Bench and for generating a Toplevel Module for FPGAs
+
+### Running the MyHDL Testbench
+
+    python tb_run.py  -new_soc --hex=<Pathto Test Code> -vcd=<vcdfile>
+
+
+### Running the VHDL Testbench
+The Testbench and the Core can be converted to VHDL and run in GHDL with the following command:
+
+    fusesoc --cores-root . run --target=sim  bonfire-core-soc
+
+
 

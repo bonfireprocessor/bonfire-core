@@ -9,7 +9,7 @@ def get(parameters,key,default):
     try:
         return parameters[key]
     except KeyError:
-        return default   
+        return default
 
 
 
@@ -39,7 +39,7 @@ targets:
             files_root=p["files_root"]
             parameters=p["parameters"]
             print("Generating into: {}".format(os.getcwd()))
-           
+
 
             hdl = get(parameters,"language","VHDL")
             name= get(parameters,"entity_name","bonfire_core_soc_top")
@@ -49,20 +49,18 @@ targets:
             extended = True
             bram_base = get(parameters,"bram_base",0xc)
             bram_adr_width = get(parameters,"bram_adr_width",11)
+         
             conversion_warnings = get(parameters,"conversion_warnings","default")
             hexfile=get(parameters,"hexfile","")
             gen_path = os.getcwd()
             gentb=get(parameters,"gentb",False)
             print("Gentb {}".format(gentb))
             config=config.BonfireConfig()
-            
+            config.jump_bypass=get(parameters,"jump_bypass",False)
+            print("jump_bypass {}".format(config.jump_bypass))
+
             Soc = bonfire_core_soc.BonfireCoreSoC(config,hexfile=hexfile)
-            Soc.gen_soc(hdl,name,gen_path,gentb=gentb)
-            
-            # gen_extended_core(config,hdl,name,gen_path,
-            #                   bram_adr_base=bram_base,
-            #                   bramAdrWidth=bram_adr_width,
-            #                   handleWarnings=conversion_warnings) 
+            Soc.gen_soc(hdl,name,gen_path,gentb=gentb,handleWarnings=conversion_warnings)
 
             filelist = [ "pck_myhdl_01142.vhd",name+".vhd"]
             with open(name+".core","w") as corefile:
@@ -74,7 +72,7 @@ targets:
 
         return True;
     except FileNotFoundError as err:
-        return False;    
+        return False;
 
 
 
@@ -94,7 +92,7 @@ def gen_test():
 
     name_overide = ""
     hdl = "VHDL"
-  
+
     bram_base = 0x0
     bram_adr_width = 12
     gen_path = "vhdl_gen"
@@ -117,7 +115,7 @@ def gen_test():
         elif o == "--hexfile":
             hexfile = a
         elif o == "--gentb":
-            gentb = True    
+            gentb = True
 
     config=config.BonfireConfig()
     config.jump_bypass = False
@@ -127,7 +125,7 @@ def gen_test():
     else:
         if gentb:
             n="bonfire_core_soc_tb"
-        else:    
+        else:
             n="bonfire_core_soc_top"
 
 

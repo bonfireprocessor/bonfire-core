@@ -75,7 +75,7 @@ targets:
     tools:
       ghdl:
         analyze_options: [ --ieee=synopsys ]
-        run_options: [ --ieee-asserts=disable, --stop-time=7000ns, --wave=cpu.ghw ]
+        run_options: [ --ieee-asserts=disable, --stop-time=20000ns, --wave=cpu.ghw ]
       xsim:
         xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core_soc

@@ -211,7 +211,7 @@ class BonfireCoreSoC:
 
 
 
-    def gen_soc(self,hdl,name,path,gentb=False):
+    def gen_soc(self,hdl,name,path,gentb=False,handleWarnings='default'):
         from myhdl import ToVHDLWarning
         import warnings
 
@@ -233,14 +233,9 @@ class BonfireCoreSoC:
 
         with warnings.catch_warnings():
             warnings.filterwarnings(
-                'default',
+                handleWarnings,
                 category=ToVHDLWarning)
             inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
-
-
-
-
-
 
 
 
