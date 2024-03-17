@@ -15,7 +15,8 @@ generate:
       bram_base: 0xC
       bram_adr_width: 11
       conversion_warnings: 'ignore'
-      hexfile: "/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex"
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "/home/thomas/development/bonfire/bonfire-software/test/ledslow.hex"
 
   soc_tb:
     generator: gen_bonfire_core_soc
@@ -79,3 +80,27 @@ targets:
       xsim:
         xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core_soc
+
+  synth-T8:
+    flow: efinity        
+      # flow_options:
+      #   tool: efinity
+    generate: [ soc_top ]
+    toplevel: bonfire_core_soc_top
+    default_tool: efinity  
+    tools:
+      efinity:
+        family: Trion
+        part: T8F81
+        timing: C2
+
+
+  synth-cmods7:
+    generate: [ soc_top ]
+    toplevel: bonfire_core_soc_top
+    default_tool: vivado
+    tools:
+      vivado:
+        board_part: DIGILENTINC.COM:CMOD-S7-25:PART0:1.0
+    toplevel:
+      - bonfire_core_soc_top
