@@ -255,9 +255,8 @@ The forked test suite contains the target `bonfire-core`. In the `device/rv32i` 
 ## (depreceated)  Simulation the Core with GHDL
 
 
-From bonfire root directory start:
 
-    fusesoc --config=fusesoc.conf  run --target=sim   bonfire-core --testfile=bonfire-core/code/loadsave.hex
+    fusesoc --cores-root .  run --target=sim   bonfire-core --testfile=code/loadsave.hex
 
 
 # New Bonfire Core SOC
@@ -279,3 +278,8 @@ The Testbench and the Core can be converted to VHDL and run in GHDL with the fol
 
 
 
+### Build for FireAnt Board (Efinix Trion T8)
+
+    fusesoc  --cores-root . run  --target synth-T8 bonfire-core-soc
+
+ 

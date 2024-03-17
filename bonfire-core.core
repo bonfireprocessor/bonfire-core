@@ -21,7 +21,7 @@ filesets:
   sim:
     depend:
     - ::bonfire-util:0
-    file_type: vhdlSource
+    file_type: vhdlSource-2008
     files:
     - vhdl/monitor.vhd
     - vhdl/sim_MainMemory.vhd

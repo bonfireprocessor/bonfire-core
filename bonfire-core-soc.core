@@ -7,6 +7,18 @@ generators:
     command: gen_soc.py
     description: "Generates a VHDL version of bonfore-core-soc"
 
+
+filesets:
+  fireant_sdc:
+    file_type: SDC
+    files:
+    - fpga/efinix/fireant.sdc
+
+  fireant_isf:
+    file_type: ISF
+    files:
+    - fpga/efinix/fireant.isf
+
 generate:
   soc_top:
     generator: gen_bonfire_core_soc
@@ -30,44 +42,8 @@ generate:
       hexfile: "/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex"
 
 
-# filesets:
-  
-#   sim:
-#     depend:
-#     - ::bonfire-util:0
-#     file_type: vhdlSource
-#     files:
-#     - vhdl/monitor.vhd
-#     - vhdl/sim_MainMemory.vhd
-#     - vhdl/tb_bonfire_core.vhd
-
-
-      
-# parameters:
-#   testfile:
-#     datatype: file
-#     description: Initial boot RAM contents (in hex)
-#     paramtype: generic
-#   signature_file:
-#     datatype: file
-#     description: Name of signature dump file (used for riscv-compliance suite)
-#     paramtype: generic
-#     default: ""
-#   enable_sig_dump:
-#     datatype: str
-#     description: "Enable signature dump functionality values: (true/false)"
-#     paramtype: generic
-#     default: 'false'
-#   raise_reset:
-#     datatype: str
-#     description: "Raise 5 clock cyle reset signal at beginning of simulation, values: (true/false)"
-#     paramtype: generic 
-#     default: 'false'
- 
-
 targets:
- 
-   
+
   sim:
     default_tool: ghdl
     #filesets: [ sim ]
@@ -82,18 +58,20 @@ targets:
     toplevel: tb_bonfire_core_soc
 
   synth-T8:
-    flow: efinity        
-      # flow_options:
-      #   tool: efinity
+    flow: efinity
+    flow_options:
+      tool: efinity
+      family: Trion
+      part: T8F81
+      timing: C2
+
+    filesets:
+    - fireant_sdc
+    - fireant_isf
+       
     generate: [ soc_top ]
     toplevel: bonfire_core_soc_top
-    default_tool: efinity  
-    tools:
-      efinity:
-        family: Trion
-        part: T8F81
-        timing: C2
-
+   
 
   synth-cmods7:
     generate: [ soc_top ]
