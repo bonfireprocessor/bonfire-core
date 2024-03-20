@@ -11,6 +11,7 @@ from myhdl import *
 from rtl.simple_pipeline import *
 from rtl.fetch import FetchUnit
 from rtl import config 
+from rtl import debugModule
 
 class BonfireCoreTop:
     def __init__(self,config=config.BonfireConfig()):
@@ -19,10 +20,13 @@ class BonfireCoreTop:
         self.backend_fetch_input = FetchInputBundle(config=config)
         self.backend_fetch_output = BackendOutputBundle(config=config)
         self.backend = SimpleBackend(config=config)
+        if config.enableDebugModule:
+            self.dmi = debugModule.DMI(config)
+            self.debugRegs=debugModule.DebugRegisterBundle(config)
 
 
     @block
-    def createInstance(self,ibus,dbus,control,clock,reset,debug,config):
+    def createInstance(self,ibus,dbus,control,clock,reset,debug,debugTransportBundle=None):
         """
         ibus:  DbusBundle for Instruction Bus (read only)
         dbus:  DbusBundle for Data bus
@@ -30,12 +34,24 @@ class BonfireCoreTop:
         clock: CPU Clock
         reset: Reset line
         debug: Optional Simulation Debug Interface 
-        config: Bonfire Configuration object
+        debugTransport : Debug Transport module interface
         """
 
         i_fetch = self.fetch.SimpleFetchUnit(self.backend_fetch_input,ibus,clock,reset)
-        i_backend = self.backend.backend(self.backend_fetch_input,self.fetch,
-                    dbus,clock,reset,self.backend_fetch_output,debug)
+        i_backend = self.backend.backend(
+                    fetchBundle=self.backend_fetch_input,
+                    frontEnd=self.fetch,
+                    databus=dbus,clock=clock,reset=reset,
+                    out=self.backend_fetch_output,
+                    debugport=debug,
+                    debugTransportBundle=debugTransportBundle)
+
+
+        if self.config.enableDebugModule:
+            i_dmi = self.dmi.DMI_interface(dtm=debugTransportBundle,
+                                           debugrRegs=self.debugRegs,
+                                           clock=clock)
+
 
 
         """

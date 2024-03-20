@@ -10,6 +10,9 @@ class BonfireConfig:
         self.registered_read_stage = True #  register stage in loadstore unit between data bus and LSU output 
         self.reset_address=0x0
         self.mcause_max = 64 # Highest mcause reason
+        self.enableDebugModule=False # Enable RISC-V Debug Module
+        self.num_dscratch = 1 # Number of dscratch registers
+        self.numdata = 1 # Number of Debug Data Reigsters
         #ip_low contains lowest bit of valid instruction pointer
         if self.RVC:
             self.ip_low=1

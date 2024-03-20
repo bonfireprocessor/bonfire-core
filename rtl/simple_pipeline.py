@@ -10,6 +10,7 @@ from myhdl import *
 from rtl.decode import *
 from rtl.execute import *
 from rtl.regfile import * 
+from rtl.debugModule import *
 
 from  rtl import config
 def_config= config.BonfireConfig()
@@ -48,7 +49,7 @@ class SimpleBackend:
         
 
     @block
-    def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport ):
+    def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport,debugTransportBundle=None):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset)

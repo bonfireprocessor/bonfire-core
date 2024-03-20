@@ -91,7 +91,7 @@ class DecodeBundle(PipelineControl):
         PipelineControl.__init__(self)
 
     @block
-    def decoder(self,clock,reset):
+    def decoder(self,clock,reset,DebugRegs=None):
 
         opcode = Signal(intbv(0)[5:])
 

@@ -105,8 +105,12 @@ def pipeline_integration_tests():
     print('Testing Fetch unit')
     test(tb_fetch.tb(test_conversion=False),trace=False,filename="tb_fetch")
 
-def core_integration_tests(hex,elf,sig,vcd,verbose):   
-    tb=tb_core.tb(hexFile=hex,elfFile=elf,sigFile=sig,ramsize=16384,verbose=verbose)
+def core_integration_tests(hex,elf,sig,vcd,verbose,dtm):   
+    tb=tb_core.tb(hexFile=hex,elfFile=elf,sigFile=sig,
+                  ramsize=16384,
+                  verbose=verbose,
+                  testDM=dtm)
+    
     test(tb,trace=bool(vcd),filename=vcd,duration=20000)
     
 
@@ -125,7 +129,7 @@ def new_soc_test(hex,vcd):
 
 try:
     opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,
-    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","ut_cache","new_soc","vcd=","sig="])
+    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","ut_cache","new_soc","dm","vcd=","sig="])
 except getopt.GetoptError as err:
     # print help information and exit:
     print(err)  # will print something like "option -a not recognized"
@@ -182,6 +186,9 @@ if hexname:
     elif "--new_soc" in options:
         new_soc_test(hexname,vcdname)
     else:     
-        core_integration_tests(hexname,elfname,signame,vcdname,"-v" in options)
+        core_integration_tests(hexname,elfname,
+                               signame,vcdname,
+                               "-v" in options,
+                               "--dm" in options)
 
 

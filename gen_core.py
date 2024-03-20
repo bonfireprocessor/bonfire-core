@@ -30,7 +30,7 @@ def gen_core(config,hdl,name,path):
     reset = ResetSignal(0, active=1, isasync=False)
 
     core= BonfireCoreTop(config)
-    inst = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
+    inst = core.createInstance(ibus,dbus,control,clock,reset,debug)
 
     with warnings.catch_warnings():
         warnings.filterwarnings(

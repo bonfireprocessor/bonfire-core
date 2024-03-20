@@ -10,6 +10,7 @@ from __future__ import print_function
 from myhdl import *
 
 from rtl import config, bonfire_core_top, bonfire_interfaces
+from rtl.debugModule import AbstractDebugTransportBundle
 
 
 from tb.ClkDriver import *
@@ -41,7 +42,16 @@ def create_ram(progfile,ramsize):
 
 
 @block
-def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=4096,verbose=False):
+def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=4096,verbose=False,testDM=False):
+
+
+    if testDM:
+        print("Adding Debug Module to core")
+        config.enableDebugModule=True
+        dtm = AbstractDebugTransportBundle(config)
+    else:
+        dtm=None    
+
 
     ram = create_ram(hexFile,ramsize)
 
@@ -67,7 +77,7 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
     mon_i = monitor_instance(ram,mon_dbus,clock,sigFile=sigFile,elfFile=elfFile)
 
     core=bonfire_core_top.BonfireCoreTop(config)
-    dut = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
+    dut = core.createInstance(ibus,dbus,control,clock,reset,debug,debugTransportBundle=dtm)
 
 
 

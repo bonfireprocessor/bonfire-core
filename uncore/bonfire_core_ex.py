@@ -34,6 +34,9 @@ def bonfireCoreExtendedInterface(wb_master,db_master,bram_a,bram_b,clock,reset,
     bram_mask : Address mask for Block RAM
     """
 
+    coreReset=ResetSignal(0,1,isasync=False)
+   
+
     ibus = bonfire_interfaces.DbusBundle(config,readOnly=True)
     dbus = bonfire_interfaces.DbusBundle(config)
     control = bonfire_interfaces.ControlBundle(config)
@@ -43,17 +46,21 @@ def bonfireCoreExtendedInterface(wb_master,db_master,bram_a,bram_b,clock,reset,
     db_master_wb = bonfire_interfaces.DbusBundle(config) # Wishbone DBUS
     
     ic_class= DbusInterConnects()
-    ic = DbusInterConnects.Master3Slaves(dbus,db_master_bram,db_master_wb,db_master,clock,reset,
+    ic = DbusInterConnects.Master3Slaves(dbus,db_master_bram,db_master_wb,db_master,clock,coreReset,
          bram_mask,wb_mask,db_mask)
 
 
     core=bonfire_core_top.BonfireCoreTop(config)
-    core_i = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
+    core_i = core.createInstance(ibus=ibus,dbus=dbus,control=control,clock=clock,reset=coreReset,debug=debug)
 
-    wb_i = bonfire_interfaces.DbusToWishbone(db_master_wb,wb_master,clock,reset)
+    wb_i = bonfire_interfaces.DbusToWishbone(db_master_wb,wb_master,clock,coreReset)
 
     p_a = dbusToRamPort(ibus,bram_a,clock,readOnly=True)
     p_b = dbusToRamPort(db_master_bram,bram_b,clock,readOnly=False)
+
+    @always_comb
+    def wire_reset():
+        coreReset.next = reset
 
     
     return instances()
