@@ -1,27 +1,28 @@
 [*]
 [*] GTKWave Analyzer v3.3.114 (w)1999-2023 BSI
-[*] Tue Jan 23 01:58:42 2024
+[*] Thu Mar 21 11:31:51 2024
 [*]
 [dumpfile] "/home/thomas/development/bonfire-core/waveforms/tb_core.vcd"
-[dumpfile_mtime] "Sat Jan 20 19:33:36 2024"
-[dumpfile_size] 2837414
+[dumpfile_mtime] "Thu Mar 21 11:30:34 2024"
+[dumpfile_size] 2564860
 [savefile] "/home/thomas/development/bonfire-core/waveforms/tb_core.gtkw"
-[timestart] 72
+[timestart] 0
 [size] 1470 833
-[pos] -51 -51
-*-4.699733 115 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -1 -1
+*-5.672629 83 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.BonfireCoreTop0_createInstance0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.LoadStoreBundle0_LoadStoreUnit0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.
-[sst_width] 419
+[sst_width] 372
 [signals_width] 238
 [sst_expanded] 1
-[sst_vpaned_height] 519
+[sst_vpaned_height] 523
 @28
 tb.ClkDriver0.clk
 @200
@@ -84,7 +85,7 @@ tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_Simple
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_csrUpdate_we_mcause
 @22
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.update_mcause[5:0]
-@29
+@28
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_csrUpdate_we_mepc
 @22
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.update_mepc[29:0]
@@ -93,5 +94,17 @@ tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_Simple
 @22
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.decode_priv_funct_12[11:0]
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.TrapCSRBundle0_csr_write0.self_mepc[29:0]
+@200
+-
+@28
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_haltreq
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_hartState
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_resumereq
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_en
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_adr
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_we
+@22
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_dbi[31:0]
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_dbo[31:0]
 [pattern_trace] 1
 [pattern_trace] 0

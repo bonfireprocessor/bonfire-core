@@ -44,12 +44,12 @@ class BonfireCoreTop:
                     databus=dbus,clock=clock,reset=reset,
                     out=self.backend_fetch_output,
                     debugport=debug,
-                    debugTransportBundle=debugTransportBundle)
+                    debugRegisterBundle=self.debugRegs)
 
 
         if self.config.enableDebugModule:
             i_dmi = self.dmi.DMI_interface(dtm=debugTransportBundle,
-                                           debugrRegs=self.debugRegs,
+                                           debugRegs=self.debugRegs,
                                            clock=clock)
 
 

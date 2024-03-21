@@ -49,7 +49,7 @@ class SimpleBackend:
         
 
     @block
-    def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport,debugTransportBundle=None):
+    def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport,debugRegisterBundle=None):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset)
@@ -95,6 +95,20 @@ class SimpleBackend:
         def proc_out():
             out.jump_o.next = self.execute.jump_o
             out.jump_dest_o.next = self.execute.jump_dest_o
+
+
+        if self.config.enableDebugModule and debugRegisterBundle:
+             @always_seq(clock.posedge,reset=reset)
+             def debug_dummy():
+                if debugRegisterBundle.haltreq:
+                    debugRegisterBundle.hartState.next=t_debugHartState.halted
+                    debugRegisterBundle.haltreq.next=False
+                elif debugRegisterBundle.resumereq:
+                    debugRegisterBundle.hartState.next=t_debugHartState.running
+                    debugRegisterBundle.resumereq.next=False
+
+
+                     
 
 
         return instances()

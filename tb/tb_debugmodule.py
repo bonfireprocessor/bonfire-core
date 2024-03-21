@@ -12,29 +12,33 @@ from dmi_api.debug_api import DebugAPISim
 
 # Test Stimulus for debug interface
 
-
+@block
 def tb_halt_resume(dtm_bundle,clock):
     """
     dtm_bundle: AbstractDebugTransportBundle
     clock: clock
     """
 
-    api=DebugAPISim(dtm_bundle=dtm_bundle,clock=clock)
+    @instance
+    def test():
+        api=DebugAPISim(dtm_bundle=dtm_bundle,clock=clock)
 
-    for i in range(0,5):
-        yield clock.posedge
+        for i in range(0,5):
+            yield clock.posedge
 
-    yield api.halt()
+        yield api.halt()
 
-    print("core halted")
+        print("core halted")
 
-    for i in range(0,10):
-        yield clock.posedge
+        for i in range(0,10):
+            yield clock.posedge
 
 
-    yield api.resume()
+        yield api.resume()
 
-    print("Core resumed")
+        print("Core resumed")
+
+    return instances()    
 
 
 

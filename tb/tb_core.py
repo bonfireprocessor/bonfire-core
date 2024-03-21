@@ -16,6 +16,7 @@ from rtl.debugModule import AbstractDebugTransportBundle
 from tb.ClkDriver import *
 from tb.sim_ram import *
 from tb.sim_monitor import *
+from tb.tb_debugmodule import *
 
 import types
 from tb.disassemble import *
@@ -44,11 +45,15 @@ def create_ram(progfile,ramsize):
 @block
 def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=4096,verbose=False,testDM=False):
 
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
 
     if testDM:
         print("Adding Debug Module to core")
         config.enableDebugModule=True
         dtm = AbstractDebugTransportBundle(config)
+        test_dtm=tb_halt_resume(dtm,clock)
+
     else:
         dtm=None    
 
@@ -59,8 +64,7 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
     dbus = bonfire_interfaces.DbusBundle(config)
     control = bonfire_interfaces.ControlBundle(config)
     debug = bonfire_interfaces.DebugOutputBundle(config)
-    clock = Signal(bool(0))
-    reset = ResetSignal(0, active=1, isasync=False)
+   
 
     ram_dbus = bonfire_interfaces.DbusBundle(config)
     mon_dbus = bonfire_interfaces.DbusBundle(config)

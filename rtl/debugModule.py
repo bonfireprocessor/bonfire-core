@@ -18,11 +18,11 @@ class DebugRegisterBundle:
         xlen = config.xlen
         self.xlen = xlen
 
-        self.harState=Signal(t_debugHartState.running)
+        self.hartState=Signal(t_debugHartState.running)
 
         self.haltreq=Signal(bool(0))
         self.resumereq=Signal(bool(0))
-        self.hartreset=Signal(bool(0))
+        self.hartReset=Signal(bool(0))
 
         assert config.numdata<=16, "maximum allowed debug Data Registers are 16"
 
@@ -36,7 +36,7 @@ class AbstractDebugTransportBundle:
         xlen = config.xlen
         self.xlen = xlen
 
-        self.adr=modbv(0,max=0x40) # DMI adrees register 
+        self.adr=Signal(modbv(0,max=0x40))# DMI adrees register 
         self.en=Signal(bool(0))
         self.we=Signal(bool(0))
         self.dbi=Signal(modbv(0)[32:])
@@ -75,7 +75,7 @@ class DMI:
                         dtm.dbo.next[8] = debugRegs.hartState==t_debugHartState.halted #anyhalted
                         dtm.dbo.next[4:] = debugSpecVersion # version
                     elif dtm.adr==0x10: #dmcontrol
-                        dtm.dbo.next[1] = debugRegs.hartreset # ndmreset
+                        dtm.dbo.next[1] = debugRegs.hartReset # ndmreset
                         dtm.dbo.next[0] = True
                     elif dtm.adr==0x12: # hartinfo
                         dtm.dbo.next[24:20] = self.config.num_dscratch
@@ -86,9 +86,8 @@ class DMI:
                         dtm.dbo.next = debugRegs.dataRegs[dtm.adr-0x04]
                 else: # Write
                     if dtm.adr==0x10:
-                        haltreq = debugRegs.haltreq.next or dtm.dbi[31] # haltreq
-                        debugRegs.haltreq.next = haltreq
-                        debugRegs.resumereq.next = haltreq and dtm.dbi[30] #resumereq
+                        debugRegs.haltreq.next = debugRegs.hartState==t_debugHartState.running and dtm.dbi[31] 
+                        debugRegs.resumereq.next = debugRegs.hartState==t_debugHartState.halted and dtm.dbi[30]
                         debugRegs.hartReset.next = dtm.dbi[1] # ndmreset
 
         return instances()

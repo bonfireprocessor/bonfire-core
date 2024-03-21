@@ -33,9 +33,11 @@ class DebugAPISim(DebugAPI):
 
     def dmi_read(self,adr):
         yield self.clock.posedge
-        self.dtm_bundle.adr.next=adr 
+        self.dtm_bundle.adr.next=adr
         self.dtm_bundle.we.next=False
         self.dtm_bundle.en.next=True
+        self.dtm_bundle.dbo.next=0xdeadbeef
+        yield self.clock.posedge
         yield self.clock.posedge
         self.result._val = self.dtm_bundle.dbo
         self.dtm_bundle.en.next=False
@@ -44,7 +46,7 @@ class DebugAPISim(DebugAPI):
 
     def dmi_write(self,adr,data):
         yield self.clock.posedge
-        self.dtm_bundle.adr.next=adr 
+        self.dtm_bundle.adr.next=adr
         self.dtm_bundle.we.next=True
         self.dtm_bundle.en.next=True
         self.dtm_bundle.dbi.next=data
@@ -55,7 +57,7 @@ class DebugAPISim(DebugAPI):
 
 
 
-    def check_halted(self HartId=0):
+    def check_halted(self,HartId=0):
 
        yield self.dmi_read(0x11)
        self.halted = self.dtm_bundle.dbo[8]
@@ -78,7 +80,7 @@ class DebugAPISim(DebugAPI):
             c=modbv(0)[32:]
             c[30]=True
             yield self.dmi_write(0x10,c)
-            while self.halted():
+            while self.halted:
                 yield self.check_halted()
 
                 
