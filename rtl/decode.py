@@ -9,6 +9,7 @@ from rtl.instructions import Opcodes as op
 from rtl.instructions import ArithmeticFunct3  as f3
 from rtl.instructions import SystemFunct3
 from rtl.util import signed_resize
+from rtl.debugModule import *
 
 from rtl.pipeline_control import *
 
@@ -91,7 +92,7 @@ class DecodeBundle(PipelineControl):
         PipelineControl.__init__(self)
 
     @block
-    def decoder(self,clock,reset,DebugRegs=None):
+    def decoder(self,clock,reset,debugRegisterBundle=None):
 
         opcode = Signal(intbv(0)[5:])
 
@@ -105,6 +106,10 @@ class DecodeBundle(PipelineControl):
         rs2_adr_o_reg = Signal(modbv(0)[5:])
 
         downstream_busy = Signal(bool(0))
+
+        debug_halt = Signal(modbv(0))
+        debug_halt_req=Signal(modbv(0))
+        debug_resume_req=Signal(modbv(0))
 
         @always_comb
         def busy_control():
@@ -122,7 +127,7 @@ class DecodeBundle(PipelineControl):
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
             opcode.next=self.word_i[7:2]
-            self.busy_o.next = downstream_busy
+            self.busy_o.next = downstream_busy or debug_halt or debug_halt_req
 
 
             # Operand output side
@@ -138,6 +143,32 @@ class DecodeBundle(PipelineControl):
                self.op1_o.next = self.rs1_data_i
 
 
+        if  debugRegisterBundle:
+
+            @always(clock.posedge) # Debug Unit is indepedeant of processsor reset
+            def debug_dummy():
+
+                if not downstream_busy:
+
+                    if debugRegisterBundle.haltreq:
+                        debugRegisterBundle.haltreq.next=False
+                        debug_halt.next = True
+                    elif debugRegisterBundle.resumereq:
+                        debugRegisterBundle.resumereq.next=False
+                        debug_halt.next = False
+
+
+            @always_comb
+            def dm_state():
+                debug_halt_req.next = debugRegisterBundle.haltreq
+                debug_resume_req.next = debugRegisterBundle.resumereq
+
+                if debug_halt:
+                    debugRegisterBundle.hartState.next=t_debugHartState.halted
+                else:
+                    debugRegisterBundle.hartState.next=t_debugHartState.running
+
+
         @always_seq(clock.posedge,reset=reset)
         def decode_op():
 
@@ -147,9 +178,14 @@ class DecodeBundle(PipelineControl):
             otherwise decode the next instruction when en_i is set
             """
 
+
             if self.kill_i:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
+
+            elif debug_halt or debug_halt_req:
+                self.valid_o.next=False
+
             elif not downstream_busy:
                 if self.en_i:
                     inv=False
@@ -211,7 +247,7 @@ class DecodeBundle(PipelineControl):
 
                     elif opcode==op.RV32_JALR:
                         self.jumpr_cmd.next = True
-                         # Use ALU to calculate target
+                        # Use ALU to calculate target
                         self.alu_cmd.next = True
                         self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
                         self.funct3_o.next = f3.RV32_F3_ADD_SUB

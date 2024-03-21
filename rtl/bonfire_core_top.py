@@ -23,6 +23,8 @@ class BonfireCoreTop:
         if config.enableDebugModule:
             self.dmi = debugModule.DMI(config)
             self.debugRegs=debugModule.DebugRegisterBundle(config)
+        else:
+            self.debugRegs=None    
 
 
     @block

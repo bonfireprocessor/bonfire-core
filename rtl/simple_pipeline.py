@@ -1,5 +1,5 @@
 """
-Simple 3 Stage Pipeline for bonfire_core 
+Simple 3 Stage Pipeline for bonfire_core
 (c) 2019 The Bonfire Project
 License: See LICENSE
 """
@@ -9,7 +9,7 @@ from myhdl import *
 
 from rtl.decode import *
 from rtl.execute import *
-from rtl.regfile import * 
+from rtl.regfile import *
 from rtl.debugModule import *
 
 from  rtl import config
@@ -22,8 +22,8 @@ class FetchInputBundle:
 
         self.en_i = Signal(bool(0)) # Fetch Data valid/ enable
         self.word_i = Signal(intbv(0)[xlen:]) # actual instruction to decode
-        self.current_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of current instruction 
-        self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction 
+        self.current_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of current instruction
+        self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
 
 class BackendOutputBundle:
     def __init__(self,config=def_config):
@@ -34,7 +34,7 @@ class BackendOutputBundle:
         self.jump_dest_o =  Signal(intbv(0)[xlen:])
         self.busy_o = Signal(bool(0))
 
-       
+
 
 class SimpleBackend:
     def __init__(self,config=def_config):
@@ -45,14 +45,14 @@ class SimpleBackend:
         self.decode = DecodeBundle(xlen=config.xlen)
         self.execute =  ExecuteBundle(config)
 
-        self.config=config 
-        
+        self.config=config
+
 
     @block
     def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport,debugRegisterBundle=None):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
-        decode_inst = self.decode.decoder(clock,reset)
+        decode_inst = self.decode.decoder(clock,reset,debugRegisterBundle=debugRegisterBundle)
         exec_inst = self.execute.SimpleExecute(self.decode, databus, debugport, clock,reset )
 
         d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
@@ -67,20 +67,20 @@ class SimpleBackend:
             self.reg_portB.ra.next = self.decode.rs2_adr_o
 
             self.decode.rs1_data_i.next = self.reg_portA.rd
-            self.decode.rs2_data_i.next = self.reg_portB.rd 
+            self.decode.rs2_data_i.next = self.reg_portB.rd
 
             self.reg_writePort.wa.next = self.execute.rd_adr_o
             self.reg_writePort.we.next = self.execute.reg_we_o
             self.reg_writePort.wd.next = self.execute.result_o
 
-            out.busy_o.next = self.decode.busy_o 
+            out.busy_o.next = self.decode.busy_o
 
 
             # Front end interface
-            
+
             self.decode.word_i.next = fetchBundle.word_i
             self.decode.current_ip_i.next = fetchBundle.current_ip_i
-            self.decode.next_ip_i.next  = fetchBundle.next_ip_i 
+            self.decode.next_ip_i.next  = fetchBundle.next_ip_i
 
 
         @always_comb
@@ -97,18 +97,7 @@ class SimpleBackend:
             out.jump_dest_o.next = self.execute.jump_dest_o
 
 
-        if self.config.enableDebugModule and debugRegisterBundle:
-             @always_seq(clock.posedge,reset=reset)
-             def debug_dummy():
-                if debugRegisterBundle.haltreq:
-                    debugRegisterBundle.hartState.next=t_debugHartState.halted
-                    debugRegisterBundle.haltreq.next=False
-                elif debugRegisterBundle.resumereq:
-                    debugRegisterBundle.hartState.next=t_debugHartState.running
-                    debugRegisterBundle.resumereq.next=False
 
-
-                     
 
 
         return instances()
