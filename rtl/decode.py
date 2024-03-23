@@ -107,9 +107,9 @@ class DecodeBundle(PipelineControl):
 
         downstream_busy = Signal(bool(0))
 
-        debug_halt = Signal(modbv(0))
-        debug_halt_req=Signal(modbv(0))
-        debug_resume_req=Signal(modbv(0))
+        debug_halt = Signal(bool(0))
+        debug_halt_req=Signal(bool(0))
+        debug_resume_req=Signal(bool(0))
 
         @always_comb
         def busy_control():
