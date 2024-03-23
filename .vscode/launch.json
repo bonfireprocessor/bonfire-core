@@ -61,7 +61,8 @@
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
                 "-v",
-                "--hex=code/trap.hex",
+               "--dm",
+                "--hex=code/loop.hex",
                 "--vcd=tb_core"
             ],
             "console": "integratedTerminal"
@@ -122,6 +123,14 @@
                 "--bram_adr_width=11",
                 "--path=vhdl_gen/export/soc"
             ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: Test tcp server ",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tb/simDebugServer.py",
+            
             "console": "integratedTerminal"
         },
 
