@@ -49,7 +49,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
-                "--hex=code/csr.hex",
+                "--hex=code/loadsave.hex",
                 "--vcd=tb_core"
             ],
             "console": "integratedTerminal"
@@ -77,14 +77,26 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "Python: run soc",
+            "name": "Python: run Extended Core Test",
             "type": "debugpy",
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
-                "--hex=code/wb_test.hex",
+                "--hex=code/loadsave.hex",
                 "--soc",
                 "--vcd=tb_soc"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: run new SOC test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tb_run.py",
+            "args": [
+                "--hex=/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex",
+                "--new_soc",
+                "--vcd=tb_new_soc"
             ],
             "console": "integratedTerminal"
         },
@@ -117,13 +129,27 @@
             "request": "launch",
             "program": "${workspaceFolder}/gen_soc.py",
             "args": [
-                "--hexfile=${workspaceFolder}/code/loadsave.hex",
+                "--hexfile=/home/thomas/development/bonfire/bonfire-software/test/ledslow.hex",
                 "--bram_base=0xc",
                 "--bram_adr_width=11",
                 "--path=vhdl_gen/export/soc"
             ],
             "console": "integratedTerminal"
         },
+        {
+            "name": "Python: gen soc tb ",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/gen_soc.py",
+            "args": [
+                "--hexfile=/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex",
+                "--bram_base=0xc",
+                "--bram_adr_width=11",
+                "--path=vhdl_gen_tb",
+                "--gentb"
+            ],
+            "console": "integratedTerminal"
+        }
 
     ]
 }
