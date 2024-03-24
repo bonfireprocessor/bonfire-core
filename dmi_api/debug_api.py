@@ -29,6 +29,7 @@ class DebugAPISim(DebugAPI):
         self.clock=clock
         self.halted = False
         self.result = modbv(0)[32:]
+        self.cmderr=0
 
 
     def dmi_read(self,adr):
@@ -83,7 +84,26 @@ class DebugAPISim(DebugAPI):
             while self.halted:
                 yield self.check_halted()
 
-                
+    def readGPR(self,HartId=0,regno=1):
+       
+        c=modbv(0)[32:]
+        c[23:20]=2 # aarsize 32Bit
+        c[15:0]=regno+0x1000
+        yield self.dmi_write(0x17,c)
+        yield self.clock.posedge
+        yield self.dmi_read(0x16) # abstracts
+        
+        # wait until busy is cleared
+        while self.result[12]:
+            yield self.dmi_read(0x16) # abstracts
+
+        self.cmderr=self.result[11:8]
+        print("cmderr: {}".format(self.cmderr))
+        if self.cmderr==0:
+            yield self.dmi_read(0x4) # read Data reg 0 
+        # Register value should now be self.result
+
+
             
     def ResetCore(self):
          c=modbv(0)[32:]

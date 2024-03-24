@@ -30,6 +30,10 @@ def tb_halt_resume(dtm_bundle,clock):
 
         print("core halted")
 
+        for i in range(1,32):
+            yield api.readGPR(regno=i)
+            print("Reg x{}: {}".format(i,hex(api.result)))
+
         for i in range(0,10):
             yield clock.posedge
 

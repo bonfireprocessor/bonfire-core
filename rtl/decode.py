@@ -107,9 +107,9 @@ class DecodeBundle(PipelineControl):
 
         downstream_busy = Signal(bool(0))
 
-        debug_halt = Signal(bool(0))
-        debug_halt_req=Signal(bool(0))
-        debug_resume_req=Signal(bool(0))
+        dm_halt = Signal(bool(0))
+        dm_halt_req = Signal(bool(0))
+        dm_resume_req = Signal(bool(0))
 
         @always_comb
         def busy_control():
@@ -119,15 +119,16 @@ class DecodeBundle(PipelineControl):
         @always_comb
         def comb():
 
+            #rs 1 Mux is moved downwards to the conditional code for the Debug Module
             if not downstream_busy:
-                self.rs1_adr_o.next = self.word_i[20:15]
+                #self.rs1_adr_o.next = self.word_i[20:15]
                 self.rs2_adr_o.next = self.word_i[25:20]
             else:
-                self.rs1_adr_o.next = rs1_adr_o_reg
+                #self.rs1_adr_o.next = rs1_adr_o_reg
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
             opcode.next=self.word_i[7:2]
-            self.busy_o.next = downstream_busy or debug_halt or debug_halt_req
+            self.busy_o.next = downstream_busy or dm_halt or dm_halt_req
 
 
             # Operand output side
@@ -145,28 +146,63 @@ class DecodeBundle(PipelineControl):
 
         if  debugRegisterBundle:
 
+            @always_comb
+            def rs1_mux():
+
+                if debugRegisterBundle.abstractCommandState==t_abstractCommandState.new \
+                   and debugRegisterBundle.commandType==t_abstractCommandType.access_reg:
+                    
+                    self.rs1_adr_o.next=debugRegisterBundle.regno
+
+                elif not downstream_busy:
+                    self.rs1_adr_o.next = self.word_i[20:15]                 
+                else:
+                    self.rs1_adr_o.next = rs1_adr_o_reg
+                   
+
+
             @always(clock.posedge) # Debug Unit is indepedeant of processsor reset
-            def debug_dummy():
+            def debug_module_seq():
 
                 if not downstream_busy:
 
                     if debugRegisterBundle.haltreq:
                         debugRegisterBundle.haltreq.next=False
-                        debug_halt.next = True
+                        dm_halt.next = True
                     elif debugRegisterBundle.resumereq:
                         debugRegisterBundle.resumereq.next=False
-                        debug_halt.next = False
+                        dm_halt.next = False
 
+                if dm_halt:
+                    if debugRegisterBundle.commandType==t_abstractCommandType.access_reg and \
+                            not debugRegisterBundle.write:
+                        
+                        if debugRegisterBundle.abstractCommandState==t_abstractCommandState.new:
+                            debugRegisterBundle.abstractCommandState.next=t_abstractCommandState.done
+
+                        if debugRegisterBundle.abstractCommandState==t_abstractCommandState.done:
+                            debugRegisterBundle.dataRegs[0].next = self.rs1_data_i
+                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
 
             @always_comb
             def dm_state():
-                debug_halt_req.next = debugRegisterBundle.haltreq
-                debug_resume_req.next = debugRegisterBundle.resumereq
+                dm_halt_req.next = debugRegisterBundle.haltreq
+                dm_resume_req.next = debugRegisterBundle.resumereq
 
-                if debug_halt:
+                if dm_halt:
                     debugRegisterBundle.hartState.next=t_debugHartState.halted
                 else:
                     debugRegisterBundle.hartState.next=t_debugHartState.running
+        
+        else: # no Debug Module
+            @always_comb
+            def rs1_mux():
+
+                if not downstream_busy:
+                    self.rs1_adr_o.next = self.word_i[20:15]                 
+                else:
+                    self.rs1_adr_o.next = rs1_adr_o_reg
+
 
 
         @always_seq(clock.posedge,reset=reset)
@@ -183,9 +219,9 @@ class DecodeBundle(PipelineControl):
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
 
-            elif debug_halt or debug_halt_req:
+            elif dm_halt or dm_halt_req:
                 self.valid_o.next=False
-
+                
             elif not downstream_busy:
                 if self.en_i:
                     inv=False
