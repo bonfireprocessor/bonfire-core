@@ -123,7 +123,8 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
         if core.backend.execute.taken:
             t_ip = d.debug_current_ip_o
             if verbose:
-                print("@{}ns exc: {} : {} ".format(now(),t_ip,d.debug_word_o))
+                print("@{}ns exc: {} : {} ".format(now(),t_ip,
+                                                   disassemble(d.debug_word_o)))
            
         
         inv = d.en_i and d.invalid_opcode and not d.kill_i

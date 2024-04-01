@@ -110,6 +110,7 @@ class DecodeBundle(PipelineControl):
         dm_halt = Signal(bool(0))
         dm_halt_req = Signal(bool(0))
         dm_resume_req = Signal(bool(0))
+        dm_kill=Signal(bool(0))
 
         @always_comb
         def busy_control():
@@ -145,6 +146,7 @@ class DecodeBundle(PipelineControl):
 
 
         if  debugRegisterBundle:
+            conf=debugRegisterBundle.config
 
             @always_comb
             def rs1_mux():
@@ -164,14 +166,20 @@ class DecodeBundle(PipelineControl):
             @always(clock.posedge) # Debug Unit is indepedeant of processsor reset
             def debug_module_seq():
 
+                
+                if debugRegisterBundle.depc_jump:
+                    debugRegisterBundle.depc_jump.next=False
+
                 if not downstream_busy:
 
                     if debugRegisterBundle.haltreq:
                         debugRegisterBundle.haltreq.next=False
+                        debugRegisterBundle.depc.next=self.current_ip_i[conf.xlen:conf.ip_low]
                         dm_halt.next = True
                     elif debugRegisterBundle.resumereq:
                         debugRegisterBundle.resumereq.next=False
                         dm_halt.next = False
+                        debugRegisterBundle.depc_jump.next=True
 
                 if dm_halt:
                     if debugRegisterBundle.commandType==t_abstractCommandType.access_reg and \
@@ -188,6 +196,7 @@ class DecodeBundle(PipelineControl):
             def dm_state():
                 dm_halt_req.next = debugRegisterBundle.haltreq
                 dm_resume_req.next = debugRegisterBundle.resumereq
+                dm_kill.next = debugRegisterBundle.depc_jump
 
                 if dm_halt:
                     debugRegisterBundle.hartState.next=t_debugHartState.halted
@@ -215,13 +224,10 @@ class DecodeBundle(PipelineControl):
             """
 
 
-            if self.kill_i:
+            if self.kill_i or dm_kill or dm_halt or dm_halt_req:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
-
-            elif dm_halt or dm_halt_req:
-                self.valid_o.next=False
-                
+    
             elif not downstream_busy:
                 if self.en_i:
                     inv=False

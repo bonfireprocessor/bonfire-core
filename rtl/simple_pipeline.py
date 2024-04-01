@@ -59,6 +59,7 @@ class SimpleBackend:
 
         f_d_inst = self.decode.connect(clock,reset,previous=frontEnd)
 
+
         @always_comb
         def comb():
             # Wire up register file
@@ -91,10 +92,21 @@ class SimpleBackend:
             debugport.reg_we_o.next = self.execute.reg_we_o
 
 
-        @always_comb
-        def proc_out():
-            out.jump_o.next = self.execute.jump_o
-            out.jump_dest_o.next = self.execute.jump_dest_o
+        if debugRegisterBundle:
+            @always_comb
+            def proc_out():
+                out.jump_o.next = self.execute.jump_o or debugRegisterBundle.depc_jump
+                if debugRegisterBundle.depc_jump:
+                    out.jump_dest_o.next[self.config.xlen:self.config.ip_low] = debugRegisterBundle.depc
+                else:
+                    out.jump_dest_o.next = self.execute.jump_dest_o
+
+        else:    
+
+            @always_comb
+            def proc_out():
+                out.jump_o.next = self.execute.jump_o
+                out.jump_dest_o.next = self.execute.jump_dest_o
 
 
 

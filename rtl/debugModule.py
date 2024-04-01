@@ -45,6 +45,11 @@ class DebugRegisterBundle:
         self.dataRegs=  [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
         self.progbuf0 = Signal(modbv(0)[xlen:])
 
+        #Debug CSRs
+        self.depc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
+        #helpers
+        self.depc_jump=Signal(bool(0))
+
 
 class AbstractDebugTransportBundle:
     def __init__(self,config):

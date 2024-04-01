@@ -98,7 +98,7 @@ class DebugAPISim(DebugAPI):
             yield self.dmi_read(0x16) # abstracts
 
         self.cmderr=self.result[11:8]
-        print("cmderr: {}".format(self.cmderr))
+        #print("cmderr: {}".format(self.cmderr))
         if self.cmderr==0:
             yield self.dmi_read(0x4) # read Data reg 0 
         # Register value should now be self.result

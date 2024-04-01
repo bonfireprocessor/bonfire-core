@@ -9,6 +9,7 @@ from __future__ import print_function
 
 from myhdl import *
 from dmi_api.debug_api import DebugAPISim
+from tb.disassemble import abi_name
 
 # Test Stimulus for debug interface
 
@@ -27,20 +28,18 @@ def tb_halt_resume(dtm_bundle,clock):
             yield clock.posedge
 
         yield api.halt()
-
-        print("core halted")
+        print("@{}ns core halted".format(now()))
 
         for i in range(1,32):
             yield api.readGPR(regno=i)
-            print("Reg x{}: {}".format(i,hex(api.result)))
+            print("Reg {}: {}".format(abi_name(i),hex(api.result)))
 
         for i in range(0,10):
             yield clock.posedge
 
 
         yield api.resume()
-
-        print("Core resumed")
+        print("@{}ns core resumed".format(now()))
 
     return instances()    
 
