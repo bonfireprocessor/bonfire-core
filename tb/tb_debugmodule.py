@@ -20,6 +20,13 @@ def tb_halt_resume(dtm_bundle,clock):
     clock: clock
     """
 
+    def check_reg(api,regno,check_value):
+        yield api.readGPR(regno=regno)
+        assert api.result == check_value,"check_reg failure {} {}".format(api.result,check_value)
+        print("@{}ns: Expected reg value: {}".format(now(),hex(api.result)))
+
+
+
     @instance
     def test():
         api=DebugAPISim(dtm_bundle=dtm_bundle,clock=clock)
@@ -34,8 +41,16 @@ def tb_halt_resume(dtm_bundle,clock):
             yield api.readGPR(regno=i)
             print("Reg {}: {}".format(abi_name(i),hex(api.result)))
 
-        for i in range(0,10):
-            yield clock.posedge
+        print("Reg Write Test")
+        
+        yield api.readGPR(regno=1)
+        reg_save=api.result+0
+        print("@{}ns Save backup of register x1: {}".format(now(),hex(reg_save)))
+        yield api.writeGPR(regno=1,value=0xdeadbeef)
+        yield check_reg(api,regno=1,check_value=0xdeadbeef)
+        yield api.writeGPR(regno=1,value=reg_save)
+        yield check_reg(api,regno=1,check_value=reg_save)
+
 
 
         yield api.resume()

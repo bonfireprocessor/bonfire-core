@@ -110,7 +110,12 @@ class DecodeBundle(PipelineControl):
         dm_halt = Signal(bool(0))
         dm_halt_req = Signal(bool(0))
         dm_resume_req = Signal(bool(0))
-        dm_kill=Signal(bool(0))
+        dm_kill = Signal(bool(0))
+        dm_regwrite = Signal(bool(0))
+        dm_regno = Signal(modbv(0)[5:])
+        dm_data0 = Signal(modbv(0)[32:])
+
+        ins_word=Signal(modbv(0)[32:]) # instructoo to decode
 
         @always_comb
         def busy_control():
@@ -120,15 +125,17 @@ class DecodeBundle(PipelineControl):
         @always_comb
         def comb():
 
+            ins_word.next = self.word_i
+
             #rs 1 Mux is moved downwards to the conditional code for the Debug Module
             if not downstream_busy:
                 #self.rs1_adr_o.next = self.word_i[20:15]
-                self.rs2_adr_o.next = self.word_i[25:20]
+                self.rs2_adr_o.next = ins_word[25:20]
             else:
                 #self.rs1_adr_o.next = rs1_adr_o_reg
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
-            opcode.next=self.word_i[7:2]
+            opcode.next=ins_word[7:2]
             self.busy_o.next = downstream_busy or dm_halt or dm_halt_req
 
 
@@ -151,64 +158,69 @@ class DecodeBundle(PipelineControl):
             @always_comb
             def rs1_mux():
 
+                dm_regwrite.next = False
+                dm_data0.next = debugRegisterBundle.dataRegs[0]
+                dm_regno.next = debugRegisterBundle.regno
+
                 if debugRegisterBundle.abstractCommandState==t_abstractCommandState.new \
                    and debugRegisterBundle.commandType==t_abstractCommandType.access_reg:
-                    
-                    self.rs1_adr_o.next=debugRegisterBundle.regno
+
+                    dm_regwrite.next = debugRegisterBundle.write
+
+                    self.rs1_adr_o.next = debugRegisterBundle.regno
 
                 elif not downstream_busy:
-                    self.rs1_adr_o.next = self.word_i[20:15]                 
+                    self.rs1_adr_o.next = ins_word[20:15]
                 else:
                     self.rs1_adr_o.next = rs1_adr_o_reg
-                   
+
 
 
             @always(clock.posedge) # Debug Unit is indepedeant of processsor reset
             def debug_module_seq():
 
-                
-                if debugRegisterBundle.depc_jump:
-                    debugRegisterBundle.depc_jump.next=False
+
+                if debugRegisterBundle.dpc_jump:
+                    debugRegisterBundle.dpc_jump.next=False
 
                 if not downstream_busy:
 
                     if debugRegisterBundle.haltreq:
                         debugRegisterBundle.haltreq.next=False
-                        debugRegisterBundle.depc.next=self.current_ip_i[conf.xlen:conf.ip_low]
+                        debugRegisterBundle.dpc.next=self.current_ip_i[conf.xlen:conf.ip_low]
                         dm_halt.next = True
                     elif debugRegisterBundle.resumereq:
                         debugRegisterBundle.resumereq.next=False
                         dm_halt.next = False
-                        debugRegisterBundle.depc_jump.next=True
+                        debugRegisterBundle.dpc_jump.next=True
 
                 if dm_halt:
-                    if debugRegisterBundle.commandType==t_abstractCommandType.access_reg and \
-                            not debugRegisterBundle.write:
-                        
+                    if debugRegisterBundle.commandType==t_abstractCommandType.access_reg:
                         if debugRegisterBundle.abstractCommandState==t_abstractCommandState.new:
                             debugRegisterBundle.abstractCommandState.next=t_abstractCommandState.done
 
                         if debugRegisterBundle.abstractCommandState==t_abstractCommandState.done:
-                            debugRegisterBundle.dataRegs[0].next = self.rs1_data_i
+                            if not debugRegisterBundle.write:
+                                debugRegisterBundle.dataRegs[0].next = self.rs1_data_i
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
 
             @always_comb
             def dm_state():
                 dm_halt_req.next = debugRegisterBundle.haltreq
                 dm_resume_req.next = debugRegisterBundle.resumereq
-                dm_kill.next = debugRegisterBundle.depc_jump
+                dm_kill.next = debugRegisterBundle.dpc_jump
 
                 if dm_halt:
                     debugRegisterBundle.hartState.next=t_debugHartState.halted
                 else:
                     debugRegisterBundle.hartState.next=t_debugHartState.running
-        
+
         else: # no Debug Module
             @always_comb
             def rs1_mux():
 
                 if not downstream_busy:
-                    self.rs1_adr_o.next = self.word_i[20:15]                 
+                    self.rs1_adr_o.next = ins_word[20:15]
                 else:
                     self.rs1_adr_o.next = rs1_adr_o_reg
 
@@ -223,28 +235,52 @@ class DecodeBundle(PipelineControl):
             otherwise decode the next instruction when en_i is set
             """
 
+            if dm_halt and dm_regwrite:
+                # Inject GPR Write into the pipeline
+                self.valid_o.next = True
+                rs1_immediate.next = True
+                rs2_immediate.next = True
+                rs1_imm_value.next = dm_data0
+                rs2_imm_value.next = 0
+                self.alu_cmd.next = True
+                self.funct3_o.next = f3.RV32_F3_OR
+                self.rd_adr_o.next = dm_regno
 
-            if self.kill_i or dm_kill or dm_halt or dm_halt_req:
+                self.debug_word_o.next=0
+
+                self.branch_cmd.next = False
+                self.jump_cmd.next = False
+                self.jumpr_cmd.next = False
+                self.load_cmd.next = False
+                self.store_cmd.next = False
+                self.csr_cmd.next = False
+                self.invalid_opcode.next = False
+                self.sys_cmd.next = False
+
+
+
+
+            elif self.kill_i or dm_kill or dm_halt or dm_halt_req:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
-    
+
             elif not downstream_busy:
                 if self.en_i:
                     inv=False
 
-                    self.debug_word_o.next = self.word_i
+                    self.debug_word_o.next = ins_word
                     self.debug_current_ip_o.next = self.current_ip_i
 
-                    self.funct3_o.next = self.word_i[15:12]
+                    self.funct3_o.next = ins_word[15:12]
                     self.funct3_onehot_o.next = 0
-                    index = int(self.word_i[15:12])
+                    index = int(ins_word[15:12])
                     self.funct3_onehot_o.next[index] = True
 
-                    self.funct7_o.next = self.word_i[32:25]
-                    self.rd_adr_o.next = self.word_i[12:7]
+                    self.funct7_o.next = ins_word[32:25]
+                    self.rd_adr_o.next = ins_word[12:7]
 
-                    rs1_adr_o_reg.next = self.word_i[20:15]
-                    rs2_adr_o_reg.next = self.word_i[25:20]
+                    rs1_adr_o_reg.next = ins_word[20:15]
+                    rs2_adr_o_reg.next = ins_word[25:20]
 
                     self.next_ip_o.next = self.next_ip_i
 
@@ -264,7 +300,7 @@ class DecodeBundle(PipelineControl):
 
                     self.mepc_o.next = self.current_ip_i
 
-                    if self.word_i[2:0]!=3:
+                    if ins_word[2:0]!=3:
                         inv=True
 
                     elif opcode==op.RV32_OP:
@@ -272,20 +308,18 @@ class DecodeBundle(PipelineControl):
                     elif opcode==op.RV32_IMM:
                         self.alu_cmd.next = True
                         # Workaround for ADDI...
-                        if self.word_i[15:12]==f3.RV32_F3_ADD_SUB:
+                        if ins_word[15:12]==f3.RV32_F3_ADD_SUB:
                             self.funct7_o.next[5] = False
-                        rs2_imm_value.next = signed_resize(get_I_immediate(self.word_i),self.xlen)
+                        rs2_imm_value.next = signed_resize(get_I_immediate(ins_word),self.xlen)
                         rs2_immediate.next = True
 
                     elif opcode==op.RV32_BRANCH:
                         self.branch_cmd.next = True
-                        self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(self.word_i).signed()
-
-                        self.branch_cmd.next=True
+                        self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(ins_word).signed()
 
                     elif opcode==op.RV32_JAL:
                         self.jump_cmd.next = True
-                        self.jump_dest_o.next = self.current_ip_i + get_UJ_immediate(self.word_i).signed()
+                        self.jump_dest_o.next = self.current_ip_i + get_UJ_immediate(ins_word).signed()
 
                     elif opcode==op.RV32_JALR:
                         self.jumpr_cmd.next = True
@@ -294,13 +328,13 @@ class DecodeBundle(PipelineControl):
                         self.funct3_onehot_o.next = 2**f3.RV32_F3_ADD_SUB
                         self.funct3_o.next = f3.RV32_F3_ADD_SUB
                         self.funct7_o.next[5] = False
-                        rs2_imm_value.next =  signed_resize(get_I_immediate(self.word_i),self.xlen)
+                        rs2_imm_value.next =  signed_resize(get_I_immediate(ins_word),self.xlen)
                         rs2_immediate.next = True
 
                     elif opcode==op.RV32_LUI or opcode==op.RV32_AUIPC:
                         self.alu_cmd.next = True
                         rs1_immediate.next = True
-                        rs1_imm_value.next = get_U_immediate(self.word_i)
+                        rs1_imm_value.next = get_U_immediate(ins_word)
                         rs2_immediate.next = True
                         if opcode==op.RV32_AUIPC:
                             rs2_imm_value.next = self.current_ip_i
@@ -312,19 +346,19 @@ class DecodeBundle(PipelineControl):
                         self.funct7_o.next = 0
                     elif opcode==op.RV32_STORE:
                         self.store_cmd.next = True
-                        self.displacement_o.next = get_S_immediate(self.word_i)
+                        self.displacement_o.next = get_S_immediate(ins_word)
                     elif opcode==op.RV32_LOAD:
                         self.load_cmd.next = True
-                        self.displacement_o.next = get_I_immediate(self.word_i)
+                        self.displacement_o.next = get_I_immediate(ins_word)
                     elif opcode==op.RV32_SYSTEM:
-                        self.priv_funct_12.next = self.word_i[32:20]
-                        if self.word_i[15:12]==SystemFunct3.RV32_F3_PRIV:
+                        self.priv_funct_12.next = ins_word[32:20]
+                        if ins_word[15:12]==SystemFunct3.RV32_F3_PRIV:
                             self.sys_cmd.next = True
                         else:
                             self.csr_cmd.next = True
-                            if self.word_i[14]: # Immediate
+                            if ins_word[14]: # Immediate
                                 rs1_immediate.next = True
-                                rs1_imm_value.next = self.word_i[20:15]
+                                rs1_imm_value.next = ins_word[20:15]
                     else:
                         inv=True
                     self.valid_o.next = not inv

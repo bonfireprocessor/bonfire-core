@@ -13,6 +13,7 @@ class BonfireConfig:
         self.enableDebugModule=False # Enable RISC-V Debug Module
         self.num_dscratch = 1 # Number of dscratch registers
         self.numdata = 1 # Number of Debug Data Reigsters
+        self.dm_maxregno=0x101f
         #ip_low contains lowest bit of valid instruction pointer
         if self.RVC:
             self.ip_low=1

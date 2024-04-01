@@ -37,7 +37,7 @@ class DebugAPISim(DebugAPI):
         self.dtm_bundle.adr.next=adr
         self.dtm_bundle.we.next=False
         self.dtm_bundle.en.next=True
-        self.dtm_bundle.dbo.next=0xdeadbeef
+        #self.dtm_bundle.dbo.next=0xffffffff # Test pattern
         yield self.clock.posedge
         yield self.clock.posedge
         self.result._val = self.dtm_bundle.dbo
@@ -104,6 +104,27 @@ class DebugAPISim(DebugAPI):
         # Register value should now be self.result
 
 
+    def writeGPR(self,HartId=0,regno=1,value=0):
+       
+        yield self.dmi_write(0x4,value) # data0 reg
+
+        c=modbv(0)[32:]
+        c[23:20]=2 # aarsize 32Bit
+        c[15:0]=regno+0x1000
+        c[17]=True # Transfer
+        c[16]=True #Write 
+        yield self.dmi_write(0x17,c)
+        yield self.clock.posedge
+        yield self.dmi_read(0x16) # abstracts
+        
+        # wait until busy is cleared
+        while self.result[12]:
+            yield self.dmi_read(0x16) # abstracts
+
+        self.cmderr=self.result[11:8]
+        assert self.cmderr==0
+        # TODO: Better error handling
+    
             
     def ResetCore(self):
          c=modbv(0)[32:]

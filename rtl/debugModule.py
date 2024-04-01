@@ -13,6 +13,7 @@ t_abstractCommandType = enum('access_reg','quick_access')
 t_abstractCommandState  = enum('none','new','done','failed')
 
 debugSpecVersion = 15 # consider setting this to 2
+csr_depc = 0x7b1
 
 class DebugRegisterBundle:
      def __init__(self,config):
@@ -42,13 +43,13 @@ class DebugRegisterBundle:
 
         assert config.numdata<=16, "maximum allowed debug Data Registers are 16"
 
-        self.dataRegs=  [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
+        self.dataRegs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
         self.progbuf0 = Signal(modbv(0)[xlen:])
 
         #Debug CSRs
-        self.depc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
+        self.dpc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
         #helpers
-        self.depc_jump=Signal(bool(0))
+        self.dpc_jump=Signal(bool(0))
 
 
 class AbstractDebugTransportBundle:
@@ -117,6 +118,8 @@ class DMI:
                         debugRegs.haltreq.next = debugRegs.hartState==t_debugHartState.running and dtm.dbi[31]
                         debugRegs.resumereq.next = debugRegs.hartState==t_debugHartState.halted and dtm.dbi[30]
                         debugRegs.hartReset.next = dtm.dbi[1] # ndmreset
+                    elif (dtm.adr>=0x04) and (dtm.adr<=0x04+self.config.numdata-1): # data0 to data 0x11
+                        debugRegs.dataRegs[dtm.adr-0x04].next = dtm.dbi    
                     elif dtm.adr==0x16: #abstractcs
                         debugRegs.cmderr.next =   debugRegs.cmderr &  ~dtm.dbi[11:8]  # clear cmderr bits with writing 1 to them
                     elif dtm.adr==0x17: # command
