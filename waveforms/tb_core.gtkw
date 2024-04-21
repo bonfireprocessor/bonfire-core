@@ -1,24 +1,25 @@
 [*]
-[*] GTKWave Analyzer v3.3.114 (w)1999-2023 BSI
-[*] Mon Apr  1 12:43:11 2024
+[*] GTKWave Analyzer v3.3.118 (w)1999-2023 BSI
+[*] Sun Apr 21 17:42:55 2024
 [*]
 [dumpfile] "/home/thomas/development/bonfire-core/waveforms/tb_core.vcd"
-[dumpfile_mtime] "Mon Apr  1 12:41:47 2024"
-[dumpfile_size] 2428605
+[dumpfile_mtime] "Sun Apr 21 17:41:09 2024"
+[dumpfile_size] 2443913
 [savefile] "/home/thomas/development/bonfire-core/waveforms/tb_core.gtkw"
-[timestart] 2637
+[timestart] 0
 [size] 1920 877
 [pos] -1 -1
-*-7.672629 3075 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-6.672629 149 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.BonfireCoreTop0_createInstance0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.
-[sst_width] 315
+[sst_width] 443
 [signals_width] 542
 [sst_expanded] 1
 [sst_vpaned_height] 552
@@ -54,7 +55,6 @@ tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_en_i
 @22
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_current_ip_i[31:0]
-@23
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.ins_word[31:0]
 @28
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_branch_cmd
@@ -64,8 +64,16 @@ tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_dpc_jump
 @22
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_dpc[29:0]
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_progbuf0[31:0]
 @28
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_abstractCommandState
+@29
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_abstractCommandNew
+@28
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_write
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_transfer
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_regno
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_dpcAccess
 @200
 -
 @28
@@ -82,12 +90,13 @@ tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.debugport_rd_adr_o[4:
 -
 @24
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.portA_ra[4:0]
-@28
-tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_abstractCommandState
 @22
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.portA_rd[31:0]
 @200
 -
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.registers.registers(1)[31:0]
+@200
 -dbus
 @28
 tb.dbus_en_o

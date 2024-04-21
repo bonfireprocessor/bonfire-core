@@ -10,6 +10,7 @@ from __future__ import print_function
 from myhdl import *
 from dmi_api.debug_api import DebugAPISim
 from tb.disassemble import abi_name
+from rtl.instructions import CSRAdr
 
 # Test Stimulus for debug interface
 
@@ -20,11 +21,10 @@ def tb_halt_resume(dtm_bundle,clock):
     clock: clock
     """
 
-    def check_reg(api,regno,check_value):
+    def check_gpr(api,regno,check_value):
         yield api.readGPR(regno=regno)
-        assert api.result == check_value,"check_reg failure {} {}".format(api.result,check_value)
+        assert api.result == check_value,"check_gpr failure result: {} expected: {}".format(api.result,check_value)
         print("@{}ns: Expected reg value: {}".format(now(),hex(api.result)))
-
 
 
     @instance
@@ -37,9 +37,14 @@ def tb_halt_resume(dtm_bundle,clock):
         yield api.halt()
         print("@{}ns core halted".format(now()))
 
+        yield api.readReg(regno=0x700 | CSRAdr.dpc)
+        print("Reg dpc: {}".format(hex(api.result)))    
+
         for i in range(1,32):
             yield api.readGPR(regno=i)
             print("Reg {}: {}".format(abi_name(i),hex(api.result)))
+
+      
 
         print("Reg Write Test")
         
@@ -47,10 +52,15 @@ def tb_halt_resume(dtm_bundle,clock):
         reg_save=api.result+0
         print("@{}ns Save backup of register x1: {}".format(now(),hex(reg_save)))
         yield api.writeGPR(regno=1,value=0xdeadbeef)
-        yield check_reg(api,regno=1,check_value=0xdeadbeef)
+        yield check_gpr(api,regno=1,check_value=0xdeadbeef)
         yield api.writeGPR(regno=1,value=reg_save)
-        yield check_reg(api,regno=1,check_value=reg_save)
+        yield check_gpr(api,regno=1,check_value=reg_save)
 
+
+        print("@{}ns Check r/w to progbuf0".format(now()))
+        yield api.dmi_write(0x20,0x00a00593) # li	a1,10
+        yield api.dmi_read(0x20)
+        assert api.result == 0x00a00593
 
 
         yield api.resume()

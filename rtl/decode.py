@@ -162,11 +162,10 @@ class DecodeBundle(PipelineControl):
                 dm_data0.next = debugRegisterBundle.dataRegs[0]
                 dm_regno.next = debugRegisterBundle.regno
 
-                if debugRegisterBundle.abstractCommandState==t_abstractCommandState.new \
+                if debugRegisterBundle.abstractCommandNew \
                    and debugRegisterBundle.commandType==t_abstractCommandType.access_reg:
 
-                    dm_regwrite.next = debugRegisterBundle.write
-
+                    dm_regwrite.next = debugRegisterBundle.write and not debugRegisterBundle.dpcAccess
                     self.rs1_adr_o.next = debugRegisterBundle.regno
 
                 elif not downstream_busy:
@@ -195,14 +194,26 @@ class DecodeBundle(PipelineControl):
                         debugRegisterBundle.dpc_jump.next=True
 
                 if dm_halt:
-                    if debugRegisterBundle.commandType==t_abstractCommandType.access_reg:
-                        if debugRegisterBundle.abstractCommandState==t_abstractCommandState.new:
-                            debugRegisterBundle.abstractCommandState.next=t_abstractCommandState.done
+                    ## Handle Abstract Command
+                    if debugRegisterBundle.commandType==t_abstractCommandType.access_reg \
+                       and debugRegisterBundle.abstractCommandNew  \
+                       and debugRegisterBundle.abstractCommandState==t_abstractCommandState.none:                       
+                            debugRegisterBundle.abstractCommandState.next=t_abstractCommandState.taken
 
-                        if debugRegisterBundle.abstractCommandState==t_abstractCommandState.done:
-                            if not debugRegisterBundle.write:
-                                debugRegisterBundle.dataRegs[0].next = self.rs1_data_i
+                    if debugRegisterBundle.abstractCommandState==t_abstractCommandState.taken:
+                        if debugRegisterBundle.write:
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+                            if debugRegisterBundle.dpcAccess:
+                               debugRegisterBundle.dpc.next = debugRegisterBundle.dataRegs[0][conf.xlen:conf.ip_low]
+                        else:   
+                            if debugRegisterBundle.dpcAccess:
+                                debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
+                            else:
+                                debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
+                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.valid
+
+                    elif debugRegisterBundle.abstractCommandState==t_abstractCommandState.valid:
+                        debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none      
 
             @always_comb
             def dm_state():

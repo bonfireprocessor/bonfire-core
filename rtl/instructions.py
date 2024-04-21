@@ -117,6 +117,7 @@ class CSRAdr:
     cause = 0x42
     tval = 0x43
     ip = 0x44
+    dpc = 0xb1
 
 
 # Local Variables:

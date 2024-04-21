@@ -7,10 +7,11 @@ from __future__ import print_function
 
 from myhdl import *
 from rtl.pipeline_control import *
+from rtl.instructions import CSRAdr
 
 t_debugHartState = enum('running','halted')
 t_abstractCommandType = enum('access_reg','quick_access')
-t_abstractCommandState  = enum('none','new','done','failed')
+t_abstractCommandState  = enum('none','valid','taken','failed')
 
 debugSpecVersion = 15 # consider setting this to 2
 csr_depc = 0x7b1
@@ -34,11 +35,14 @@ class DebugRegisterBundle:
         self.postexec = Signal(bool(0))
         self.transfer = Signal(bool(0))
         self.write = Signal(bool(0))
-        self.regno=Signal(modbv(0,max=32))
-        self.cmderr=Signal(modbv(0)[3:])
+        self.regno = Signal(modbv(0,max=32))
+        self.cmderr = Signal(modbv(0)[3:])
+        self.dpcAccess = Signal(bool(0))
 
         # Abtstract Command exeuction
+        self.abstractCommandNew = Signal(bool(0))
         self.abstractCommandState = Signal(t_abstractCommandState.none)
+        self.abstractCommandResult =  Signal(modbv(0)[xlen:])
 
 
         assert config.numdata<=16, "maximum allowed debug Data Registers are 16"
@@ -85,7 +89,14 @@ class DMI:
 
         @always(clock.posedge)
         def seq():
-            dtm.dbo.next=0
+            
+            # Abstract Command exeuction management
+            if debugRegs.abstractCommandState == t_abstractCommandState.valid:
+                debugRegs.dataRegs[0].next = debugRegs.abstractCommandResult
+            elif debugRegs.abstractCommandState == t_abstractCommandState.taken:
+                debugRegs.abstractCommandNew.next = False
+
+            dtm.dbo.next=0    
             if dtm.en:
                 if not dtm.we:
                     if dtm.adr==0x11: #dmstatus
@@ -109,7 +120,7 @@ class DMI:
                         dtm.dbo.next = debugRegs.dataRegs[dtm.adr-0x04]
                     elif dtm.adr==0x16: #abstractcs
                         dtm.dbo.next[29:24] = 1 #progbufsize
-                        dtm.dbo.next[12] = debugRegs.abstractCommandState == t_abstractCommandState.new # busy
+                        dtm.dbo.next[12] = debugRegs.abstractCommandState != t_abstractCommandState.none # busy
                         dtm.dbo.next[11:8] = debugRegs.cmderr # cmderr
                         dtm.dbo.next[4:] = self.config.numdata # datacount
 
@@ -122,7 +133,7 @@ class DMI:
                         debugRegs.dataRegs[dtm.adr-0x04].next = dtm.dbi    
                     elif dtm.adr==0x16: #abstractcs
                         debugRegs.cmderr.next =   debugRegs.cmderr &  ~dtm.dbi[11:8]  # clear cmderr bits with writing 1 to them
-                    elif dtm.adr==0x17: # command
+                    elif dtm.adr==0x17: # abstract command
                         if debugRegs.cmderr == 0: # dont start any new command as long cmderr is not cleared
                             if debugRegs.abstractCommandState != t_abstractCommandState.none:
                                 debugRegs.cmderr.next = 1 # busy
@@ -136,18 +147,20 @@ class DMI:
                                 debugRegs.transfer.next = dtm.dbi[17]
                                 debugRegs.write.next = dtm.dbi[16]
                                 debugRegs.regno.next = dtm.dbi[5:0]
-                                if dtm.dbi[16:5]==0x80:
-                                    debugRegs.abstractCommandState.next = t_abstractCommandState.new
+                                dpcAccess =  dtm.dbi[16:0]== (0x700 | CSRAdr.dpc)
+                                debugRegs.dpcAccess.next = dpcAccess
+                              
+                                if dtm.dbi[16:5]==0x80 or dpcAccess:
+                                    debugRegs.abstractCommandNew.next = True
                                 else:
                                     debugRegs.cmderr.next = 2 # not supported
-
-                            elif dtm.dbi[32:24]==1:
-                                debugRegs.commandType.next = t_abstractCommandType.quick_access
-                                debugRegs.abstractCommandState.next=t_abstractCommandState.new
-
+                            # elif dtm.dbi[32:24]==1:
+                            #     debugRegs.commandType.next = t_abstractCommandType.quick_access
+                            #     debugRegs.abstractCommandState.next=t_abstractCommandState.new
                             else:
                                 debugRegs.cmderr.next = 2 # not supported
-
+                    elif dtm.adr==0x20: #progbuf0
+                        debugRegs.progbuf0.next = dtm.dbi
 
         return instances()
 
