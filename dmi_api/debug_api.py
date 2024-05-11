@@ -84,11 +84,13 @@ class DebugAPISim(DebugAPI):
             while self.halted:
                 yield self.check_halted()
 
-    def readReg(self,HartId=0,regno=0):
+    def readReg(self,HartId=0,regno=0,postexec=False,transfer=True):
        
         c=modbv(0)[32:]
         c[23:20]=2 # aarsize 32Bit
         c[15:0]=regno
+        c[17]=transfer
+        c[18]=postexec
         yield self.dmi_write(0x17,c)
         yield self.clock.posedge
         yield self.dmi_read(0x16) # abstracts
@@ -103,17 +105,18 @@ class DebugAPISim(DebugAPI):
             yield self.dmi_read(0x4) # read Data reg 0 
         # Register value should now be self.result
 
-    def readGPR(self,HartId=0,regno=1):
-        yield self.readReg(HartId=HartId,regno=regno+0x1000)
+    def readGPR(self,HartId=0,regno=1,postexec=False,transfer=True):
+        yield self.readReg(HartId=HartId,regno=regno+0x1000,postexec=postexec,transfer=transfer)
 
-    def writeReg(self,HartId=0,regno=0,value=0):
+    def writeReg(self,HartId=0,regno=0,value=0,postexec=False,transfer=True):
        
         yield self.dmi_write(0x4,value) # data0 reg
 
         c=modbv(0)[32:]
         c[23:20]=2 # aarsize 32Bit
         c[15:0]=regno
-        c[17]=True # Transfer
+        c[17]=transfer
+        c[18]=postexec
         c[16]=True #Write 
         yield self.dmi_write(0x17,c)
         yield self.clock.posedge
@@ -128,8 +131,8 @@ class DebugAPISim(DebugAPI):
         # TODO: Better error handling
     
 
-    def writeGPR(self,HartId=0,regno=1,value=0):
-        yield self.writeReg(HartId=HartId,regno=regno+0x1000,value=value)
+    def writeGPR(self,HartId=0,regno=1,value=0,postexec=False,transfer=True):
+        yield self.writeReg(HartId=HartId,regno=regno+0x1000,value=value,postexec=postexec,transfer=transfer)
             
     def ResetCore(self):
          c=modbv(0)[32:]

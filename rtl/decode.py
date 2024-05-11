@@ -114,6 +114,7 @@ class DecodeBundle(PipelineControl):
         dm_regwrite = Signal(bool(0))
         dm_regno = Signal(modbv(0)[5:])
         dm_data0 = Signal(modbv(0)[32:])
+        dm_exec = Signal(bool(0)) # Execute Progbuf
 
         ins_word=Signal(modbv(0)[32:]) # instructoo to decode
 
@@ -125,7 +126,10 @@ class DecodeBundle(PipelineControl):
         @always_comb
         def comb():
 
-            ins_word.next = self.word_i
+            if dm_halt:
+                ins_word.next = debugRegisterBundle.progbuf0  
+            else:
+                ins_word.next = self.word_i
 
             #rs 1 Mux is moved downwards to the conditional code for the Debug Module
             if not downstream_busy:
@@ -197,29 +201,50 @@ class DecodeBundle(PipelineControl):
                     ## Handle Abstract Command
                     if debugRegisterBundle.commandType==t_abstractCommandType.access_reg \
                        and debugRegisterBundle.abstractCommandNew  \
-                       and debugRegisterBundle.abstractCommandState==t_abstractCommandState.none:                       
-                            debugRegisterBundle.abstractCommandState.next=t_abstractCommandState.taken
+                       and debugRegisterBundle.abstractCommandState==t_abstractCommandState.none \
+                       and (debugRegisterBundle.transfer or debugRegisterBundle.postexec): # either transfer or postexec must be set to trigger the state machine
+                                debugRegisterBundle.abstractCommandState.next=t_abstractCommandState.taken
 
                     if debugRegisterBundle.abstractCommandState==t_abstractCommandState.taken:
-                        if debugRegisterBundle.write:
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
-                            if debugRegisterBundle.dpcAccess:
-                               debugRegisterBundle.dpc.next = debugRegisterBundle.dataRegs[0][conf.xlen:conf.ip_low]
-                        else:   
-                            if debugRegisterBundle.dpcAccess:
-                                debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
-                            else:
-                                debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.valid
 
-                    elif debugRegisterBundle.abstractCommandState==t_abstractCommandState.valid:
-                        debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none      
+                        if debugRegisterBundle.transfer:
+                            if debugRegisterBundle.write:
+                                if debugRegisterBundle.postexec:
+                                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
+                                else:
+                                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+
+                                if debugRegisterBundle.dpcAccess:
+                                    debugRegisterBundle.dpc.next = debugRegisterBundle.dataRegs[0][conf.xlen:conf.ip_low]
+                            else: # Reg read
+                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvaild
+                                if debugRegisterBundle.dpcAccess:
+                                    debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
+                                else:
+                                    debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
+
+                        elif debugRegisterBundle.postexec: # Only postexec set without transfer
+                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
+
+
+                    elif debugRegisterBundle.abstractCommandState==t_abstractCommandState.regvaild:
+                        if debugRegisterBundle.postexec:
+                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
+                        else:
+                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+                    elif debugRegisterBundle.abstractCommandState==t_abstractCommandState.exec:
+                         debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.wait_retire
+                    elif debugRegisterBundle.abstractCommandState==t_abstractCommandState.wait_retire:
+                         if not (self.valid_o or self.stall_i):
+                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none    
+
 
             @always_comb
             def dm_state():
                 dm_halt_req.next = debugRegisterBundle.haltreq
                 dm_resume_req.next = debugRegisterBundle.resumereq
                 dm_kill.next = debugRegisterBundle.dpc_jump
+                dm_exec.next = debugRegisterBundle.abstractCommandState==t_abstractCommandState.exec
 
                 if dm_halt:
                     debugRegisterBundle.hartState.next=t_debugHartState.halted
@@ -229,6 +254,8 @@ class DecodeBundle(PipelineControl):
         else: # no Debug Module
             @always_comb
             def rs1_mux():
+
+                #ins_word.next = self.word_i
 
                 if not downstream_busy:
                     self.rs1_adr_o.next = ins_word[20:15]
@@ -271,12 +298,12 @@ class DecodeBundle(PipelineControl):
 
 
 
-            elif self.kill_i or dm_kill or dm_halt or dm_halt_req:
+            elif (self.kill_i or dm_kill or dm_halt or dm_halt_req) and not dm_exec:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
 
             elif not downstream_busy:
-                if self.en_i:
+                if self.en_i or dm_exec:
                     inv=False
 
                     self.debug_word_o.next = ins_word

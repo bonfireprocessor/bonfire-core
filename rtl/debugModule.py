@@ -11,7 +11,7 @@ from rtl.instructions import CSRAdr
 
 t_debugHartState = enum('running','halted')
 t_abstractCommandType = enum('access_reg','quick_access')
-t_abstractCommandState  = enum('none','valid','taken','failed')
+t_abstractCommandState  = enum('none','regvaild','taken','failed','exec','wait_retire')
 
 debugSpecVersion = 15 # consider setting this to 2
 csr_depc = 0x7b1
@@ -91,7 +91,7 @@ class DMI:
         def seq():
             
             # Abstract Command exeuction management
-            if debugRegs.abstractCommandState == t_abstractCommandState.valid:
+            if debugRegs.abstractCommandState == t_abstractCommandState.regvaild:
                 debugRegs.dataRegs[0].next = debugRegs.abstractCommandResult
             elif debugRegs.abstractCommandState == t_abstractCommandState.taken:
                 debugRegs.abstractCommandNew.next = False
@@ -147,7 +147,7 @@ class DMI:
                                 debugRegs.transfer.next = dtm.dbi[17]
                                 debugRegs.write.next = dtm.dbi[16]
                                 debugRegs.regno.next = dtm.dbi[5:0]
-                                dpcAccess =  dtm.dbi[16:0]== (0x700 | CSRAdr.dpc)
+                                dpcAccess =  dtm.dbi[16:0] == (0x700 | CSRAdr.dpc)
                                 debugRegs.dpcAccess.next = dpcAccess
                               
                                 if dtm.dbi[16:5]==0x80 or dpcAccess:

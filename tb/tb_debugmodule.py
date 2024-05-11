@@ -58,9 +58,18 @@ def tb_halt_resume(dtm_bundle,clock):
 
 
         print("@{}ns Check r/w to progbuf0".format(now()))
-        yield api.dmi_write(0x20,0x00a00593) # li	a1,10
+        opcode=0x00a00593 # li	a1,10
+        #opcode=0x00b42223    # sw a1,4(s0)
+        yield api.dmi_write(0x20,opcode) 
         yield api.dmi_read(0x20)
-        assert api.result == 0x00a00593
+        assert api.result == opcode
+        print("@{}ns Exec progbuf".format(now()))
+        yield api.readGPR(regno=11,postexec=True) # Read Reg a1 (x11) and exec progbuf
+        save_a1=api.result+0
+        print("@{}ns progbuf exec completed".format(now()))
+        yield check_gpr(api,regno=11,check_value=10) # Progbuf comand should have set reg a1 t0 10
+        yield api.writeGPR(regno=11,value=save_a1) 
+        yield check_gpr(api,regno=11,check_value=save_a1) # Check that register is restored to orignal value
 
 
         yield api.resume()

@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.118 (w)1999-2023 BSI
-[*] Sun Apr 21 17:42:55 2024
+[*] Sat May 11 19:25:22 2024
 [*]
 [dumpfile] "/home/thomas/development/bonfire-core/waveforms/tb_core.vcd"
-[dumpfile_mtime] "Sun Apr 21 17:41:09 2024"
-[dumpfile_size] 2443913
+[dumpfile_mtime] "Sat May 11 19:23:49 2024"
+[dumpfile_size] 2423412
 [savefile] "/home/thomas/development/bonfire-core/waveforms/tb_core.gtkw"
-[timestart] 0
+[timestart] 4520
 [size] 1920 877
 [pos] -1 -1
-*-6.672629 149 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+*-5.672629 4595 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.BonfireCoreTop0_createInstance0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.
@@ -20,9 +20,9 @@
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.
 [sst_width] 443
-[signals_width] 542
+[signals_width] 406
 [sst_expanded] 1
-[sst_vpaned_height] 552
+[sst_vpaned_height] 553
 @28
 tb.ClkDriver0.clk
 @200
@@ -45,13 +45,26 @@ tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.self_jump_dest_i[
 tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.jump_taken
 @200
 -
+-Execute
+@28
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.busy
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_taken
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_ls_valid_o
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_ls_en_i
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.self_ls_busy_o
+@200
 -Decode
 @28
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.dm_halt_req
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.dm_kill
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.dm_resume_req
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.dm_halt
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.dm_exec
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_postexec
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.downstream_busy
+@29
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_stall_i
+@28
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_en_i
 @22
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_current_ip_i[31:0]
@@ -62,14 +75,17 @@ tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle1_connect
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_valid_o
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_kill_i
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_dpc_jump
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_transfer
 @22
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_dpc[29:0]
 tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_progbuf0[31:0]
 @28
 tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_abstractCommandState
-@29
-tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_abstractCommandNew
+@22
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.self_rs1_data_i[31:0]
+tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_abstractCommandResult[31:0]
 @28
+tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_abstractCommandNew
 tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_write
 tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_transfer
 tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_regno
