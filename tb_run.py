@@ -111,8 +111,8 @@ def core_integration_tests(hex,elf,sig,vcd,verbose,dtm):
                   verbose=verbose,
                   testDM=dtm)
     
-    
-    test(tb,trace=bool(vcd),filename=vcd,duration=(None if dtm=="dm_gdbserver" else 20000))
+    trace=vcd != ""
+    test(tb,trace=trace,filename=vcd,duration=(None if dtm=="dm_gdbserver" else 20000))
     
 
 def soc_test(hex,vcd,elf,sig):

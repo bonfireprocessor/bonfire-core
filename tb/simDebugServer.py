@@ -8,6 +8,7 @@ License: See LICENSE
 from __future__ import print_function
 
 from myhdl import *
+from dmi_api.debug_api import DebugAPISim
 
 @block
 def tcpserver(dtm_bundle,clock):
@@ -27,7 +28,9 @@ def tcpserver(dtm_bundle,clock):
      # Define host and port
         host = 'localhost'
         port = 5500
-        
+        readySignal=Signal(bool(0))
+        api=DebugAPISim(dtm_bundle=dtm_bundle,clock=clock)
+
         # Create a socket object
         server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         
@@ -69,7 +72,7 @@ def tcpserver(dtm_bundle,clock):
                         # Add the client socket to the dictionary
                         fd_to_socket[client_socket.fileno()] = client_socket
 
-                        client_handler = GDBClientHandler(clientsocket=client_socket)
+                        client_handler = GDBClientHandler(clientsocket=client_socket,debugAPI=api,readySignal=readySignal)
                     else:
                         print("Server already busy")
                     
@@ -77,10 +80,16 @@ def tcpserver(dtm_bundle,clock):
                 # If the event is on a client socket, receive and echo back data
                 elif event & select.POLLIN:
                     print("run_cmd")
+
                     data = client_socket.recv(1024)
-                    print(f"Received: {data.decode(encoding='ASCII')}")
-                    client_handler.run_cmd(data)
-                    print("run_cmd return")
+                    print(f"@{now()} Received: {data.decode(encoding='ASCII')}")
+                    readySignal.next=False
+                    yield clock.posedge
+                    yield client_handler.run_cmd(data)
+                    yield readySignal
+                    print(f"@{now()} run_cmd done")
+
+                
                     # client_socket = fd_to_socket[fd]
                     # data = client_socket.recv(1024).decode('utf-8')
                     # print(f"Received: {data} from {client_socket.getpeername()}")

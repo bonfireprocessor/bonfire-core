@@ -76,7 +76,7 @@
               
                "--dm=dm_gdbserver",
                 "--hex=code/endless.hex",
-                "--vcd=tb_core"
+                
             ],
             "console": "integratedTerminal"
         },

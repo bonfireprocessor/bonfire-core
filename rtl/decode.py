@@ -140,7 +140,7 @@ class DecodeBundle(PipelineControl):
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
             opcode.next=ins_word[7:2]
-            self.busy_o.next = downstream_busy or dm_halt or dm_halt_req
+            self.busy_o.next = downstream_busy or dm_halt
 
 
             # Operand output side
@@ -188,7 +188,7 @@ class DecodeBundle(PipelineControl):
 
                 if not downstream_busy:
 
-                    if debugRegisterBundle.haltreq:
+                    if debugRegisterBundle.haltreq and self.en_i: # Only Halt when there is a valid insturction on decoder input
                         debugRegisterBundle.haltreq.next=False
                         debugRegisterBundle.dpc.next=self.current_ip_i[conf.xlen:conf.ip_low]
                         dm_halt.next = True

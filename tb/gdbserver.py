@@ -34,10 +34,17 @@ def checksum(data):
 
 # Code a bit inspired from http://mspgcc.cvs.sourceforge.net/viewvc/mspgcc/msp430simu/gdbserver.py?revision=1.3&content-type=text%2Fplain
 class GDBClientHandler(object):
-    def __init__(self, clientsocket):
+    def __init__(self, clientsocket,debugAPI,readySignal):
         self.clientsocket = clientsocket
         self.netin = None
         self.netout = clientsocket.makefile('w')
+        self.debugAPI = debugAPI
+        self.readySignal=readySignal
+
+        logging.basicConfig(level = logging.WARN)
+        for logger in 'gdbclienthandler runner main'.split(' '):
+            logging.getLogger(logger).setLevel(level = logging.INFO)
+
         self.log = logging.getLogger('gdbclienthandler')
         self.last_pkt = None
 
@@ -49,11 +56,12 @@ class GDBClientHandler(object):
         self.log.info('closed')
 
     def run_cmd(self,bytes):
+       
         '''Some doc about the available commands here:
             * http://www.embecosm.com/appnotes/ean4/embecosm-howto-rsp-server-ean4-issue-2.html#id3081722
             * http://git.qemu.org/?p=qemu.git;a=blob_plain;f=gdbstub.c;h=2b7f22b2d2b8c70af89954294fa069ebf23a5c54;hb=HEAD +
              http://git.qemu.org/?p=qemu.git;a=blob_plain;f=target-i386/gdbstub.c;hb=HEAD'''
-        self.log.info('client loop ready...')
+      
         if self.receive(bytes) == 'Good':
             pkt = self.last_pkt
             self.log.debug('receive(%r)' % pkt)
@@ -70,6 +78,10 @@ class GDBClientHandler(object):
                     self.send('PacketSize=%x' % 4096)
                 elif subcmd.startswith('Attached'):
                     self.log.info('Received qAttached command')
+                    self.log.info('Trying to halt core')
+                    yield self.debugAPI.halt()
+                    self.log.info('Core Halted')
+                
                     # https://sourceware.org/gdb/onlinedocs/gdb/General-Query-Packets.html
                     self.send('0')
                 elif subcmd.startswith('C'):
@@ -85,11 +97,21 @@ class GDBClientHandler(object):
                 self.send('S%.2x' % GDB_SIGNAL_TRAP)
 
             def handle_g(subcmd):
+                from rtl.instructions import CSRAdr
+
                 if subcmd == '':
                     self.log.info('Register Read subcommand')
                     # 32 RISC-V Regigsters
-                    registers = []
+                    #registers = []
                     registers = [0 for i in range(33)] 
+                    registers[0]=0
+                    for i in range(1,32):
+                        yield self.debugAPI.readGPR(regno=i)
+                        registers[i]=self.debugAPI.result+0
+
+                    yield self.debugAPI.readReg(regno=0x700 | CSRAdr.dpc) 
+                    registers[32]= self.debugAPI.result+0
+
                     s = ''
                     for r in registers:
                         p = struct.pack('<I', r)
@@ -127,8 +149,8 @@ class GDBClientHandler(object):
                 self.log.info('%r command not handled' % pkt)
                 self.send('')
             else:
-                dispatchers[cmd](subcmd)
-
+                yield dispatchers[cmd](subcmd)
+        self.readySignal.next = True
         
 
     def receive(self,bytes):
