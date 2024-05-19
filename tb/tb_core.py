@@ -17,6 +17,7 @@ from tb.ClkDriver import *
 from tb.sim_ram import *
 from tb.sim_monitor import *
 from tb.tb_debugmodule import *
+from tb.simDebugServer import *
 
 import types
 from tb.disassemble import *
@@ -43,16 +44,21 @@ def create_ram(progfile,ramsize):
 
 
 @block
-def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=4096,verbose=False,testDM=False):
+def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=4096,verbose=False,testDM=""):
 
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
 
-    if testDM:
+
+    if testDM != "":
         print("Adding Debug Module to core")
         config.enableDebugModule=True
         dtm = AbstractDebugTransportBundle(config)
-        test_dtm=tb_halt_resume(dtm,clock)
+
+        if testDM =="dm_testbench":   
+            test_dtm=tb_halt_resume(dtm,clock)
+        elif testDM=="dm_gdbserver":
+            test_dtm=tcpserver(dtm,clock)
 
     else:
         dtm=None    

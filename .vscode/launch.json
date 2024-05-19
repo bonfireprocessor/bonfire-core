@@ -61,8 +61,21 @@
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
                 "-v",
-               "--dm",
+               "--dm=dm_testbench",
                 "--hex=code/loop.hex",
+                "--vcd=tb_core"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: run core with gdbserver",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tb_run.py",
+            "args": [
+              
+               "--dm=dm_gdbserver",
+                "--hex=code/endless.hex",
                 "--vcd=tb_core"
             ],
             "console": "integratedTerminal"

@@ -111,7 +111,8 @@ def core_integration_tests(hex,elf,sig,vcd,verbose,dtm):
                   verbose=verbose,
                   testDM=dtm)
     
-    test(tb,trace=bool(vcd),filename=vcd,duration=20000)
+    
+    test(tb,trace=bool(vcd),filename=vcd,duration=(None if dtm=="dm_gdbserver" else 20000))
     
 
 def soc_test(hex,vcd,elf,sig):
@@ -129,7 +130,7 @@ def new_soc_test(hex,vcd):
 
 try:
     opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,
-    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","ut_cache","new_soc","dm","vcd=","sig="])
+    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","ut_cache","new_soc","dm=","vcd=","sig="])
 except getopt.GetoptError as err:
     # print help information and exit:
     print(err)  # will print something like "option -a not recognized"
@@ -150,6 +151,7 @@ elfname=""
 hexname=""
 vcdname=""
 signame=""
+dm=""
 
 options=[]
 
@@ -162,7 +164,9 @@ for o,a in opts:
     elif o == "--vcd":
         vcdname=a
     elif o == "--sig":
-        signame=a    
+        signame=a
+    elif o == "--dm":
+        dm=a    
     else:
         options.append(o)
    
@@ -189,6 +193,6 @@ if hexname:
         core_integration_tests(hexname,elfname,
                                signame,vcdname,
                                "-v" in options,
-                               "--dm" in options)
+                               dm)
 
 
