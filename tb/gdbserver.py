@@ -193,22 +193,3 @@ class GDBClientHandler(object):
         self.netout.write(r)
         self.netout.flush()     
 
-def main():
-    logging.basicConfig(level = logging.WARN)
-    for logger in 'gdbclienthandler runner main'.split(' '):
-        logging.getLogger(logger).setLevel(level = logging.INFO)
-
-    log = logging.getLogger('main')
-    port = 31337
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(('', port))
-    log.info('listening on :%d' % port)
-    sock.listen(1)
-    conn, addr = sock.accept()
-    log.info('connected')
-
-    GDBClientHandler(conn).run()
-    return 1
-
-if __name__ == '__main__':
-    main()
