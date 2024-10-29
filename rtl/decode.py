@@ -126,11 +126,6 @@ class DecodeBundle(PipelineControl):
         @always_comb
         def comb():
 
-            if dm_halt:
-                ins_word.next = debugRegisterBundle.progbuf0  
-            else:
-                ins_word.next = self.word_i
-
             #rs 1 Mux is moved downwards to the conditional code for the Debug Module
             if not downstream_busy:
                 #self.rs1_adr_o.next = self.word_i[20:15]
@@ -138,13 +133,10 @@ class DecodeBundle(PipelineControl):
             else:
                 #self.rs1_adr_o.next = rs1_adr_o_reg
                 self.rs2_adr_o.next = rs2_adr_o_reg
-
-            opcode.next=ins_word[7:2]
+           
             self.busy_o.next = downstream_busy or dm_halt
 
-
             # Operand output side
-
             if rs2_immediate:
                 self.op2_o.next = rs2_imm_value
             else:
@@ -160,7 +152,15 @@ class DecodeBundle(PipelineControl):
             conf=debugRegisterBundle.config
 
             @always_comb
-            def rs1_mux():
+            def comb2():
+
+                if dm_halt:
+                    temp_instr = debugRegisterBundle.progbuf0
+                else:
+                    temp_instr = self.word_i
+
+                ins_word.next = temp_instr                
+                opcode.next = temp_instr[7:2]
 
                 dm_regwrite.next = False
                 dm_data0.next = debugRegisterBundle.dataRegs[0]
@@ -173,7 +173,7 @@ class DecodeBundle(PipelineControl):
                     self.rs1_adr_o.next = debugRegisterBundle.regno
 
                 elif not downstream_busy:
-                    self.rs1_adr_o.next = ins_word[20:15]
+                    self.rs1_adr_o.next = temp_instr[20:15]
                 else:
                     self.rs1_adr_o.next = rs1_adr_o_reg
 
@@ -236,7 +236,7 @@ class DecodeBundle(PipelineControl):
                          debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.wait_retire
                     elif debugRegisterBundle.abstractCommandState==t_abstractCommandState.wait_retire:
                          if not (self.valid_o or self.stall_i):
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none    
+                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
 
 
             @always_comb
@@ -253,12 +253,13 @@ class DecodeBundle(PipelineControl):
 
         else: # no Debug Module
             @always_comb
-            def rs1_mux():
+            def comb2():
 
-                #ins_word.next = self.word_i
+                ins_word.next = self.word_i
+                opcode.next = self.word_i[7:2]
 
                 if not downstream_busy:
-                    self.rs1_adr_o.next = ins_word[20:15]
+                    self.rs1_adr_o.next = self.word_i[20:15]
                 else:
                     self.rs1_adr_o.next = rs1_adr_o_reg
 
@@ -294,9 +295,6 @@ class DecodeBundle(PipelineControl):
                 self.csr_cmd.next = False
                 self.invalid_opcode.next = False
                 self.sys_cmd.next = False
-
-
-
 
             elif (self.kill_i or dm_kill or dm_halt or dm_halt_req) and not dm_exec:
                 self.valid_o.next = False
