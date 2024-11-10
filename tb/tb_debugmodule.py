@@ -21,9 +21,14 @@ def tb_halt_resume(dtm_bundle,clock):
     clock: clock
     """
 
+    def check_cmd_result(api,check_value,text=""):
+        assert api.cmd_result() == check_value,"{} result: {} expected: {}".format(text,hex(api.cmd_result()),hex(check_value))
+        print("@{}ns: Expected value: {}".format(now(),hex(api.cmd_result())))
+
+
     def check_gpr(api,regno,check_value):
         yield api.readGPR(regno=regno)
-        assert api.cmd_result() == check_value,"check_gpr failure result: {} expected: {}".format(api.cmd_result(),check_value)
+        assert api.cmd_result() == check_value,"check_gpr failure result: {} expected: {}".format(hex(api.cmd_result()),hex(check_value))
         print("@{}ns: Expected reg value: {}".format(now(),hex(api.cmd_result())))
 
 
@@ -40,22 +45,20 @@ def tb_halt_resume(dtm_bundle,clock):
         yield api.readReg(regno=0x700 | CSRAdr.dpc)
         print("Reg dpc: {}".format(hex(api.cmd_result())))    
 
+        gpr_save = [0]
+
+        # Read and save gprs
         for i in range(1,32):
             yield api.readGPR(regno=i)
+            gpr_save.append(api.cmd_result())
             print("Reg {}: {}".format(abi_name(i),hex(api.cmd_result())))
 
       
 
         print("Reg Write Test")
-        
-        yield api.readGPR(regno=1)
-        reg_save=api.cmd_result()+0
-        print("@{}ns Save backup of register x1: {}".format(now(),hex(reg_save)))
         yield api.writeGPR(regno=1,value=0xdeadbeef)
         yield check_gpr(api,regno=1,check_value=0xdeadbeef)
-        yield api.writeGPR(regno=1,value=reg_save)
-        yield check_gpr(api,regno=1,check_value=reg_save)
-
+        
 
         print("@{}ns Check r/w to progbuf0".format(now()))
         opcode=0x00a00593 # li	a1,10
@@ -64,20 +67,38 @@ def tb_halt_resume(dtm_bundle,clock):
         yield api.dmi_read(0x20)
         assert api.cmd_result() == opcode
         print("@{}ns Exec progbuf".format(now()))
-        yield api.readGPR(regno=11,postexec=True) # Read Reg a1 (x11) and exec progbuf
-        save_a1=api.cmd_result()+0
+        yield api.readReg(transfer=False,postexec=True) # exec progbuf
+      
         print("@{}ns progbuf exec completed".format(now()))
-        yield check_gpr(api,regno=11,check_value=10) # Progbuf comand should have set reg a1 t0 10
-        yield api.writeGPR(regno=11,value=save_a1) 
-        yield check_gpr(api,regno=11,check_value=save_a1) # Check that register is restored to orignal value
+        yield check_gpr(api,regno=11,check_value=10) # Progbuf comand should have set reg a1 to 10
+        
 
         print(f"@{now()}ns Memory read test")
-        # Save reg s0
-        yield api.readGPR(regno=8)
-        save_s0 = api.cmd_result()+0
         yield api.readMemory(memadr=0x4)
-        print(f"Memory address 4 contains: {hex(api.cmd_result()+0)}")
-        yield api.writeGPR(regno=8,value=save_s0)
+        print(f"Memory address 4 contains: {hex(api.cmd_result())}")
+        mem_save=api.cmd_result()
+
+        print(f"@{now()}ns Memory write test")
+        yield api.writeMemory(memadr=0x4,memvalue=0xdeadbeef)
+       
+        
+        print(f"@{now()}ns Memory write check")
+        yield api.readMemory(memadr=0x4)
+        print(f"Memory address 4 contains: {hex(api.cmd_result())}")
+        check_cmd_result(api,0xdeadbeef,"Mem address 4")
+
+        print(f"@{now()}ns Restoring old mem value")
+        yield api.writeMemory(memadr=0x4,memvalue=mem_save)
+        yield api.readMemory(memadr=0x4)
+        check_cmd_result(api,mem_save,"Restore mem value check")
+
+    
+        print(f"@{now()}ns Restoring all gprs")
+        for i in range(1,32):
+
+            yield api.writeGPR(regno=i,value=gpr_save[i])
+            yield check_gpr(api,regno=i,check_value=gpr_save[i])
+            print("Reg {}: {}".format(abi_name(i),hex(api.cmd_result())))
 
 
         yield api.resume()

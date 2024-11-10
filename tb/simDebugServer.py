@@ -27,7 +27,7 @@ def tcpserver(dtm_bundle,clock):
     def server():
      # Define host and port
         host = 'localhost'
-        port = 5500
+        port = 5501
         readySignal=Signal(bool(0))
         api=DebugAPISim(dtm_bundle=dtm_bundle,clock=clock)
 

@@ -144,13 +144,14 @@ class DMI:
                                 debugRegs.aarsize.next = dtm.dbi[23:20]
                                 debugRegs.aarpostincrement.next = dtm.dbi[19]
                                 debugRegs.postexec.next = dtm.dbi[18]
-                                debugRegs.transfer.next = dtm.dbi[17]
+                                transfer = dtm.dbi[17]
+                                debugRegs.transfer.next = transfer
                                 debugRegs.write.next = dtm.dbi[16]
                                 debugRegs.regno.next = dtm.dbi[5:0]
                                 dpcAccess =  dtm.dbi[16:0] == (0x700 | CSRAdr.dpc)
                                 debugRegs.dpcAccess.next = dpcAccess
                               
-                                if dtm.dbi[16:5]==0x80 or dpcAccess:
+                                if dtm.dbi[16:5]==0x80 or dpcAccess or not transfer: # When Transfer is not set register number do not care
                                     debugRegs.abstractCommandNew.next = True
                                 else:
                                     debugRegs.cmderr.next = 2 # not supported

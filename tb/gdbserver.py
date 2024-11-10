@@ -62,7 +62,8 @@ class GDBClientHandler(object):
             * http://git.qemu.org/?p=qemu.git;a=blob_plain;f=gdbstub.c;h=2b7f22b2d2b8c70af89954294fa069ebf23a5c54;hb=HEAD +
              http://git.qemu.org/?p=qemu.git;a=blob_plain;f=target-i386/gdbstub.c;hb=HEAD'''
       
-        if self.receive(bytes) == 'Good':
+        result = self.receive(bytes)
+        if result == 'Good':
             pkt = self.last_pkt
             self.log.debug('receive(%r)' % pkt)
             # Each packet should be acknowledged with a single character. '+' to indicate satisfactory receipt
@@ -107,10 +108,10 @@ class GDBClientHandler(object):
                     registers[0]=0
                     for i in range(1,32):
                         yield self.debugAPI.readGPR(regno=i)
-                        registers[i]=self.debugAPI.result+0
+                        registers[i]=self.debugAPI.cmd_result()
 
                     yield self.debugAPI.readReg(regno=0x700 | CSRAdr.dpc) 
-                    registers[32]= self.debugAPI.result+0
+                    registers[32]= self.debugAPI.cmd_result()
 
                     s = ''
                     for r in registers:
@@ -125,12 +126,28 @@ class GDBClientHandler(object):
                 addr = int(addr, 16)
                 size = int(size, 16)
                 self.log.info('Received a "read memory" command (@%#.8x : %d bytes)' % (addr, size))
-                #self.send(ReadMemory(size, addr).encode('hex'))
+                s=""
+                for i in range(addr,addr+size):
+                    yield self.debugAPI.readMemory(memadr=i,readbyte=True)
+                    s+=("{:02X}".format(self.debugAPI.cmd_result()))
+
+                self.send(s)    
+
 
             def handle_s(subcmd):
                 self.log.info('Received a "single step" command')
                 #StepInto()
                 self.send('T%.2x' % GDB_SIGNAL_TRAP)
+
+            def handle_c(submd):
+                from rtl.instructions import CSRAdr
+                self.log.info("Received continue command")
+                if subcmd:
+                    addr=int(subcmd,16)
+                    self.log.info(' continue at (@%#.8x )' % (addr))
+                    yield self.debugAPI.writeReg(regno=(0x700 | CSRAdr.dpc),value=addr)
+                yield self.debugAPI.resume()
+                self.log.info('Core resumed')
 
             dispatchers = {
                 'q' : handle_q,
@@ -138,7 +155,8 @@ class GDBClientHandler(object):
                 '?' : handle_qmark,
                 'g' : handle_g,
                 'm' : handle_m,
-                's' : handle_s
+                's' : handle_s,
+                'c' : handle_c
             }
 
             cmd, subcmd = pkt[0], pkt[1 :]
@@ -150,6 +168,12 @@ class GDBClientHandler(object):
                 self.send('')
             else:
                 yield dispatchers[cmd](subcmd)
+        elif result == "Break":
+            self.log.info("Break received, halting core")
+            yield self.debugAPI.halt()
+            self.log.info("Core halted")
+            self.send('T%.2x' % GDB_SIGNAL_TRAP)
+
         self.readySignal.next = True
         
 
@@ -164,7 +188,7 @@ class GDBClientHandler(object):
         while True:
             c = self.netin.read(1)
             if c == b'\x03':
-                return 'Error: CTRL+C'
+                return 'Break'
             
             if len(c) != 1:
                 return 'Error: EOF'

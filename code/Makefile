@@ -21,7 +21,7 @@ HEXDUMP ?= hexdump
 LINKDEF?=lxp.ld
 
 %.elf : %.S
-	$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI)  -nostartfiles -T$(LINKDEF) -o $@ $<
+	$(TARGET_CC) -g -march=$(ARCH) -mabi=$(ABI)  -nostartfiles -T$(LINKDEF) -o $@ $<
 
 
 %.hex : %.elf
@@ -34,7 +34,7 @@ LINKDEF?=lxp.ld
 basic_alu.hex : basic_alu.S
 
 
-all: basic_alu.hex simple_loop.hex loop.hex loadsave.hex branch.hex wb_test.hex csr.hex trap.hex endless.hex progbuf.hex
+all: basic_alu.hex simple_loop.hex loop.hex loadsave.hex branch.hex wb_test.hex csr.hex trap.hex endless.hex progbuf.hex endless.elf
     
 	
 info:	

@@ -61,7 +61,7 @@ class DebugAPI:
                 yield self.check_halted()
 
 
-    def readReg(self,HartId=0,regno=0,postexec=False,transfer=True):
+    def readReg(self,HartId=0,regno=0,postexec=False,transfer=True,AssertCmdErr=True):
 
             c=modbv(0)[32:]
             c[23:20]=2 # aarsize 32Bit
@@ -77,7 +77,8 @@ class DebugAPI:
                 yield self.dmi_read(0x16) # abstracts
 
             self.cmderr=self.result[11:8]
-            #print("cmderr: {}".format(self.cmderr))
+            if AssertCmdErr:
+                assert self.cmderr==0,"readReg command failed"
             if self.cmderr==0:
                 yield self.dmi_read(0x4) # read Data reg 0
         # Register value should now be self.result
@@ -86,7 +87,7 @@ class DebugAPI:
         yield self.readReg(HartId=HartId,regno=regno+0x1000,postexec=postexec,transfer=transfer)
 
 
-    def writeReg(self,HartId=0,regno=0,value=0,postexec=False,transfer=True):
+    def writeReg(self,HartId=0,regno=0,value=0,postexec=False,transfer=True,AssertCmdErr=True):
 
         yield self.dmi_write(0x4,value) # data0 reg
 
@@ -105,8 +106,9 @@ class DebugAPI:
             yield self.dmi_read(0x16) # abstracts
 
         self.cmderr=self.result[11:8]
-        assert self.cmderr==0
-        # TODO: Better error handling
+        if AssertCmdErr:
+            assert self.cmderr==0,"readReg command failed"
+      
 
 
     def writeGPR(self,HartId=0,regno=1,value=0,postexec=False,transfer=True):
@@ -121,12 +123,23 @@ class DebugAPI:
          self.dmi_write(0x10,c)
 
 
-    def readMemory(self,HartId=0,memadr=0):
-        # See RISC-V Debug Spec B.27.2, Read Memory using Progam Buffer
-        yield self.dmi_write(0x20,0x00042403)  # lw	s0,0(s0)  
+    def readMemory(self,HartId=0,memadr=0,readbyte=False):
+        # See RISC-V Debug Spec B.2.7.2, Read Memory using Progam Buffer
+        yield self.dmi_write(0x20,( 0x00044403 if readbyte else 0x00042403))  #   lw s0,0(s0) or lbu s0,0(s0) 
         yield self.writeGPR(regno=8,value=memadr,postexec=True,transfer=True)
         yield self.readGPR(regno=8,transfer=True)
-        
+
+    
+
+
+    
+    def writeMemory(self,HartId=0,memadr=0,memvalue=0):
+        # See RISC-V Debug Spec B.2.8.2, Read Memory using Progam Buffer
+        yield self.dmi_write(0x20,0x00942023)  # sw	s1,0(s0)  
+        yield self.writeGPR(regno=8,value=memadr,transfer=True)
+        yield self.writeGPR(regno=9,value=memvalue,postexec=True,transfer=True)
+
+    
 
 
 class DebugAPISim(DebugAPI):
@@ -139,7 +152,7 @@ class DebugAPISim(DebugAPI):
 
 
     def cmd_result(self):
-        return self.result    
+        return self.result+0    
 
     def yield_clock(self):
         yield self.clock.posedge

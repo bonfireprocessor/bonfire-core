@@ -1,15 +1,15 @@
 [*]
 [*] GTKWave Analyzer v3.3.118 (w)1999-2023 BSI
-[*] Sat May 11 19:25:22 2024
+[*] Sun Nov 10 17:21:45 2024
 [*]
 [dumpfile] "/home/thomas/development/bonfire-core/waveforms/tb_core.vcd"
-[dumpfile_mtime] "Sat May 11 19:23:49 2024"
-[dumpfile_size] 2423412
+[dumpfile_mtime] "Sun Nov 10 17:18:50 2024"
+[dumpfile_size] 2505596
 [savefile] "/home/thomas/development/bonfire-core/waveforms/tb_core.gtkw"
-[timestart] 4520
+[timestart] 4246
 [size] 1920 877
-[pos] -1 -1
-*-5.672629 4595 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[pos] -200 -75
+*-8.672628 4595 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
 [treeopen] tb.
 [treeopen] tb.BonfireCoreTop0_createInstance0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.
@@ -19,10 +19,11 @@
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.ExecuteBundle0_SimpleExecute0.CSRUnitBundle0_CSRUnit0.
 [treeopen] tb.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.
+[treeopen] tb.sim_ram0_ram_interface0.
 [sst_width] 443
 [signals_width] 406
 [sst_expanded] 1
-[sst_vpaned_height] 553
+[sst_vpaned_height] 551
 @28
 tb.ClkDriver0.clk
 @200
@@ -131,5 +132,6 @@ tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_adr
 @22
 tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_dbi[31:0]
 tb.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_dbo[31:0]
+tb.sim_ram0_ram_interface0.ram.ram(1)[31:0]
 [pattern_trace] 1
 [pattern_trace] 0
