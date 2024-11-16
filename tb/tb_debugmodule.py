@@ -2,6 +2,8 @@
 Bonfire Core Simulation Debug Server
 (c) 2019,2020 The Bonfire Project
 License: See LICENSE
+
+Remark: For Test to be sucessfull Test code debug.hex must be loaded
 """
 
 
@@ -54,6 +56,7 @@ def tb_halt_resume(dtm_bundle,clock):
             print("Reg {}: {}".format(abi_name(i),hex(api.cmd_result())))
 
       
+        assert(gpr_save[10]==0) # a0 should be 0 
 
         print("Reg Write Test")
         yield api.writeGPR(regno=1,value=0xdeadbeef)
@@ -61,8 +64,9 @@ def tb_halt_resume(dtm_bundle,clock):
         
 
         print("@{}ns Check r/w to progbuf0".format(now()))
-        opcode=0x00a00593 # li	a1,10
-        #opcode=0x00b42223    # sw a1,4(s0)
+     
+        opcode=0x00100513 # li	a0,1
+     
         yield api.dmi_write(0x20,opcode) 
         yield api.dmi_read(0x20)
         assert api.cmd_result() == opcode
@@ -70,7 +74,7 @@ def tb_halt_resume(dtm_bundle,clock):
         yield api.readReg(transfer=False,postexec=True) # exec progbuf
       
         print("@{}ns progbuf exec completed".format(now()))
-        yield check_gpr(api,regno=11,check_value=10) # Progbuf comand should have set reg a1 to 10
+        yield check_gpr(api,regno=10,check_value=1) # Progbuf comand should have set reg a1 to 1
         
 
         print(f"@{now()}ns Memory read test")
@@ -92,7 +96,7 @@ def tb_halt_resume(dtm_bundle,clock):
         yield api.readMemory(memadr=0x4)
         check_cmd_result(api,mem_save,"Restore mem value check")
 
-    
+        gpr_save[10] = 1 # Patch a1 to 1 
         print(f"@{now()}ns Restoring all gprs")
         for i in range(1,32):
 
@@ -100,6 +104,7 @@ def tb_halt_resume(dtm_bundle,clock):
             yield check_gpr(api,regno=i,check_value=gpr_save[i])
             print("Reg {}: {}".format(abi_name(i),hex(api.cmd_result())))
 
+        yield api.writeReg(regno=0x700 | CSRAdr.dpc,value=0x10) # Code should continue at address 0x10
 
         yield api.resume()
         print("@{}ns core resumed".format(now()))

@@ -25,9 +25,10 @@ def tcpserver(dtm_bundle,clock):
 
     @instance
     def server():
+        from random import randrange
      # Define host and port
         host = 'localhost'
-        port = 5501
+        port = 5500+randrange(0,51)
         readySignal=Signal(bool(0))
         api=DebugAPISim(dtm_bundle=dtm_bundle,clock=clock)
 

@@ -4,8 +4,12 @@ _start:
 
 // Endless Loop waiting forever
 // intended for use with the gdbserver
-li a0,0
-li a1,0xdeadbeef // Just for testing the debugger interface
+la t0, counter
+li t1,0xdeadbeef // Just for testing the debugger interface
 loop:
-add a0,a0,1
+lw t2, (t0)
+add t2,t2,1
+sw t2, (t0)
 j loop
+
+counter: .long 0

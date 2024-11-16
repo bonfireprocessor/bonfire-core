@@ -39,7 +39,7 @@ class BonfireCoreTop:
         debugTransport : Debug Transport module interface
         """
 
-        i_fetch = self.fetch.SimpleFetchUnit(self.backend_fetch_input,ibus,clock,reset)
+        i_fetch = self.fetch.SimpleFetchUnit(self.backend_fetch_input,ibus,clock,reset,debugRegisterBundle=self.debugRegs)
         i_backend = self.backend.backend(
                     fetchBundle=self.backend_fetch_input,
                     frontEnd=self.fetch,

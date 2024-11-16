@@ -296,7 +296,7 @@ class DecodeBundle(PipelineControl):
                 self.invalid_opcode.next = False
                 self.sys_cmd.next = False
 
-            elif (self.kill_i or dm_kill or dm_halt or dm_halt_req) and not dm_exec:
+            elif (self.kill_i or dm_kill or dm_halt) and not dm_exec:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
 

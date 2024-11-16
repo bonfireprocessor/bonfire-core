@@ -61,8 +61,20 @@
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
                 "-v",
-               "--dm=dm_testbench",
                 "--hex=code/loop.hex",
+                "--vcd=tb_core"
+            ],
+            "console": "integratedTerminal"
+        },
+        {
+            "name": "Python: test debug module",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/tb_run.py",
+            "args": [
+                "-v",
+               "--dm=dm_testbench",
+                "--hex=code/debug.hex",
                 "--vcd=tb_core"
             ],
             "console": "integratedTerminal"
@@ -76,6 +88,7 @@
               
                "--dm=dm_gdbserver",
                 "--hex=code/endless.hex",
+                "--vcd=tb_core_endless"
                 
             ],
             "console": "integratedTerminal"
