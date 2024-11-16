@@ -182,20 +182,22 @@ class DecodeBundle(PipelineControl):
             @always(clock.posedge) # Debug Unit is indepedeant of processsor reset
             def debug_module_seq():
 
+                debugRegisterBundle.reqAck.next = False # Ack will always be deasserted after one clock 
 
                 if debugRegisterBundle.dpc_jump:
                     debugRegisterBundle.dpc_jump.next=False
 
                 if not downstream_busy:
 
-                    if debugRegisterBundle.haltreq and self.en_i: # Only Halt when there is a valid insturction on decoder input
-                        debugRegisterBundle.haltreq.next=False
-                        debugRegisterBundle.dpc.next=self.current_ip_i[conf.xlen:conf.ip_low]
-                        dm_halt.next = True
-                    elif debugRegisterBundle.resumereq:
-                        debugRegisterBundle.resumereq.next=False
-                        dm_halt.next = False
-                        debugRegisterBundle.dpc_jump.next=True
+                    if not debugRegisterBundle.reqAck:
+                        if debugRegisterBundle.haltreq and self.en_i: # Only Halt when there is a valid insturction on decoder input
+                            debugRegisterBundle.reqAck.next = True 
+                            debugRegisterBundle.dpc.next=self.current_ip_i[conf.xlen:conf.ip_low]
+                            dm_halt.next = True
+                        elif  debugRegisterBundle.resumereq:
+                            debugRegisterBundle.reqAck.next = True 
+                            dm_halt.next = False
+                            debugRegisterBundle.dpc_jump.next=True
 
                 if dm_halt:
                     ## Handle Abstract Command

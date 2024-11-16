@@ -24,11 +24,13 @@ class DebugRegisterBundle:
 
         self.hartState=Signal(t_debugHartState.running)
 
+        # Signals from DMI to debug core, written by DMI
         self.haltreq=Signal(bool(0))
         self.resumereq=Signal(bool(0))
         self.hartReset=Signal(bool(0))
+        self.abstractCommandNew = Signal(bool(0))
 
-        #Abstract Command access register fields
+        #Abstract Command access register fields written by DMI
         self.commandType = Signal(t_abstractCommandType.access_reg)
         self.aarsize = Signal(modbv(0))[2:]
         self.aarpostincrement = Signal(bool(0))
@@ -39,18 +41,25 @@ class DebugRegisterBundle:
         self.cmderr = Signal(modbv(0)[3:])
         self.dpcAccess = Signal(bool(0))
 
-        # Abtstract Command exeuction
-        self.abstractCommandNew = Signal(bool(0))
+        #written by DMI
+        self.dataRegs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
+        self.progbuf0 = Signal(modbv(0)[xlen:])
+
+
+
+        # Abtstract Command exeuction state, written by debug core
         self.abstractCommandState = Signal(t_abstractCommandState.none)
         self.abstractCommandResult =  Signal(modbv(0)[xlen:])
+
+        # Ack Signal for halt or resume request, written by debug core 
+        self.reqAck=Signal(bool(0)) 
 
 
         assert config.numdata<=16, "maximum allowed debug Data Registers are 16"
 
-        self.dataRegs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
-        self.progbuf0 = Signal(modbv(0)[xlen:])
-
-        #Debug CSRs
+    
+    
+        #Debug CSRs, written by debug core
         self.dpc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
         #helpers
         self.dpc_jump=Signal(bool(0))
@@ -90,6 +99,11 @@ class DMI:
         @always(clock.posedge)
         def seq():
             
+            if debugRegs.reqAck:
+                debugRegs.haltreq.next = False
+                debugRegs.resumereq.next = False
+
+
             # Abstract Command exeuction management
             if debugRegs.abstractCommandState == t_abstractCommandState.regvaild:
                 debugRegs.dataRegs[0].next = debugRegs.abstractCommandResult
