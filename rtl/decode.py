@@ -166,7 +166,7 @@ class DecodeBundle(PipelineControl):
                 dm_data0.next = debugRegisterBundle.dataRegs[0]
                 dm_regno.next = debugRegisterBundle.regno
 
-                if debugRegisterBundle.abstractCommandNew \
+                if debugRegisterBundle.abstractCommandNew  and debugRegisterBundle.abstractCommandState==t_abstractCommandState.none \
                    and debugRegisterBundle.commandType==t_abstractCommandType.access_reg:
 
                     dm_regwrite.next = debugRegisterBundle.write and not debugRegisterBundle.dpcAccess
@@ -190,7 +190,7 @@ class DecodeBundle(PipelineControl):
                 if not downstream_busy:
 
                     if not debugRegisterBundle.reqAck:
-                        if debugRegisterBundle.haltreq and self.en_i: # Only Halt when there is a valid insturction on decoder input
+                        if debugRegisterBundle.haltreq and self.en_i: # Only Halt when there is a valid instruction on decoder input
                             debugRegisterBundle.reqAck.next = True 
                             debugRegisterBundle.dpc.next=self.current_ip_i[conf.xlen:conf.ip_low]
                             dm_halt.next = True

@@ -56,7 +56,7 @@ def tb_halt_resume(dtm_bundle,clock):
             print("Reg {}: {}".format(abi_name(i),hex(api.cmd_result())))
 
       
-        assert(gpr_save[10]==0) # a0 should be 0 
+        assert(gpr_save[10]==0xffffffff) # a0 should be -1
 
         print("Reg Write Test")
         yield api.writeGPR(regno=1,value=0xdeadbeef)

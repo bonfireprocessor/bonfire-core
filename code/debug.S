@@ -6,7 +6,7 @@
 _start:
 
 li a1,0xdeadbeef // signature
-li a0,0 // Debugger test will set this to 1 
+li a0,-1 // Debugger test will set this to 1 
 endless:
 j endless // Debugger test will bring us out of here 
 
