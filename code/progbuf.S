@@ -14,3 +14,5 @@ sw s1,0(s0)
 
 // Read memory byte
 lbu s0,0(s0)
+// Write memory byte
+sb s1,0(s0)

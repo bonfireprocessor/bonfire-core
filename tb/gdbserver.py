@@ -133,6 +133,40 @@ class GDBClientHandler(object):
 
                 self.send(s)    
 
+            def handle_M(subcmd):
+                # Write Memory
+                print(subcmd)
+                addr, tail = subcmd.split(',')
+                size , hexstring = tail.split(':')
+                addr = int(addr, 16)
+                size = int(size, 16)
+                if size*2 != len(hexstring):
+                    self.log.error('Memory Write Command, size mismatch')
+                    self.send("E01")
+                else:    
+                    for i in range(0,len(hexstring),2):
+                        byte_value = int(hexstring[i:i+2],16)
+                        yield self.debugAPI.writeMemory(memadr=addr,memvalue=byte_value,writeByte=True)
+                        addr += 1
+                self.send("OK")        
+
+            def handle_P(subcmd):
+                from rtl.instructions import CSRAdr
+                # Write Register
+                regnum,value=subcmd.split('=')
+                regnum = int(regnum,16)
+                value = int(value,16)
+                if regnum in range(0,32):
+                    regnum +=0x1000
+                elif regnum == 32:
+                    regnum = (0x700 | CSRAdr.dpc)
+                else:
+                    self.log.error('invalid register number %d in P command' % (regnum))
+                    self.send("E01")
+                    return
+
+                yield self.debugAPI.writeReg(regno=regnum,value=value)
+                self.send("OK")   
 
             def handle_s(subcmd):
                 self.log.info('Received a "single step" command')
@@ -156,7 +190,9 @@ class GDBClientHandler(object):
                 'g' : handle_g,
                 'm' : handle_m,
                 's' : handle_s,
-                'c' : handle_c
+                'c' : handle_c,
+                'M' : handle_M,
+                'P' : handle_P
             }
 
             cmd, subcmd = pkt[0], pkt[1 :]

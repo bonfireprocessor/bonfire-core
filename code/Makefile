@@ -34,7 +34,8 @@ LINKDEF?=lxp.ld
 basic_alu.hex : basic_alu.S
 
 
-all: basic_alu.hex simple_loop.hex loop.hex loadsave.hex branch.hex wb_test.hex csr.hex trap.hex endless.hex progbuf.hex endless.elf debug.hex
+all: basic_alu.hex simple_loop.hex loop.hex loadsave.hex branch.hex wb_test.hex csr.hex trap.hex endless.hex progbuf.hex  debug.hex \
+endless.elf loop.elf branch.elf trap.elf
     
 	
 info:	

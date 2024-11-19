@@ -125,7 +125,7 @@ class DebugAPI:
 
     def readMemory(self,HartId=0,memadr=0,readbyte=False):
         # See RISC-V Debug Spec B.2.7.2, Read Memory using Progam Buffer
-        yield self.dmi_write(0x20,( 0x00044403 if readbyte else 0x00042403))  #   lw s0,0(s0) or lbu s0,0(s0) 
+        yield self.dmi_write(0x20,( 0x00044403 if readbyte else 0x00042403))  #  lw s0,0(s0) or lbu s0,0(s0) 
         yield self.writeGPR(regno=8,value=memadr,postexec=True,transfer=True)
         yield self.readGPR(regno=8,transfer=True)
 
@@ -133,9 +133,9 @@ class DebugAPI:
 
 
     
-    def writeMemory(self,HartId=0,memadr=0,memvalue=0):
+    def writeMemory(self,HartId=0,memadr=0,memvalue=0,writeByte=False):
         # See RISC-V Debug Spec B.2.8.2, Read Memory using Progam Buffer
-        yield self.dmi_write(0x20,0x00942023)  # sw	s1,0(s0)  
+        yield self.dmi_write(0x20,0x00940023 if writeByte else  0x00942023)  # sw s1,0(s0) or sb s1,0(s0)
         yield self.writeGPR(regno=8,value=memadr,transfer=True)
         yield self.writeGPR(regno=9,value=memvalue,postexec=True,transfer=True)
 
