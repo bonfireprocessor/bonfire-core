@@ -42,7 +42,7 @@ class SimpleBackend:
         self.reg_portB = RFReadPort(xlen=config.xlen)
         self.reg_writePort = RFWritePort(xlen=config.xlen)
 
-        self.decode = DecodeBundle(xlen=config.xlen)
+        self.decode = DecodeBundle(config)
         self.execute =  ExecuteBundle(config)
 
         self.config=config

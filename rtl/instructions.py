@@ -118,6 +118,7 @@ class CSRAdr:
     tval = 0x43
     ip = 0x44
     dpc = 0xb1
+    dcsr = 0xb0
 
 
 # Local Variables:

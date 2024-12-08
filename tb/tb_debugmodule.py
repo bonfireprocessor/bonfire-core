@@ -34,6 +34,19 @@ def tb_halt_resume(dtm_bundle,clock):
         print("@{}ns: Expected reg value: {}".format(now(),hex(api.cmd_result())))
 
 
+    def set_and_check_dcsr(api,breakm=False,step=False):
+        dcsr = 0x700 | CSRAdr.dcsr
+        v = modbv(0)[32:]
+
+        v[15] = breakm
+        v[2] = step
+        yield api.writeReg(regno=dcsr,value=v)
+        #Verify
+        yield api.readReg(regno=dcsr)
+        print(f"dcsr: {hex(api.cmd_result())}")
+        assert api.result[15]==breakm and api.result[2]==step,"dcsr write failed"
+
+
     @instance
     def test():
         api=DebugAPISim(dtm_bundle=dtm_bundle,clock=clock)
@@ -41,6 +54,13 @@ def tb_halt_resume(dtm_bundle,clock):
         for i in range(0,5):
             yield clock.posedge
 
+        yield api.check_halted()
+        assert not api.halted, "Core not in running state"
+        yield api.halt()
+        print("@{}ns core halted".format(now()))
+        yield api.resume()
+        print("@{}ns core resumed".format(now()))
+        assert not api.halted, "Core not in running state"
         yield api.halt()
         print("@{}ns core halted".format(now()))
 
@@ -96,6 +116,18 @@ def tb_halt_resume(dtm_bundle,clock):
         yield api.readMemory(memadr=0x4)
         check_cmd_result(api,mem_save,"Restore mem value check")
 
+        #  Test dcsr
+        print(f"@{now()}ns Reading dcsr")
+        dcsr = 0x700 | CSRAdr.dcsr
+        yield api.readReg(regno=dcsr )
+        dcsr_default = api.cmd_result()
+        print(f"dcsr: {hex(dcsr_default)}")
+
+        print(f"@{now()}ns: Set Breakm and Step")
+        yield set_and_check_dcsr(api,breakm=True,step=True)
+
+
+
         gpr_save[10] = 1 # Patch a1 to 1 
         print(f"@{now()}ns Restoring all gprs")
         for i in range(1,32):
@@ -104,7 +136,11 @@ def tb_halt_resume(dtm_bundle,clock):
             yield check_gpr(api,regno=i,check_value=gpr_save[i])
             print("Reg {}: {}".format(abi_name(i),hex(api.cmd_result())))
 
+        print("Patching dpc to leave endless loop")
         yield api.writeReg(regno=0x700 | CSRAdr.dpc,value=0x10) # Code should continue at address 0x10
+
+        #set ebreakm
+        yield set_and_check_dcsr(api,breakm=True)
 
         yield api.resume()
         print("@{}ns core resumed".format(now()))

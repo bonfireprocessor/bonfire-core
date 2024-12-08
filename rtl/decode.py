@@ -39,7 +39,17 @@ def get_SB_immediate(instr):
 
 
 class DecodeBundle(PipelineControl):
-    def __init__(self,xlen=32):
+    def __init__(self,config=None):
+
+        if not config:
+            print("Warning DecodeBundle config parameter not set, using defaults")
+            from rtl.config import BonfireConfig
+            self.config = BonfireConfig()
+        else:
+            self.config = config
+
+        xlen = self.config.xlen
+
         self.word_i = Signal(modbv(0)[xlen:]) # actual instruction to decode
         self.current_ip_i = Signal(modbv(0)[xlen:])
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
@@ -80,6 +90,10 @@ class DecodeBundle(PipelineControl):
         self.csr_cmd = Signal(bool(0))
         self.sys_cmd = Signal(bool(0))
         self.invalid_opcode = Signal(bool(0))
+
+        if self.config.enableDebugModule:
+            from rtl.debugModule import DebugCSRBundle
+            self.debugCSRBundle = DebugCSRBundle(self.config)
 
 
         # Debug
@@ -133,7 +147,7 @@ class DecodeBundle(PipelineControl):
             else:
                 #self.rs1_adr_o.next = rs1_adr_o_reg
                 self.rs2_adr_o.next = rs2_adr_o_reg
-           
+
             self.busy_o.next = downstream_busy or dm_halt
 
             # Operand output side
@@ -148,8 +162,13 @@ class DecodeBundle(PipelineControl):
                self.op1_o.next = self.rs1_data_i
 
 
-        if  debugRegisterBundle:
-            conf=debugRegisterBundle.config
+        if  self.config.enableDebugModule:
+            conf=self.config
+            assert DebugRegisterBundle,"No DebugRegisterBundle passed but enableDebugModule set"
+
+            dcsr_map = Signal(modbv(0)[32:])
+
+            dcsr_map_i = self.debugCSRBundle.dcsr_map(dcsr_map)
 
             @always_comb
             def comb2():
@@ -159,7 +178,7 @@ class DecodeBundle(PipelineControl):
                 else:
                     temp_instr = self.word_i
 
-                ins_word.next = temp_instr                
+                ins_word.next = temp_instr
                 opcode.next = temp_instr[7:2]
 
                 dm_regwrite.next = False
@@ -169,7 +188,7 @@ class DecodeBundle(PipelineControl):
                 if debugRegisterBundle.abstractCommandNew  and debugRegisterBundle.abstractCommandState==t_abstractCommandState.none \
                    and debugRegisterBundle.commandType==t_abstractCommandType.access_reg:
 
-                    dm_regwrite.next = debugRegisterBundle.write and not debugRegisterBundle.dpcAccess
+                    dm_regwrite.next = debugRegisterBundle.write and not debugRegisterBundle.csrAccess
                     self.rs1_adr_o.next = debugRegisterBundle.regno
 
                 elif not downstream_busy:
@@ -182,7 +201,7 @@ class DecodeBundle(PipelineControl):
             @always(clock.posedge) # Debug Unit is indepedeant of processsor reset
             def debug_module_seq():
 
-                debugRegisterBundle.reqAck.next = False # Ack will always be deasserted after one clock 
+                debugRegisterBundle.reqAck.next = False # Ack will always be deasserted after one clock
 
                 if debugRegisterBundle.dpc_jump:
                     debugRegisterBundle.dpc_jump.next=False
@@ -191,11 +210,11 @@ class DecodeBundle(PipelineControl):
 
                     if not debugRegisterBundle.reqAck:
                         if debugRegisterBundle.haltreq and self.en_i: # Only Halt when there is a valid instruction on decoder input
-                            debugRegisterBundle.reqAck.next = True 
+                            debugRegisterBundle.reqAck.next = True
                             debugRegisterBundle.dpc.next=self.current_ip_i[conf.xlen:conf.ip_low]
                             dm_halt.next = True
                         elif  debugRegisterBundle.resumereq:
-                            debugRegisterBundle.reqAck.next = True 
+                            debugRegisterBundle.reqAck.next = True
                             dm_halt.next = False
                             debugRegisterBundle.dpc_jump.next=True
 
@@ -216,12 +235,22 @@ class DecodeBundle(PipelineControl):
                                 else:
                                     debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
 
-                                if debugRegisterBundle.dpcAccess:
-                                    debugRegisterBundle.dpc.next = debugRegisterBundle.dataRegs[0][conf.xlen:conf.ip_low]
+                                if debugRegisterBundle.csrAccess:
+                                    dr0 =  debugRegisterBundle.dataRegs[0]
+                                    if debugRegisterBundle.regno[0]: #0x7b1 dpc
+                                        debugRegisterBundle.dpc.next = dr0[conf.xlen:conf.ip_low]
+                                    else:
+                                        self.debugCSRBundle.ebreakm.next = dr0[15]
+                                        self.debugCSRBundle.step.next = dr0[2]
+
                             else: # Reg read
                                 debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvaild
-                                if debugRegisterBundle.dpcAccess:
-                                    debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
+                                if debugRegisterBundle.csrAccess:
+                                    if debugRegisterBundle.regno[0]: #0x7b1 dpc
+                                        debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
+                                    else: # 0x7b0 dcsr
+                                        debugRegisterBundle.abstractCommandResult.next = dcsr_map
+
                                 else:
                                     debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
 

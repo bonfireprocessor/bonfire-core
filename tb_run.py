@@ -1,6 +1,6 @@
 from __future__ import print_function
 
-from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipeline,tb_loadstore,tb_fetch,tb_core
+
 
 from uncore import tb_soc
 from soc import bonfire_core_soc
@@ -41,6 +41,7 @@ def convert_tb(inst,**kwargs):
 
 
 def module_unit_tests():
+    from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile
     print("Testing tb_barrel_left_shift_comb")
     test(tb_barrel_shifter.tb_barrel_left_shift_comb())
     print("OK")
@@ -73,7 +74,9 @@ def module_unit_tests():
     test(tb_regfile.tb(),trace=False)
     print("OK")
 
-def loadstore_unit_tests():    
+def loadstore_unit_tests():
+    from tb import tb_loadstore
+
     print('Testing Loadstore')
     conf=config.BonfireConfig()
     # Waveform tracing test variant
@@ -93,6 +96,8 @@ def loadstore_unit_tests():
 
 
 def pipeline_integration_tests():
+    from tb import  tb_simple_pipeline,tb_fetch
+
     print('Testing SimplePipeline with comb shifter')
     conf=config.BonfireConfig()
     conf.shifter_mode="comb"
@@ -106,6 +111,8 @@ def pipeline_integration_tests():
     test(tb_fetch.tb(test_conversion=False),trace=False,filename="tb_fetch")
 
 def core_integration_tests(hex,elf,sig,vcd,verbose,dtm):   
+    from tb import tb_core
+
     tb=tb_core.tb(hexFile=hex,elfFile=elf,sigFile=sig,
                   ramsize=16384,
                   verbose=verbose,

@@ -15,6 +15,30 @@ t_abstractCommandState  = enum('none','regvaild','taken','failed','exec','wait_r
 
 debugSpecVersion = 15 # consider setting this to 2
 csr_depc = 0x7b1
+xdedebugver = 15 # consider setting this to 4
+
+class DebugCSRBundle():
+    def __init__(self,config):
+        self.config = config
+
+         #used dcsrs bits
+        self.ebreakm = Signal(bool(0)) #dcsr[15]
+        self.cause = Signal(modbv(0)[3:0]) #dcsr[8..6]
+        self.step = Signal(bool(0)) #dcsr[2] single step mode
+
+    @block
+    def dcsr_map(self,word):
+        # Set the bits in word according to the dcsr register spec
+        @always_comb
+        def comb():
+            word.next=0
+            word.next[32:28] = xdedebugver
+            word.next[15] = self.ebreakm
+            word.next[9:6] = self.cause
+            word.next[2] = self.step
+            word.next[2:0] = 3
+
+        return instances()
 
 class DebugRegisterBundle:
      def __init__(self,config):
@@ -39,7 +63,7 @@ class DebugRegisterBundle:
         self.write = Signal(bool(0))
         self.regno = Signal(modbv(0,max=32))
         self.cmderr = Signal(modbv(0)[3:])
-        self.dpcAccess = Signal(bool(0))
+        self.csrAccess = Signal(bool(0))
 
         #written by DMI
         self.dataRegs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
@@ -54,13 +78,17 @@ class DebugRegisterBundle:
         # Ack Signal for halt or resume request, written by debug core 
         self.reqAck=Signal(bool(0)) 
 
+        # resumeack bit, used for dmstatus all/any resumeack
+        self.resumeack = Signal(bool(0))
+
 
         assert config.numdata<=16, "maximum allowed debug Data Registers are 16"
 
     
-    
-        #Debug CSRs, written by debug core
+        #dpc, written by debug core
         self.dpc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
+       
+
         #helpers
         self.dpc_jump=Signal(bool(0))
 
@@ -100,8 +128,12 @@ class DMI:
         def seq():
             
             if debugRegs.reqAck:
+                if debugRegs.resumereq:
+                    debugRegs.resumeack.next = True
+
                 debugRegs.haltreq.next = False
                 debugRegs.resumereq.next = False
+                
 
 
             # Abstract Command exeuction management
@@ -115,8 +147,8 @@ class DMI:
                 if not dtm.we:
                     if dtm.adr==0x11: #dmstatus
                         dtm.dbo.next[22] = True # impbreak
-                        dtm.dbo.next[17] = not debugRegs.resumereq #allresumeack
-                        dtm.dbo.next[16] = not debugRegs.resumereq #anyresumeack
+                        dtm.dbo.next[17] = debugRegs.resumeack #allresumeack
+                        dtm.dbo.next[16] = debugRegs.resumeack #anyresumeack
                         dtm.dbo.next[11] = debugRegs.hartState==t_debugHartState.running #allrunning
                         dtm.dbo.next[10] = debugRegs.hartState==t_debugHartState.running #anyrunning
                         dtm.dbo.next[9] = debugRegs.hartState==t_debugHartState.halted #allhalted
@@ -141,12 +173,15 @@ class DMI:
                 else: # Write
                     if dtm.adr==0x10:
                         debugRegs.haltreq.next = debugRegs.hartState==t_debugHartState.running and dtm.dbi[31]
-                        debugRegs.resumereq.next = debugRegs.hartState==t_debugHartState.halted and dtm.dbi[30]
+                        if debugRegs.hartState==t_debugHartState.halted and dtm.dbi[30]:
+                            debugRegs.resumereq.next = True
+                            debugRegs.resumeack.next = False
+
                         debugRegs.hartReset.next = dtm.dbi[1] # ndmreset
                     elif (dtm.adr>=0x04) and (dtm.adr<=0x04+self.config.numdata-1): # data0 to data 0x11
                         debugRegs.dataRegs[dtm.adr-0x04].next = dtm.dbi    
                     elif dtm.adr==0x16: #abstractcs
-                        debugRegs.cmderr.next =   debugRegs.cmderr &  ~dtm.dbi[11:8]  # clear cmderr bits with writing 1 to them
+                        debugRegs.cmderr.next = debugRegs.cmderr & ~dtm.dbi[11:8]  # clear cmderr bits with writing 1 to them
                     elif dtm.adr==0x17: # abstract command
                         if debugRegs.cmderr == 0: # dont start any new command as long cmderr is not cleared
                             if debugRegs.abstractCommandState != t_abstractCommandState.none:
@@ -162,10 +197,12 @@ class DMI:
                                 debugRegs.transfer.next = transfer
                                 debugRegs.write.next = dtm.dbi[16]
                                 debugRegs.regno.next = dtm.dbi[5:0]
-                                dpcAccess =  dtm.dbi[16:0] == (0x700 | CSRAdr.dpc)
-                                debugRegs.dpcAccess.next = dpcAccess
+                                # We support dpc(0x7b0) and dcsr(0x7b1) currently. So comparing bits 15..1 with the base address shifted
+                                # one bit to the rigt will match both addresses
+                                csrAccess =  dtm.dbi[16:1] == (0x7b0>>1)
+                                debugRegs.csrAccess.next = csrAccess
                               
-                                if dtm.dbi[16:5]==0x80 or dpcAccess or not transfer: # When Transfer is not set register number do not care
+                                if dtm.dbi[16:5]==0x80 or csrAccess or not transfer: # When Transfer is not set register number do not care
                                     debugRegs.abstractCommandNew.next = True
                                 else:
                                     debugRegs.cmderr.next = 2 # not supported

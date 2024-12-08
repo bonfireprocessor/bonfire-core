@@ -11,12 +11,13 @@ from rtl.debugModule import AbstractDebugTransportBundle, DMI
 
 
 class DebugAPI:
+    def __init__(self):
+        self.halted = False
+        self.result = modbv(0)[32:]
+        self.cmderr=0
 
     def __not_implemented():
         raise Exception("Not Implemented")
-
-    def cmd_result(self):
-        return 0
 
     def halt(self,HartId=0):
         self.__not_implemented()
@@ -33,12 +34,28 @@ class DebugAPI:
     def dmi_write(self,adr,data):
         self.__not_implemented()
 
-    def check_halted(self,HartId=0):
-        self.__not_implemented()
+
+    def cmd_result(self):
+        return self.result+0
+  
 
     def yield_clock(self):
         print("Warning: DebugAPI.yield_clock called")
         pass
+
+
+    def check_halted(self,HartId=0):
+
+       yield self.dmi_read(0x11)
+       self.halted = self.result[8]
+
+
+    def wait_resume_ack(self,HarId=0):
+        ack = False
+        while not ack:
+            yield self.dmi_read(0x11)
+            ack = self.result[16]
+
 
     def halt(self,HartId=0):
 
@@ -57,8 +74,9 @@ class DebugAPI:
             c=modbv(0)[32:]
             c[30]=True
             yield self.dmi_write(0x10,c)
-            while self.halted:
-                yield self.check_halted()
+            yield self.wait_resume_ack()
+            yield self.check_halted()
+            assert not self.halted,"dmi_api.resume error: Core still halted after resume_ack"
 
 
     def readReg(self,HartId=0,regno=0,postexec=False,transfer=True,AssertCmdErr=True):
@@ -146,13 +164,9 @@ class DebugAPISim(DebugAPI):
     def __init__(self,dtm_bundle,clock):
         self.dtm_bundle = dtm_bundle
         self.clock=clock
-        self.halted = False
-        self.result = modbv(0)[32:]
-        self.cmderr=0
+        DebugAPI.__init__(self)
+       
 
-
-    def cmd_result(self):
-        return self.result+0    
 
     def yield_clock(self):
         yield self.clock.posedge
@@ -180,12 +194,6 @@ class DebugAPISim(DebugAPI):
         yield self.clock.posedge
         self.dtm_bundle.en.next=False
 
-
-
-    def check_halted(self,HartId=0):
-
-       yield self.dmi_read(0x11)
-       self.halted = self.dtm_bundle.dbo[8]
 
 
 
