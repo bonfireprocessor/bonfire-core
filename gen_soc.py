@@ -62,7 +62,7 @@ targets:
             Soc = bonfire_core_soc.BonfireCoreSoC(config,hexfile=hexfile)
             Soc.gen_soc(hdl,name,gen_path,gentb=gentb,handleWarnings=conversion_warnings)
 
-            filelist = [ "pck_myhdl_01142.vhd",name+".vhd"]
+            filelist = [ "pck_myhdl_011.vhd",name+".vhd"]
             with open(name+".core","w") as corefile:
                 corefile.write(CORE_TEMPLATE.format(vlnv=vlnv,
                                                     filetype="vhdlSource-2008",

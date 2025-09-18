@@ -16,13 +16,24 @@ This is of course not enough to have a fully usable CPU, but allows to check the
 The FPGA implementation is not part of this project, it is part of the bonfire-basic-soc project, contained in an experimental "bonfire_core" branch. The implementation cuts a few corners, because the single purpose of it is to have a PoC running on an FPGA. The implementation was tested on a Digilent Arty A7 board and the Trion T8 based FireAnt board. 
 
 ## Prerequisites
-* Python - Currently the code is tested with Python 2.7.12 and Python 3.5.2 - other versions may work
+* Python - Currently the code is tested with Python 3.8 - Python 3.13.5
 
-* MyHDL 0.11
+* MyHDL 0.11 - for the FuseSoC Generators use 0.11.51 (as of Sep 2025 the latest version)
 
 * pyelftools - required for extracting the test signatures when running riscv-compliance suite
 
-* RISC-V toolchain with support for rv32i (the default multilib setup contains it)
+* RISC-V non-Linux (riscv64-unknown-elf) toolchain with support for rv32i (the default multilib setup contains it)
+  In the past I recommended building the latest RISC-V toolchain from Source. No maturity in Linux distributions is better. 
+  For example Debian Trixie  contains the riscv64-unknown-elf together with picolibc:
+
+   ```
+    sudo apt install binutils-riscv64-unknown-elf \
+                     gcc-riscv64-unknown-elf \
+                     picolibc-riscv64-unknown-elf \
+                     libstdc++-riscv64-unknown-elf-picolibc
+    
+   ```
+   See also hint below to compile with picolibc
 
 I think there are enough tutorials how to install all these tools (including the RISC-V toolchain) so I will not repeat it here. 
 
@@ -269,9 +280,16 @@ There is a Generator for generating a Test Bench and for generating a Toplevel M
 ### Creating Test Code ledslow and ledsim
 Clone the repo https://github.com/bonfireprocessor/bonfire-software.git
 Switch to branch lfs_migrate (the master branch is not updated yet...)
-Go to the test subdirectory and execute this command:
+execute these commands:
 
+    cd test
     make ARCH=rv32i_zicsr_zifencei PLATFORM=BONFIRE_CORE ledsim.hex ledslow.hex
+
+Hint: When using the latest Toolchain in Debian Trixie (which uses picolibc instead of newlib) the make command should look like this:
+
+    make ARCH=rv32i_zicsr_zifencei PLATFORM=BONFIRE_CORE LINKSPECS=picolibc.specs ledsim.hex ledslow.hex
+
+
 
 ### Running the MyHDL Testbench
 
@@ -348,6 +366,7 @@ The "simulation failed" assertion can be ignored. There is no "info" asseration 
 
 ### Build for FireAnt Board (Efinix Trion T8)
 
+    export EFINITY_HOME=<Your Efinity Softtware install dir>
     fusesoc  --cores-root . run  --target synth-T8 bonfire-core-soc
 
  
