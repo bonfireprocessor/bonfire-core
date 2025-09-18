@@ -266,9 +266,44 @@ It uses FuseSoC and the Generator feature of FuseSoC to generate VHDL files and 
 
 There is a Generator for generating a Test Bench and for generating a Toplevel Module for FPGAs
 
+### Creating Test Code ledslow and ledsim
+Clone the repo https://github.com/bonfireprocessor/bonfire-software.git
+Switch to branch lfs_migrate (the master branch is not updated yet...)
+Go to the test subdirectory and execute this command:
+
+    make ARCH=rv32i_zicsr_zifencei PLATFORM=BONFIRE_CORE ledsim.hex ledslow.hex
+
 ### Running the MyHDL Testbench
 
-    python tb_run.py  -new_soc --hex=<Pathto Test Code> -vcd=<vcdfile>
+
+
+    python tb_run.py  --new_soc --hex=../bonfire-software/test/ledsim.hex  [ -vcd=<vcdfile> ]
+
+The Output should look like this:
+````
+eof at adr:0x54
+Created  laned ram with size 2048 words
+5 3
+Shifter implemented with one pipeline stage: 3:0 || 5:3 
+Shifter instance with config 3 0
+Shifter instance with config 5 3
+Shifter instance with config 5 3
+LED status @1185 ns: 1
+LED status @1985 ns: 2
+LED status @2785 ns: 3
+LED status @3585 ns: 4
+LED status @4385 ns: 5
+LED status @5185 ns: 6
+LED status @5985 ns: 7
+LED status @6785 ns: 8
+LED status @7585 ns: 9
+LED status @8385 ns: a
+LED status @9185 ns: b
+LED status @9985 ns: c
+LED status @10785 ns: d
+LED status @11585 ns: e
+LED status @12385 ns: f
+````
 
 
 ### Running the VHDL Testbench
@@ -276,7 +311,40 @@ The Testbench and the Core can be converted to VHDL and run in GHDL with the fol
 
     fusesoc --cores-root . run --target=sim  bonfire-core-soc
 
-
+Output should look like this:
+```
+NFO: Preparing ::bonfire-core-soc:0
+INFO: Generating ::bonfire-core-soc-soc_tb:0
+...
+...
+Creating libraries directories
+ghdl -i --std=08 --ieee=synopsys  src/bonfire-core-soc-soc_tb_0/pck_myhdl_01142.vhd src/bonfire-core-soc-soc_tb_0/tb_bonfire_core_soc.vhd
+ghdl -m --std=08 --ieee=synopsys  tb_bonfire_core_soc
+analyze src/bonfire-core-soc-soc_tb_0/pck_myhdl_01142.vhd
+analyze src/bonfire-core-soc-soc_tb_0/tb_bonfire_core_soc.vhd
+elaborate tb_bonfire_core_soc
+ghdl -r --std=08 --ieee=synopsys  tb_bonfire_core_soc --ieee-asserts=disable --stop-time=20000ns --wave=cpu.ghw 
+LED status @1185 ns: 1
+LED status @1985 ns: 2
+LED status @2785 ns: 3
+LED status @3585 ns: 4
+LED status @4385 ns: 5
+LED status @5185 ns: 6
+LED status @5985 ns: 7
+LED status @6785 ns: 8
+LED status @7585 ns: 9
+LED status @8385 ns: A
+LED status @9185 ns: B
+LED status @9985 ns: C
+LED status @10785 ns: D
+LED status @11585 ns: E
+LED status @12385 ns: F
+src/bonfire-core-soc-soc_tb_0/tb_bonfire_core_soc.vhd:10178:17:@12385ns:(assertion failure): End of Simulation
+./tb_bonfire_core_soc:error: assertion failed
+in process .tb_bonfire_core_soc(myhdl).tb_bonfire_core_soc_observer
+./tb_bonfire_core_soc:error: simulation failed
+```
+The "simulation failed" assertion can be ignored. There is no "info" asseration in VHDL...
 
 ### Build for FireAnt Board (Efinix Trion T8)
 
