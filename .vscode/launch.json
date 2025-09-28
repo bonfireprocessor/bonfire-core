@@ -129,8 +129,8 @@
             "request": "launch",
             "program": "${workspaceFolder}/gen_soc.py",
             "args": [
-                "--hexfile=/home/thomas/development/bonfire/bonfire-software/test/ledslow.hex",
-                "--bram_base=0xc",
+                "--hexfile=../bonfire-software/test/ledslow.hex",
+                "--laned_memory=true",
                 "--bram_adr_width=11",
                 "--path=vhdl_gen/export/soc"
             ],

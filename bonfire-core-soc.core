@@ -24,11 +24,21 @@ generate:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
-      bram_base: 0xC
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "/home/thomas/development/bonfire/bonfire-software/test/ledslow.hex"
+      hexfile: "../bonfire-software/test/ledslow.hex"
+
+  soc_top_nonlaned:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_adr_width: 11
+      laned_memory : false
+      conversion_warnings: 'ignore'
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "../bonfire-software/test/ledslow.hex"
+
 
   soc_tb:
     generator: gen_bonfire_core_soc
@@ -39,7 +49,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'tb_bonfire_core_soc'
-      hexfile: "/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex"
+      hexfile: "../bonfire-software/test/ledsim.hex"
 
 
 targets:
@@ -82,3 +92,15 @@ targets:
         board_part: DIGILENTINC.COM:CMOD-S7-25:PART0:1.0
     toplevel:
       - bonfire_core_soc_top
+
+  synth-gowin:
+    flow: gowin
+    flow_options:
+      tool: gowin
+      part: GW1N-LV9LQ144C6/I5
+      part_version: C
+
+    generate: [ soc_top_nonlaned ]
+    toplevel: bonfire_core_soc_top
+
+

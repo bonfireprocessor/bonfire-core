@@ -47,8 +47,10 @@ targets:
             os.system("rm -f *.vhd *.v *.core")
 
             extended = True
-            bram_base = get(parameters,"bram_base",0xc)
-            bram_adr_width = get(parameters,"bram_adr_width",11)
+            soc_config = {
+                "bramAdrWidth": get(parameters, "bram_adr_width", 11),
+                "LanedMemory": get(parameters, "laned_memory", True),
+            }
          
             conversion_warnings = get(parameters,"conversion_warnings","default")
             hexfile=get(parameters,"hexfile","")
@@ -59,7 +61,13 @@ targets:
             config.jump_bypass=get(parameters,"jump_bypass",False)
             print("jump_bypass {}".format(config.jump_bypass))
 
-            Soc = bonfire_core_soc.BonfireCoreSoC(config,hexfile=hexfile)
+            hexfile_path = os.path.normpath(os.path.join(files_root, hexfile))
+            print(f"Checking existence hex file: {hexfile_path}")
+            if not os.path.isfile(hexfile_path):
+                print(f"Error: Hex file '{hexfile_path}' does not exist.")
+                raise FileNotFoundError(f"Hex file '{hexfile_path}' does not exist.")
+
+            Soc = bonfire_core_soc.BonfireCoreSoC(config, hexfile=hexfile_path,soc_config=soc_config)   
             Soc.gen_soc(hdl,name,gen_path,gentb=gentb,handleWarnings=conversion_warnings)
 
             filelist = [ "pck_myhdl_011.vhd",name+".vhd"]
@@ -79,10 +87,11 @@ targets:
 
 def gen_test():
     from rtl import config
+    import os
 
     try:
         opts, args = getopt.getopt(sys.argv[1:],"n" ,["hdl=","name=","gentb",
-                                   "bram_base=","path=","bram_adr_width=",
+                                   "laned_memory=","path=","bram_adr_width=",
                                    "num_leds=","hexfile="])
 
     except getopt.GetoptError as err:
@@ -93,8 +102,9 @@ def gen_test():
     name_overide = ""
     hdl = "VHDL"
 
-    bram_base = 0x0
-    bram_adr_width = 12
+    laned_memory = True
+    bram_adr_width = 11
+    num_leds = 4
     gen_path = "vhdl_gen"
     hexfile=""
     gentb = False
@@ -106,10 +116,15 @@ def gen_test():
 
         elif o == "--hdl":
             hdl=a
-        elif o=="--bram_base":
-            bram_base = int(a,0)
+        elif o == "--laned_memory":
+            if a in ("0","false","False"):
+                laned_memory = False
+            else:
+                laned_memory = True
         elif o=="--bram_adr_width":
             bram_adr_width = int(a,0)
+        elif o == "--num_leds":
+            num_leds = int(a,0)    
         elif o == "--path":
             gen_path = a
         elif o == "--hexfile":
@@ -128,9 +143,14 @@ def gen_test():
         else:
             n="bonfire_core_soc_top"
 
+    soc_config = {
+            "bramAdrWidth": bram_adr_width,
+            "LanedMemory": laned_memory,
+            "numLeds": num_leds
+        }
 
-    Soc = bonfire_core_soc.BonfireCoreSoC(config,hexfile=hexfile)
-    Soc.gen_soc(hdl,n,gen_path,gentb=gentb)
+    Soc = bonfire_core_soc.BonfireCoreSoC(config,hexfile=hexfile,soc_config=soc_config)
+    Soc.gen_soc(hdl,n,gen_path,gentb=gentb,handleWarnings='ignore')
 
 
 # Main Entry Point

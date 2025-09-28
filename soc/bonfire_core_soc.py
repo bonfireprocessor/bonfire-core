@@ -8,19 +8,19 @@ from rtl import bonfire_interfaces,config
 
 
 class BonfireCoreSoC:
-    def __init__(self,config,hexfile=""):
+    def __init__(self,config,hexfile="",soc_config={}):
         self.config = config
         self.hexfile = hexfile
         self.bramMask = AdrMask(32,28,0xc)
         self.dbusMask = AdrMask(32,28,0x8)
         self.wbMask = AdrMask(32,28,0x4)
-        self.resetAdr=0xc0000000
-        self.bramAdrWidth=11
-        self.NoReset=False
-        self.LanedMemory=True
-        self.numLeds=4
-        self.ledActiveLow = True
-        self.UseVHDLMemory = False
+        self.resetAdr = soc_config.get('resetAdr', 0xc0000000)
+        self.bramAdrWidth = soc_config.get('bramAdrWidth', 11)
+        self.NoReset = soc_config.get('NoReset', False)
+        self.LanedMemory = soc_config.get('LanedMemory', True)
+        self.numLeds = soc_config.get('numLeds', 4)
+        self.ledActiveLow = soc_config.get('ledActiveLow', True)
+        self.UseVHDLMemory = soc_config.get('UseVHDLMemory', False)
 
 
 
@@ -132,8 +132,10 @@ class BonfireCoreSoC:
         bram_port_b = ram_dp.RamPort32()
 
         if self.LanedMemory:
+            print("Using Laned Memory")
             ram = ram_dp.DualportedRamLaned(self.hexfile,adrwidth=self.bramAdrWidth)
         else:
+            print("Using non-laned Memory")
             ram = ram_dp.DualportedRam(self.hexfile,adrwidth=self.bramAdrWidth)
 
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,sysclk)
