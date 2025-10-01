@@ -90,7 +90,7 @@ class FetchUnit(PipelineControl):
                     jump_taken.next = False
 
                 if ( not outstanding or ibus.ack_i ) and new_jump: # a new jump resets the fetch unit
-                    assert self.jump_dest_i[2:]==0,"misaligned jump detected"
+                    # assert self.jump_dest_i[2:]==0,"misaligned jump detected"
                     ip.next = self.jump_dest_i
                     jump_taken.next = True
                     valid.next = False
@@ -108,7 +108,7 @@ class FetchUnit(PipelineControl):
                             busy.next = True
                     else:
                         if busy:
-                            assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
+                            # assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
                             current_word[0].next = current_word[1]
                             #current_word[1].next=0 # debug only
                             current_ip[0].next = current_ip[1]

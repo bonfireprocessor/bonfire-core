@@ -19,6 +19,22 @@ filesets:
     files:
     - fpga/efinix/fireant.isf
 
+  ulx3s_lpf:
+    file_type: LPF 
+    files:
+    - fpga/ulx3s/board.lpf
+
+  ulx3s_top:
+    file_type: vhdlSource-2008
+    files:
+    - fpga/ulx3s/ulx3_top.vhdl
+
+  scripts:
+    file_type: user
+    files:
+      - scripts/template.tcl
+
+
 generate:
   soc_top:
     generator: gen_bonfire_core_soc
@@ -102,5 +118,20 @@ targets:
 
     generate: [ soc_top_nonlaned ]
     toplevel: bonfire_core_soc_top
+
+  ecp5:
+    default_tool: trellis
+    tools:
+        trellis:
+            arch: ecp5
+            output_format: json
+            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
+            nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
+
+    filesets: [ulx3s_lpf, ulx3s_top, scripts]
+    generate: [ soc_top ]
+    toplevel: ulx3_top
+   
+
 
 
