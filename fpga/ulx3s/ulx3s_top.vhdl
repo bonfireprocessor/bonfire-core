@@ -6,7 +6,7 @@ entity ulx3s_top is
         sysclk    : in  std_logic;
         uart0_tx  : out std_logic;
         uart0_rx  : in  std_logic;
-        led       : out std_logic_vector(3 downto 0)
+        led       : out std_logic_vector(7 downto 0)
        
     );
 end entity ulx3s_top;
@@ -20,7 +20,7 @@ architecture rtl of ulx3s_top is
             resetn    : in  std_logic;
             uart0_tx  : out std_logic;
             uart0_rx  : in  std_logic;
-            led       : out std_logic_vector(3 downto 0);
+            led       : out std_logic_vector(7 downto 0);
             o_resetn  : out std_logic;
             i_locked  : in  std_logic
         );

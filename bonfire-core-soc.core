@@ -55,6 +55,17 @@ generate:
       entity_name: 'bonfire_core_soc_top'
       hexfile: "../bonfire-software/test/ledslow.hex"
 
+  soc_top_ulx3s:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_adr_width: 11
+      conversion_warnings: 'ignore'
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "../bonfire-software/test/ledslow.hex"
+      num_leds: 8
+      led_active_low: false
+
 
   soc_tb:
     generator: gen_bonfire_core_soc
@@ -129,7 +140,7 @@ targets:
             nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
 
     filesets: [ulx3s_lpf, ulx3s_top, scripts]
-    generate: [ soc_top ]
+    generate: [ soc_top_ulx3s ]
     toplevel: ulx3s_top
    
 

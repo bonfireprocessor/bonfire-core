@@ -50,6 +50,8 @@ targets:
             soc_config = {
                 "bramAdrWidth": get(parameters, "bram_adr_width", 11),
                 "LanedMemory": get(parameters, "laned_memory", True),
+                "numLeds": get(parameters, "num_leds", 4),
+                "ledActiveLow": get(parameters, "led_active_low", True),
             }
          
             conversion_warnings = get(parameters,"conversion_warnings","default")
