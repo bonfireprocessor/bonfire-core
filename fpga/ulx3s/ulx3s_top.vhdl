@@ -1,7 +1,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity ulx3_top is
+entity ulx3s_top is
     port (
         sysclk    : in  std_logic;
         uart0_tx  : out std_logic;
@@ -9,9 +9,9 @@ entity ulx3_top is
         led       : out std_logic_vector(3 downto 0)
        
     );
-end entity ulx3_top;
+end entity ulx3s_top;
 
-architecture rtl of ulx3_top is
+architecture rtl of ulx3s_top is
 
     -- Component declaration for bonfire_core_soc_top
     component bonfire_core_soc_top is

@@ -27,7 +27,7 @@ filesets:
   ulx3s_top:
     file_type: vhdlSource-2008
     files:
-    - fpga/ulx3s/ulx3_top.vhdl
+    - fpga/ulx3s/ulx3s_top.vhdl
 
   scripts:
     file_type: user
@@ -130,7 +130,7 @@ targets:
 
     filesets: [ulx3s_lpf, ulx3s_top, scripts]
     generate: [ soc_top ]
-    toplevel: ulx3_top
+    toplevel: ulx3s_top
    
 
 
