@@ -83,7 +83,7 @@ targets:
         xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core_soc
 
-  synth-T8:
+  FireAnt:
     flow: efinity
     flow_options:
       tool: efinity
@@ -99,7 +99,7 @@ targets:
     toplevel: bonfire_core_soc_top
    
 
-  synth-cmods7:
+  cmods7:
     generate: [ soc_top ]
     toplevel: bonfire_core_soc_top
     default_tool: vivado
@@ -119,7 +119,7 @@ targets:
     generate: [ soc_top_nonlaned ]
     toplevel: bonfire_core_soc_top
 
-  ecp5:
+  ulx3s:
     default_tool: trellis
     tools:
         trellis:

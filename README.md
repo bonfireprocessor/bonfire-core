@@ -367,6 +367,17 @@ The "simulation failed" assertion can be ignored. There is no "info" asseration 
 ### Build for FireAnt Board (Efinix Trion T8)
 
     export EFINITY_HOME=<Your Efinity Softtware install dir>
-    fusesoc  --cores-root . run  --target synth-T8 bonfire-core-soc
+    fusesoc  --cores-root . run  --target FireAnt bonfire-core-soc
 
- 
+### Build for Radioana ULX3S (Lattice ECP5-85)
+
+Prerequiste: Install yosys/nextpnr/trellis for example from here:
+https://github.com/YosysHQ/oss-cad-suite-build
+
+
+````
+# Activate the oss-cad enviornment - replace ~/opt/oss-cad-suite with your installation path
+source ~/opt/oss-cad-suite/environment
+fusesoc --cores-root . run --target ulx3s bonfire-core-soc
+
+````
