@@ -20,7 +20,8 @@ class BonfireCoreSoC:
         self.LanedMemory = soc_config.get('LanedMemory', True)
         self.numLeds = soc_config.get('numLeds', 4)
         self.ledActiveLow = soc_config.get('ledActiveLow', True)
-        self.UseVHDLMemory = soc_config.get('UseVHDLMemory', False)
+        self.UseVHDLMemory = soc_config.get('UseVHDLMemory', False) # not used yet
+        self.exposeWishboneMaster = soc_config.get('exposeWishboneMaster', False)
 
 
 
@@ -112,7 +113,7 @@ class BonfireCoreSoC:
 
 
     @block
-    def bonfire_core_soc(self,sysclk,resetn,uart0_tx,uart0_rx,led,o_resetn,i_locked):
+    def bonfire_core_soc(self,sysclk,resetn,uart0_tx,uart0_rx,led,o_resetn,i_locked,wb_master=None):
         """
         sysclk : cpu clock
         resetn : reset button, active low
@@ -120,6 +121,7 @@ class BonfireCoreSoC:
         uart0_rx: UART RX Signal
         led : modbv vector for led(s)
         o_resetn : Output, reset PLL
+        wb_master : Optional Wishbone Master Interface
         """
 
         self.config.reset_address=self.resetAdr
@@ -127,7 +129,10 @@ class BonfireCoreSoC:
         reset=ResetSignal(0,active=1,isasync=False)
 
         dbus = bonfire_interfaces.DbusBundle(config)
-        wb_master = bonfire_interfaces.Wishbone_master_bundle()
+        if wb_master is None:
+            wb_master_local = bonfire_interfaces.Wishbone_master_bundle()
+        else:
+            wb_master_local = wb_master    
         bram_port_a = ram_dp.RamPort32(readOnly=True)
         bram_port_b = ram_dp.RamPort32()
 
@@ -151,7 +156,8 @@ class BonfireCoreSoC:
         else:
             led_out_i = self.led_out(sysclk,reset,led,dbus)
 
-        wb_i = self.wishbone_dummy(wb_master)
+        if not self.exposeWishboneMaster:
+            wb_i = self.wishbone_dummy(wb_master_local)
 
         uart_i = self.uart_dummy(uart0_tx,uart0_rx)
 
@@ -160,7 +166,7 @@ class BonfireCoreSoC:
         else:
             reset_i = self.reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
 
-        core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master,dbus,bram_port_a,bram_port_b,
+        core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master_local,dbus,bram_port_a,bram_port_b,
                                                               sysclk,reset,config=self.config,
                                                               wb_mask=self.wbMask,
                                                               db_mask=self.dbusMask,
@@ -221,6 +227,7 @@ class BonfireCoreSoC:
             inst = self.soc_testbench()
         else:    
 
+
             sysclk = Signal(bool(0))
             resetn = Signal(bool(1))
             LED = Signal(modbv(0)[self.numLeds:])
@@ -230,8 +237,13 @@ class BonfireCoreSoC:
             o_resetn = Signal(bool(1))
             i_locked = Signal(bool(0))
 
+            if self.exposeWishboneMaster:
+                print("Exposing Wishbone Master Interface")
+                wb_master = bonfire_interfaces.Wishbone_master_bundle()
+            else:    
+                wb_master = None
 
-            inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
+            inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked,wb_master=wb_master)
 
         with warnings.catch_warnings():
             warnings.filterwarnings(

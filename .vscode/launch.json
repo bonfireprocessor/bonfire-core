@@ -132,7 +132,9 @@
                 "--hexfile=../bonfire-software/test/ledslow.hex",
                 "--laned_memory=true",
                 "--bram_adr_width=11",
-                "--path=vhdl_gen/export/soc"
+                "--path=vhdl_gen/export/soc",
+                "--expose_wishbone_master"
+                
             ],
             "console": "integratedTerminal"
         },

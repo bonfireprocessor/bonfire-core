@@ -65,6 +65,7 @@ generate:
       hexfile: "../bonfire-software/test/ledslow.hex"
       num_leds: 8
       led_active_low: false
+      laned_memory : false
 
 
   soc_tb:

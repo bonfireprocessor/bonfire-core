@@ -20,3 +20,4 @@ vhdl_gen_tb/*
 build
 /.vscode/.ropeproject/*
 *.code-workspace
+fusesoc.conf

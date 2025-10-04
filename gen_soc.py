@@ -52,6 +52,7 @@ targets:
                 "LanedMemory": get(parameters, "laned_memory", True),
                 "numLeds": get(parameters, "num_leds", 4),
                 "ledActiveLow": get(parameters, "led_active_low", True),
+                "exposeWishboneMaster": get(parameters, "expose_wishbone_master", False),
             }
          
             conversion_warnings = get(parameters,"conversion_warnings","default")
@@ -94,7 +95,7 @@ def gen_test():
     try:
         opts, args = getopt.getopt(sys.argv[1:],"n" ,["hdl=","name=","gentb",
                                    "laned_memory=","path=","bram_adr_width=",
-                                   "num_leds=","hexfile="])
+                                   "num_leds=","hexfile=","expose_wishbone_master"])
 
     except getopt.GetoptError as err:
         # print help information and exit:
@@ -110,6 +111,7 @@ def gen_test():
     gen_path = "vhdl_gen"
     hexfile=""
     gentb = False
+    expose_wishbone_master = False
 
     for o,a in opts:
         print(o,a)
@@ -133,7 +135,9 @@ def gen_test():
             hexfile = a
         elif o == "--gentb":
             gentb = True
-
+        elif o == "--expose_wishbone_master":
+            expose_wishbone_master = True
+            
     config=config.BonfireConfig()
     config.jump_bypass = False
 
@@ -148,7 +152,8 @@ def gen_test():
     soc_config = {
             "bramAdrWidth": bram_adr_width,
             "LanedMemory": laned_memory,
-            "numLeds": num_leds
+            "numLeds": num_leds,
+            "exposeWishboneMaster": expose_wishbone_master
         }
 
     Soc = bonfire_core_soc.BonfireCoreSoC(config,hexfile=hexfile,soc_config=soc_config)
