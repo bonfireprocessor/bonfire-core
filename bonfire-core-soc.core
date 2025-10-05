@@ -13,6 +13,7 @@ filesets:
   soc_io:
     depend:
      - '>=::bonfire-soc-io:0'
+     - ::bonfire-util:0
 
   fireant_sdc:
     file_type: SDC
@@ -72,14 +73,14 @@ generate:
       led_active_low: false
       laned_memory : false
 
-  soc_extented_ulx3s:
+  soc_extented:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../bonfire-software/test/ledslow.hex"
+      hexfile: "../bonfire-software/test/ledsim.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false,
@@ -112,6 +113,21 @@ targets:
       xsim:
         xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core_soc
+
+  sim_extended:
+    default_tool: ghdl
+    filesets: [ soc_io ]
+    generate: [ soc_extented ]
+    flags:
+      simulation_target : true
+   
+    tools:
+      ghdl:
+        analyze_options: [ --ieee=synopsys,  -frelaxed-rules, -Wno-specs ]
+        run_options: [ --ieee-asserts=disable, --stop-time=100000ns, --wave=cpu.ghw ]
+      xsim:
+        xelab_options: [ "--debug typical" ]
+    toplevel: tb_soc
 
   FireAnt:
     flow: efinity
@@ -172,7 +188,7 @@ targets:
             nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
 
     filesets: [ulx3s_lpf, scripts, soc_io ]
-    generate: [ soc_extented_ulx3s ]
+    generate: [ soc_extented ]
     toplevel: bonfire_core_soc_top
    
 
