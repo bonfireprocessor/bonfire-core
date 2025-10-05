@@ -9,6 +9,11 @@ generators:
 
 
 filesets:
+
+  soc_io:
+    depend:
+     - '>=::bonfire-soc-io:0'
+
   fireant_sdc:
     file_type: SDC
     files:
@@ -67,6 +72,19 @@ generate:
       led_active_low: false
       laned_memory : false
 
+  soc_extented_ulx3s:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_adr_width: 11
+      conversion_warnings: 'ignore'
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "../bonfire-software/test/ledslow.hex"
+      num_leds: 8
+      led_active_low: false
+      laned_memory : false,
+      extended_soc: true
+
 
   soc_tb:
     generator: gen_bonfire_core_soc
@@ -89,7 +107,7 @@ targets:
    
     tools:
       ghdl:
-        analyze_options: [ --ieee=synopsys ]
+        analyze_options: [ --ieee=synopsys,  -frelaxed-rules ]
         run_options: [ --ieee-asserts=disable, --stop-time=20000ns, --wave=cpu.ghw ]
       xsim:
         xelab_options: [ "--debug typical" ]
@@ -143,6 +161,19 @@ targets:
     filesets: [ulx3s_lpf, ulx3s_top, scripts]
     generate: [ soc_top_ulx3s ]
     toplevel: ulx3s_top
+
+  ulx3s_extended:
+    default_tool: trellis
+    tools:
+        trellis:
+            arch: ecp5
+            output_format: json
+            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
+            nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
+
+    filesets: [ulx3s_lpf, scripts, soc_io ]
+    generate: [ soc_extented_ulx3s ]
+    toplevel: bonfire_core_soc_top
    
 
 
