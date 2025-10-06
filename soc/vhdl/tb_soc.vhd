@@ -12,12 +12,6 @@
 ----------------------------------------------------------------------------------
 library ieee;
 use ieee.std_logic_1164.all;
-use IEEE.numeric_std.all;
-
-LIBRARY std;
-USE std.textio.all;
-
-use work.txt_util.all;
 
 
 entity gpio_pad is
@@ -45,6 +39,7 @@ begin
 
 end Behavioral;
 
+-- When starting a new entity all libraries must be declared again
 library ieee;
 use ieee.std_logic_1164.all;
 use IEEE.numeric_std.all;
@@ -64,7 +59,8 @@ entity tb_soc is
         NUM_LEDS       : natural := {numLeds};
         ENABLE_GPIO     : boolean := true;
         CLK_FREQ_MHZ  : natural := 25;
-        UART_BAUDRATE : natural := 38400
+        UART_BAUDRATE : natural := 38400;
+        DEBUG          : boolean := false
     );
 end tb_soc;
 
@@ -77,7 +73,8 @@ architecture tb of tb_soc is
         ENABLE_UART1    : boolean := {enableUart1};
         ENABLE_SPI      : boolean := {enableSPI};
         NUM_LEDS       : natural := {numLeds};
-        ENABLE_GPIO     : boolean := true
+        ENABLE_GPIO     : boolean := true;
+        DEBUG          : boolean := false
     );
     port(
         sysclk  : in  std_logic;
@@ -161,7 +158,8 @@ begin
       ENABLE_UART1 => ENABLE_UART1,
       ENABLE_SPI => ENABLE_SPI,
       NUM_LEDS => NUM_LEDS,
-      ENABLE_GPIO => ENABLE_GPIO
+      ENABLE_GPIO => ENABLE_GPIO,
+      DEBUG => DEBUG
     )
     port map(
         sysclk => TbClock,
@@ -179,6 +177,11 @@ begin
         gpio_t => gpio_t,
         led => led
     );
+
+   
+    
+
+
 
     gpio_pads: for i in gpio_io'range generate
       pad : entity work.gpio_pad
@@ -223,6 +226,34 @@ process
       print("LEDs:" & str(led) & "(" & hstr(led) & ")");
 
 end process;
+
+--Wishbone Bus Monitor
+-- wb_monitor : process
+--     alias io_cyc_tb    is << signal dut.io_cyc    : std_logic >>;
+--     alias io_stb_tb    is << signal dut.io_stb    : std_logic >>;
+--     alias io_we_tb     is << signal dut.io_we     : std_logic >>;
+--     alias io_ack_tb    is << signal dut.io_ack    : std_logic >>;
+
+--     alias io_sel_tb    is << signal dut.io_sel    : std_logic_vector(3 downto 0) >>;
+--     alias io_dat_rd_tb is << signal dut.io_dat_rd : std_logic_vector(31 downto 0) >>;
+--     alias io_dat_wr_tb is << signal dut.io_dat_wr : std_logic_vector(31 downto 0) >>;
+
+   
+--     alias io_adr_tb    is << signal dut.io_adr    : std_logic_vector >>;
+-- begin
+--   if  rising_edge(sysclk) then
+--     if io_cyc_tb='1' and io_stb_tb='1' then
+--         print( "WB start: " & str((io_we_tb)) & " " & hstr(io_adr_tb) & " sel=" & str(io_sel_tb));
+        
+--       wait until io_ack_tb='1';
+--       print( "WB: ACK with "
+--        & " wr="     & hstr(io_dat_wr_tb)
+--        & " rd="     & str(io_dat_rd_tb));
+--     end if;
+--   end if;
+  
+-- end process;
+
 
 
     TbClock <= not TbClock after ClockPeriod / 2 when TbSimEnded /= '1' else '0';

@@ -44,12 +44,27 @@ class BonfireCoreSoC:
         return instances()
 
     @block
-    def wishbone_dummy(self,wb_bundle):
-
+    def wishbone_dummy(self,clock,reset,wb_bundle):
+         
         @always_comb
-        def wb_ack():
-            wb_bundle.wbm_ack_i.next = wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o
-            wb_bundle.wbm_db_i.next = 0xdeadbeef
+        def comb():
+            if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o:
+                wb_bundle.wbm_ack_i.next = True
+                wb_bundle.wbm_db_i.next = 0xdeadbeef
+
+
+        if __debug__:
+            @always_seq(clock.posedge,reset=reset)
+            def monitor():
+                if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o and wb_bundle.wbm_ack_i:
+                    print("Wishbone Dummy:")
+                    print("adr_o: 0x{:08x}".format(int(wb_bundle.wbm_adr_o<<2)))
+                    print("dat_o: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
+                    print("cyc_o: 0x{:x}".format(int(wb_bundle.wbm_cyc_o)))
+                    print("stb_o: 0b{:b}".format(int(wb_bundle.wbm_stb_o)))
+                    print("we_o: 0b{:b}".format(int(wb_bundle.wbm_we_o)))
+                    print("sel_o: 0b{:b}".format(int(wb_bundle.wbm_sel_o)))                    
+    
 
         return instances()
 
@@ -157,7 +172,7 @@ class BonfireCoreSoC:
             led_out_i = self.led_out(sysclk,reset,led,dbus)
 
         if not self.exposeWishboneMaster:
-            wb_i = self.wishbone_dummy(wb_master_local)
+            wb_i = self.wishbone_dummy(sysclk,reset,wb_master_local)
 
         uart_i = self.uart_dummy(uart0_tx,uart0_rx)
 

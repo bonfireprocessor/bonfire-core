@@ -14,6 +14,9 @@ library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 use IEEE.NUMERIC_STD.ALL;
 
+LIBRARY std;
+USE std.textio.all;
+use work.txt_util.all;
 
 
 entity {entity_name} is
@@ -23,7 +26,8 @@ entity {entity_name} is
         ENABLE_UART1    : boolean := {enableUart1};
         ENABLE_SPI      : boolean := {enableSPI};
         NUM_LEDS       : natural := {numLeds};
-        ENABLE_GPIO     : boolean := true 
+        ENABLE_GPIO     : boolean := true;
+        DEBUG          : boolean := false
     );
 
     port(
@@ -106,7 +110,7 @@ U_BONFIRE_CORE: {gen_core_name}
         i_locked => '1',
         wb_master_wbm_cyc_o => io_cyc,
         wb_master_wbm_stb_o => io_stb,
-        wb_master_wbm_ack_i => '0',
+        wb_master_wbm_ack_i => io_ack,
         wb_master_wbm_we_o => io_we,
         wb_master_wbm_adr_o => adr_map,
         wb_master_wbm_db_o => io_dat_wr,
@@ -151,5 +155,35 @@ PORT MAP(
         wb_dat_i => io_dat_wr,
         wb_dat_o => io_dat_rd
     );
+
+--Wishbone Bus Monitor (instantiated only when DEBUG is true)
+wb_monitor_gen: if DEBUG generate
+    wb_monitor : process(sysclk)
+      
+    begin
+        if rising_edge(sysclk) then
+            if io_cyc='1' and io_stb='1' then
+                print("***");
+                print( "WB start: ");
+                print("we=" & str(io_we) & " adr=" & hstr(std_logic_vector(resize(unsigned(adr_map & "00"), 32))) & " sel=" & str(io_sel));
+                if io_we='1' then
+                    print( "WB: write with " & " wr="     & hstr(io_dat_wr));
+                end if;    
+            end if;    
+            if io_ack='1'  then
+                if io_we='0' then
+                    print( "WB: ACK read with "
+                    & " rd="     & hstr(io_dat_rd));
+                    for i in io_dat_rd'range loop
+                        assert io_dat_rd(i) /= 'X'
+                            report "Wishbone read contains undefined (X) bits!" severity error;
+                    end loop;
+                else
+                    print("WB ack write");
+                end if;        
+             end if;
+         end if;
+    end process;
+end generate;
 
 end rtl;
