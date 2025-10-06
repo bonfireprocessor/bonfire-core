@@ -64,7 +64,7 @@ set srcfiles [find_vhdl_files [pwd] $srcdir]
 
 plugin -i ghdl
 echo on
-yosys ghdl --std=08 --ieee=synopsys -frelaxed-rules {*}$srcfiles -e $top
+yosys ghdl --std=08 --ieee=synopsys -frelaxed-rules  -Wno-specs {*}$srcfiles -e $top
 echo off
 
 synth_ecp5 -top $top -json $name.json

@@ -22,6 +22,7 @@ class BonfireCoreSoC:
         self.ledActiveLow = soc_config.get('ledActiveLow', True)
         self.UseVHDLMemory = soc_config.get('UseVHDLMemory', False) # not used yet
         self.exposeWishboneMaster = soc_config.get('exposeWishboneMaster', False)
+        self.conversion=False
 
 
 
@@ -51,9 +52,12 @@ class BonfireCoreSoC:
             if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o:
                 wb_bundle.wbm_ack_i.next = True
                 wb_bundle.wbm_db_i.next = 0xdeadbeef
+            else:
+                wb_bundle.wbm_ack_i.next = False
+                wb_bundle.wbm_db_i.next = 0    
 
 
-        if __debug__:
+        if not self.conversion:
             @always_seq(clock.posedge,reset=reset)
             def monitor():
                 if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o and wb_bundle.wbm_ack_i:
@@ -209,6 +213,7 @@ class BonfireCoreSoC:
         clk_driver_i=ClkDriver.ClkDriver(sysclk,period=10)
 
         self.ledActiveLow = False
+       
 
         inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
 
@@ -237,6 +242,8 @@ class BonfireCoreSoC:
     def gen_soc(self,hdl,name,path,gentb=False,handleWarnings='default'):
         from myhdl import ToVHDLWarning
         import warnings
+
+        self.conversion=True
 
         if gentb:
             inst = self.soc_testbench()

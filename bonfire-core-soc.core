@@ -33,7 +33,8 @@ filesets:
   ulx3s_top:
     file_type: vhdlSource-2008
     files:
-    - fpga/ulx3s/ulx3s_top.vhdl
+    - "extended_soc? (fpga/ulx3s/ulx3s_top_ex.vhdl)"
+    - "!extended_soc? (fpga/ulx3s/ulx3s_top.vhdl)"
 
   scripts:
     file_type: user
@@ -167,6 +168,8 @@ targets:
 
   ulx3s:
     default_tool: trellis
+    flags:  
+      extended_soc : false
     tools:
         trellis:
             arch: ecp5
@@ -180,6 +183,8 @@ targets:
 
   ulx3s_extended:
     default_tool: trellis
+    flags:  
+      extended_soc : true
     tools:
         trellis:
             arch: ecp5
@@ -187,9 +192,9 @@ targets:
             yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
             nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
 
-    filesets: [ulx3s_lpf, scripts, soc_io ]
+    filesets: [ulx3s_lpf, scripts, soc_io, ulx3s_top ]
     generate: [ soc_extented ]
-    toplevel: bonfire_core_soc_top
+    toplevel: ulx3s_top
    
 
 
