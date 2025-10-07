@@ -4,6 +4,10 @@ FREQUENCY PORT "sysclk" 25.0 MHz;
 LOCATE COMP "sysclk" SITE "G2";
 IOBUF  PORT "sysclk" PULLMODE=NONE IO_TYPE=LVCMOS33;
 
+# JTAG and SPI FLASH voltage 3.3V and options to boot from SPI flash
+# write to FLASH possible from user bitstream:
+SYSCONFIG CONFIG_IOVOLTAGE=3.3 COMPRESS_CONFIG=ON MCCLK_FREQ=62 SLAVE_SPI_PORT=DISABLE MASTER_SPI_PORT=DISABLE SLAVE_PARALLEL_PORT=DISABLE;
+
 ## USBSERIAL FTDI-FPGA serial port "usb" sheet
 LOCATE COMP "uart0_tx" SITE "L4"; # FPGA transmits to ftdi
 LOCATE COMP "uart0_rx" SITE "M1"; # FPGA receives from ftdi

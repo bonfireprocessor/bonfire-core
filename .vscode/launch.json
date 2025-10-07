@@ -94,9 +94,9 @@
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
-                "--hex=/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex",
+                "--hex=../bonfire-software/test/sim_hello.hex",
                 "--new_soc",
-                "--vcd=tb_new_soc"
+                "--vcd=tb_new_soc",
             ],
             "console": "integratedTerminal"
         },
@@ -133,7 +133,8 @@
                 "--laned_memory=true",
                 "--bram_adr_width=11",
                 "--path=vhdl_gen/export/soc",
-                "--expose_wishbone_master"
+                //"--expose_wishbone_master",
+                //"--extended_soc",
                 
             ],
             "console": "integratedTerminal"
