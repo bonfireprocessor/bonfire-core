@@ -32,7 +32,10 @@ entity {entity_name} is
 
     port(
         sysclk  : in  std_logic;
-        I_RESET   : in  std_logic;
+        -- Reset Logic
+        resetn   : in  std_logic; -- Reset button, active low
+        i_locked : in std_logic; -- PLL locked input
+        o_resetn : out std_logic; -- Reset output, to be connected to PLL
         -- UART0 signals:
         uart0_txd : out std_logic;
         uart0_rxd : in  std_logic :='1';
@@ -96,18 +99,20 @@ signal io_sel :  std_logic_vector(3 downto 0);
 signal io_dat_rd,io_dat_wr : std_logic_vector(31 downto 0);
 signal io_adr : std_logic_vector(io_adr_high downto 2);
 
+signal reset_sync : std_logic := '0';
+
 
 begin
 
 U_BONFIRE_CORE: {gen_core_name}
     port map(
         sysclk => sysclk,
-        resetn => not I_RESET,
+        resetn => resetn,
         uart0_tx => open,
         uart0_rx => '1',
         led => led,
-        o_resetn => open,
-        i_locked => '1',
+        o_resetn => o_resetn,
+        i_locked => i_locked,
         wb_master_wbm_cyc_o => io_cyc,
         wb_master_wbm_stb_o => io_stb,
         wb_master_wbm_ack_i => io_ack,
@@ -145,7 +150,7 @@ PORT MAP(
         spi_miso => spi_miso,
         irq_o => open,
         clk_i => sysclk,
-        rst_i => I_RESET,
+        rst_i => reset_sync,
         wb_cyc_i => io_cyc,
         wb_stb_i => io_stb,
         wb_we_i =>  io_we,
@@ -185,5 +190,20 @@ wb_monitor_gen: if DEBUG generate
          end if;
     end process;
 end generate;
+
+
+-- Reset synchronizer: generates synchronous reset_sync (active high) from async resetn (active low)
+process(sysclk, resetn)
+    variable sync_reg : std_logic_vector(1 downto 0) := (others => '0');
+begin
+    if resetn = '0' then
+        sync_reg := (others => '0');
+        reset_sync <= '1';
+    elsif rising_edge(sysclk) then
+        sync_reg(0) := '1';
+        sync_reg(1) := sync_reg(0);
+        reset_sync <= not sync_reg(1);
+    end if;
+end process;
 
 end rtl;

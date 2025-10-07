@@ -26,7 +26,10 @@ architecture rtl of ulx3s_top is
     );
     port(
         sysclk  : in  std_logic;
-        I_RESET   : in  std_logic;
+       -- Reset Logic
+        resetn   : in  std_logic; -- Reset button, active low
+        i_locked : in std_logic; -- PLL locked input
+        o_resetn : out std_logic; -- Reset output, to be connected to PLL
          -- UART0 signals:
         uart0_txd : out std_logic;
         uart0_rxd : in  std_logic :='1';
@@ -49,7 +52,7 @@ architecture rtl of ulx3s_top is
 
 
     -- signal sysclk         : std_logic;
-    signal I_RESET        : std_logic :='0';
+    signal resetn        : std_logic :='1';
     
     -- signal uart1_txd      : std_logic;
     -- signal uart1_rxd      : std_logic := '1';
@@ -80,7 +83,10 @@ begin
     -- )
     port map(
         sysclk => sysclk,
-        I_RESET => I_RESET,
+        resetn => resetn,
+        i_locked => '1',
+        o_resetn => open,
+
         uart0_txd => uart0_tx,
         uart0_rxd => uart0_rx,
         uart1_txd => open,

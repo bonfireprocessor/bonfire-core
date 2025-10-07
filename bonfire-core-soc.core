@@ -74,7 +74,7 @@ generate:
       led_active_low: false
       laned_memory : false
 
-  soc_extented:
+  soc_extented_sim:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
@@ -84,7 +84,20 @@ generate:
       hexfile: "../bonfire-software/test/sim_hello.hex"
       num_leds: 8
       led_active_low: false
-      laned_memory : false,
+      laned_memory : false
+      extended_soc: true
+
+  soc_extented:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_adr_width: 11
+      conversion_warnings: 'ignore'
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "../bonfire-software/test/hw_hello.hex"
+      num_leds: 8
+      led_active_low: false
+      laned_memory : false
       extended_soc: true
 
 
@@ -118,7 +131,7 @@ targets:
   sim_extended:
     default_tool: ghdl
     filesets: [ soc_io ]
-    generate: [ soc_extented ]
+    generate: [ soc_extented_sim ]
     flags:
       simulation_target : true
    
