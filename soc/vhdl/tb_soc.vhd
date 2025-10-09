@@ -59,8 +59,9 @@ entity tb_soc is
         NUM_LEDS       : natural := {numLeds};
         ENABLE_GPIO     : boolean := true;
         CLK_FREQ_MHZ  : natural := 25;
-        UART_BAUDRATE : natural := 38400;
-        DEBUG          : boolean := false
+        UART_BAUDRATE : natural := 115200;
+        DEBUG          : boolean := false;
+        UART_TEST    : boolean := false
     );
 end tb_soc;
 
@@ -74,7 +75,8 @@ architecture tb of tb_soc is
         ENABLE_SPI      : boolean := {enableSPI};
         NUM_LEDS       : natural := {numLeds};
         ENABLE_GPIO     : boolean := true;
-        DEBUG          : boolean := false
+        DEBUG          : boolean := false;
+        UART_TEST    : boolean := true
     );
     port(
         sysclk  : in  std_logic;
@@ -162,7 +164,8 @@ begin
       ENABLE_SPI => ENABLE_SPI,
       NUM_LEDS => NUM_LEDS,
       ENABLE_GPIO => ENABLE_GPIO,
-      DEBUG => DEBUG
+      DEBUG => DEBUG,
+      UART_TEST => UART_TEST
     )
     port map(
         sysclk => TbClock,

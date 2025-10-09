@@ -36,6 +36,26 @@ filesets:
     - "extended_soc? (fpga/ulx3s/ulx3s_top_ex.vhdl)"
     - "!extended_soc? (fpga/ulx3s/ulx3s_top.vhdl)"
 
+  cmods7_top:
+    file_type: vhdlSource-2008
+    files:
+    - "extended_soc? (fpga/cmods7/cmods7_top_ex.vhd)"
+    #- "!extended_soc? (fpga/cmods7/cmods7/cmods7_top.vhd)". # not implemented yet
+    #- "!simulation_target?(fpga/cmods7/cmods7/clkgen.vhd)" #not needed most likely, Check
+    - "simulation_target? (fpga/cmods7/clkgen_sim.vhd)"
+    - "simulation_target? (fpga/cmods7/cmod_s7_top_tb.vhd)"
+
+  xdc_cmods7:
+    file_type: xdc
+    files:
+    - fpga/cmods7/cmod.xdc
+
+  cmods7_ip:
+    file_type: xci
+    files:
+    - fpga/cmods7/clkgen/clkgen.xci
+    
+
   scripts:
     file_type: user
     files:
@@ -78,7 +98,7 @@ generate:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
-      bram_adr_width: 11
+      bram_adr_width: 12
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
       hexfile: "../bonfire-software/test/sim_hello.hex"
@@ -94,7 +114,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../bonfire-software/test/hw_hello.hex"
+      hexfile:   "../bonfire-software/test/hw_hello.hex"    # "../bonfire-software/monitor/build/BONFIRE_CORE/BONFIRE_CORE_monitor.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false
@@ -158,6 +178,25 @@ targets:
     generate: [ soc_top ]
     toplevel: bonfire_core_soc_top
    
+
+  cmods7_extended:
+      flags:  
+        extended_soc : true
+
+      default_tool: vivado
+      #parameters: [ BRAM_ADR_WIDTH, RamFileName ]
+      filesets:
+      - soc_io
+      - cmods7_top
+      - xdc_cmods7
+      - cmods7_ip
+      tools:
+        vivado:
+          board_part: DIGILENTINC.COM:CMOD-S7-25:PART0:1.0
+      toplevel:
+      - cmod_s7_top
+      generate: [ soc_extented ]
+
 
   cmods7:
     generate: [ soc_top ]

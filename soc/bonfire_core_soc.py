@@ -27,34 +27,58 @@ class BonfireCoreSoC:
 
 
     @block
-    def led_out(self,clock,reset,led,dbus):
+    def led_out(self,clock,reset,led,dbus, ledactiveLow=False):
         num_leds = len(led)
+
+        led_reg = Signal(modbv(0)[num_leds:]);
 
         assert num_leds>0 and num_leds<=8, "Invalid Value for number of Leds"
 
+        if ledactiveLow:
+            @always_comb
+            def led_inv():
+                led.next = ~led_reg
+        else:
+            @always_comb
+            def led_buf():
+                led.next = led_reg
+
         @always_seq(clock.posedge,reset=reset)
         def seq():
-            if dbus.en_o and dbus.we_o[0]:
-                led.next[num_leds:0] = dbus.db_wr[num_leds:0]
-
+            if dbus.en_o:
+                if  dbus.we_o[0]:
+                    led_reg.next[num_leds:0] = dbus.db_wr[num_leds:0]
+               
+                    
         @always_comb
         def comb():
             dbus.ack_i.next = dbus.en_o
             dbus.stall_i.next = False
+            dbus.db_rd.next = 0
+            if dbus.en_o:
+                dbus.db_rd.next[num_leds:0] = led_reg
+
 
         return instances()
 
     @block
     def wishbone_dummy(self,clock,reset,wb_bundle):
-         
+
+        dummy_reg = Signal(modbv(0xdeadbeef)[32:])
+
+        @always_seq(clock.posedge,reset=reset)
+        def regwrite():
+            if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o and wb_bundle.wbm_we_o:
+                dummy_reg.next = wb_bundle.wbm_db_o
+
         @always_comb
         def comb():
             if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o:
                 wb_bundle.wbm_ack_i.next = True
-                wb_bundle.wbm_db_i.next = 0xdeadbeef
+                wb_bundle.wbm_db_i.next = dummy_reg
             else:
                 wb_bundle.wbm_ack_i.next = False
-                wb_bundle.wbm_db_i.next = 0    
+                wb_bundle.wbm_db_i.next = 0
 
 
         if not self.conversion:
@@ -63,12 +87,16 @@ class BonfireCoreSoC:
                 if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o and wb_bundle.wbm_ack_i:
                     print("Wishbone Dummy:")
                     print("adr_o: 0x{:08x}".format(int(wb_bundle.wbm_adr_o<<2)))
+                    if wb_bundle.wbm_we_o:
+                        print("Write: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
+                    else:
+                        print("Read : 0x{:08x}".format(int(wb_bundle.wbm_db_i)))
                     print("dat_o: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
                     print("cyc_o: 0x{:x}".format(int(wb_bundle.wbm_cyc_o)))
                     print("stb_o: 0b{:b}".format(int(wb_bundle.wbm_stb_o)))
                     print("we_o: 0b{:b}".format(int(wb_bundle.wbm_we_o)))
-                    print("sel_o: 0b{:b}".format(int(wb_bundle.wbm_sel_o)))                    
-    
+                    print("sel_o: 0b{:b}".format(int(wb_bundle.wbm_sel_o)))
+
 
         return instances()
 
@@ -151,9 +179,11 @@ class BonfireCoreSoC:
         if wb_master is None:
             wb_master_local = bonfire_interfaces.Wishbone_master_bundle()
         else:
-            wb_master_local = wb_master    
+            wb_master_local = wb_master
         bram_port_a = ram_dp.RamPort32(readOnly=True)
         bram_port_b = ram_dp.RamPort32()
+
+
 
         if self.LanedMemory:
             print("Using Laned Memory")
@@ -164,16 +194,7 @@ class BonfireCoreSoC:
 
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,sysclk)
 
-        if self.ledActiveLow:
-            n_led = Signal(modbv(0)[len(led):])
-            led_out_i=self.led_out(sysclk,reset,n_led,dbus)
-
-            @always_comb
-            def led_inv_proc():
-                led.next = ~n_led
-
-        else:
-            led_out_i = self.led_out(sysclk,reset,led,dbus)
+        led_out_i=self.led_out(sysclk,reset,led,dbus, ledactiveLow=self.ledActiveLow)
 
         if not self.exposeWishboneMaster:
             wb_i = self.wishbone_dummy(sysclk,reset,wb_master_local)
@@ -213,7 +234,7 @@ class BonfireCoreSoC:
         clk_driver_i=ClkDriver.ClkDriver(sysclk,period=10)
 
         self.ledActiveLow = False
-       
+
 
         inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
 
@@ -247,7 +268,7 @@ class BonfireCoreSoC:
 
         if gentb:
             inst = self.soc_testbench()
-        else:    
+        else:
 
 
             sysclk = Signal(bool(0))
@@ -262,7 +283,7 @@ class BonfireCoreSoC:
             if self.exposeWishboneMaster:
                 print("Exposing Wishbone Master Interface")
                 wb_master = bonfire_interfaces.Wishbone_master_bundle()
-            else:    
+            else:
                 wb_master = None
 
             inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked,wb_master=wb_master)

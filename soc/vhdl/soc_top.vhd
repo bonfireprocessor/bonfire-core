@@ -27,7 +27,8 @@ entity {entity_name} is
         ENABLE_SPI      : boolean := {enableSPI};
         NUM_LEDS       : natural := {numLeds};
         ENABLE_GPIO     : boolean := true;
-        DEBUG          : boolean := false
+        DEBUG          : boolean := false;
+        UART_TEST    : boolean := true
     );
 
     port(
@@ -125,41 +126,76 @@ U_BONFIRE_CORE: {gen_core_name}
 
     io_adr(io_adr'range) <= adr_map(io_adr'length-1 downto 0); -- Map different address indexing
 
-Inst_bonfire_soc_io: entity  work.bonfire_soc_io
-GENERIC MAP (
-  NUM_GPIO_BITS => gpio_o'length,
-  ADR_HIGH => io_adr_high,
-  UART_FIFO_DEPTH => 6,
-  ENABLE_UART0 => true,
-  ENABLE_UART1 => ENABLE_UART1,
-  ENABLE_SPI => ENABLE_SPI,
-  NUM_SPI => NUM_SPI,
-  ENABLE_GPIO => ENABLE_GPIO
-)
-PORT MAP(
-        uart0_txd => uart0_txd,
-        uart0_rxd => uart0_rxd,
-        uart1_txd => uart1_txd,
-        uart1_rxd => uart1_rxd,
-        gpio_o => gpio_o ,
-        gpio_i => gpio_i,
-        gpio_t =>  gpio_t,
-        spi_cs => spi_cs,
-        spi_clk => spi_clk,
-        spi_mosi => spi_mosi,
-        spi_miso => spi_miso,
-        irq_o => open,
-        clk_i => sysclk,
-        rst_i => reset_sync,
-        wb_cyc_i => io_cyc,
-        wb_stb_i => io_stb,
-        wb_we_i =>  io_we,
-        wb_sel_i => io_sel,
-        wb_ack_o => io_ack,
-        wb_adr_i => io_adr,
-        wb_dat_i => io_dat_wr,
-        wb_dat_o => io_dat_rd
-    );
+io_gen: if not UART_TEST  generate
+    
+    
+    Inst_bonfire_soc_io: entity  work.bonfire_soc_io
+    GENERIC MAP (
+    NUM_GPIO_BITS => gpio_o'length,
+    ADR_HIGH => io_adr_high,
+    UART_FIFO_DEPTH => 6,
+    ENABLE_UART0 => true,
+    ENABLE_UART1 => ENABLE_UART1,
+    ENABLE_SPI => ENABLE_SPI,
+    NUM_SPI => NUM_SPI,
+    ENABLE_GPIO => ENABLE_GPIO
+    )
+    PORT MAP(
+            uart0_txd => uart0_txd,
+            uart0_rxd => uart0_rxd,
+            uart1_txd => uart1_txd,
+            uart1_rxd => uart1_rxd,
+            gpio_o => gpio_o ,
+            gpio_i => gpio_i,
+            gpio_t =>  gpio_t,
+            spi_cs => spi_cs,
+            spi_clk => spi_clk,
+            spi_mosi => spi_mosi,
+            spi_miso => spi_miso,
+            irq_o => open,
+            clk_i => sysclk,
+            rst_i => reset_sync,
+            wb_cyc_i => io_cyc,
+            wb_stb_i => io_stb,
+            wb_we_i =>  io_we,
+            wb_sel_i => io_sel,
+            wb_ack_o => io_ack,
+            wb_adr_i => io_adr,
+            wb_dat_i => io_dat_wr,
+            wb_dat_o => io_dat_rd
+        );
+
+end generate;
+
+uart_gen:  if UART_TEST generate
+   
+
+    Inst_uart1: entity work.zpuino_uart
+        generic map (
+            bits      => 6, -- Example FIFO depth (change as needed)
+            wordSize  => 32,
+            maxIObit  => io_adr_high,
+            minIObit  => 2,
+            extended  => true
+        )
+        port map (
+            wb_clk_i   => sysclk,
+            wb_rst_i   => reset_sync,
+            wb_dat_o   => io_dat_rd,
+            wb_dat_i   => io_dat_wr,
+            wb_adr_i   => io_adr,
+            wb_we_i    => io_we,
+            wb_cyc_i   => io_cyc,
+            wb_stb_i   => io_stb,
+            wb_ack_o   => io_ack,
+            wb_inta_o  => open,
+            id         => open,
+            enabled    => open,
+            tx         => uart0_txd,
+            rx         => uart0_rxd
+        );
+
+end generate;
 
 --Wishbone Bus Monitor (instantiated only when DEBUG is true)
 wb_monitor_gen: if DEBUG generate
