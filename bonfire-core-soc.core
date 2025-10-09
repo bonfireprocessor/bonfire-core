@@ -43,7 +43,7 @@ filesets:
     #- "!extended_soc? (fpga/cmods7/cmods7/cmods7_top.vhd)". # not implemented yet
     #- "!simulation_target?(fpga/cmods7/cmods7/clkgen.vhd)" #not needed most likely, Check
     - "simulation_target? (fpga/cmods7/clkgen_sim.vhd)"
-    - "simulation_target? (fpga/cmods7/cmod_s7_top_tb.vhd)"
+    - "simulation_target? (fpga/cmods7/cmods7_top_tb.vhd)"
 
   xdc_cmods7:
     file_type: xdc
@@ -120,6 +120,18 @@ generate:
       laned_memory : false
       extended_soc: true
 
+  soc_extented_cmods7:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_adr_width: 12
+      conversion_warnings: 'ignore'
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "../bonfire-software/monitor/build/BONFIRE_CORE_CMODS7/BONFIRE_CORE_CMODS7_monitor.hex"
+      num_leds: 4
+      led_active_low: false
+      laned_memory : false
+      extended_soc: true
 
   soc_tb:
     generator: gen_bonfire_core_soc
@@ -195,7 +207,26 @@ targets:
           board_part: DIGILENTINC.COM:CMOD-S7-25:PART0:1.0
       toplevel:
       - cmod_s7_top
-      generate: [ soc_extented ]
+      generate: [ soc_extented_cmods7 ]
+
+  cmods7_extended_sim:
+      flags:  
+        extended_soc : true
+        simulation_target: true
+
+      default_tool: ghdl
+      filesets:
+      - soc_io
+      - cmods7_top
+      tools:
+        ghdl:
+          analyze_options: [ --ieee=synopsys,  -frelaxed-rules, -Wno-specs ]
+          run_options: [ --ieee-asserts=disable, --stop-time=100000us ] # --wave=cpu.ghw ]
+        xsim:
+          xelab_options: [ "--debug typical" ]
+      toplevel:
+      - cmods7_top_tb
+      generate: [ soc_extented_cmods7 ]
 
 
   cmods7:

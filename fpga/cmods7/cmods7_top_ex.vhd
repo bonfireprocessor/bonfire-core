@@ -118,7 +118,7 @@ begin
   --qspi_wpn <= '1';
 
     soc_inst: bonfire_core_soc_top
-    -- generic map (
+    generic map (
          NUM_SPI => 1,
     --   NUM_GPIO => NUM_GPIO,
     --   ENABLE_UART1 => ENABLE_UART1,
@@ -127,15 +127,15 @@ begin
     --   ENABLE_GPIO => ENABLE_GPIO,
     --   DEBUG => DEBUG
         UART_TEST => false -- Instantiate complete soc_io 
-    -- )
+     )
     port map(
         sysclk => sysclk,
         resetn => '1',
         i_locked => clk_locked, -- PLL (un) lock will serve as reset signal
         o_resetn => open,
 
-        uart0_txd => uart0_tx,
-        uart0_rxd => uart0_rx,
+        uart0_txd => uart0_txd,
+        uart0_rxd => uart0_rxd,
         uart1_txd => open,
         uart1_rxd => '1',
         spi_cs(0)   => qspi_cs,

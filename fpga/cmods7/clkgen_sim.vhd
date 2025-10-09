@@ -1,17 +1,22 @@
 library IEEE;
 use IEEE.STD_LOGIC_1164.ALL;
 
+LIBRARY std;
+USE std.textio.all;
+
+use work.txt_util.all;
+
 entity clkgen is
   generic (
     CLK_PERIOD : time := 10.42 ns; -- 96 Mhz
     LOCK_CYCLES : natural := 50; -- Number of clock cycles until clkgen is "locked"
-    WATCHDOG_TIME : time := 100 ns
+    WATCHDOG_TIME : time := 500 ns
   );
   Port (
-    clkout : out STD_LOGIC;
+    sysclk : out STD_LOGIC;
     reset : in STD_LOGIC;
     locked : out STD_LOGIC;
-    sysclk : in STD_LOGIC
+    clk12mhz : in STD_LOGIC
   );
 
 end clkgen;
@@ -23,9 +28,9 @@ signal TbClock : std_logic := '0';
 signal lock_counter : natural :=0;
 signal f_locked : boolean;
 
-signal stop : boolean;
+signal stop : boolean := false;
 
-shared variable watch : boolean:= false;
+shared variable  watch : boolean:= false;
 
 
 begin
@@ -51,9 +56,9 @@ begin
    end process;
    
    
-   process(sysclk) begin
+   process(clk12mhz) begin
    
-      watch := rising_edge(sysclk);
+      watch := rising_edge(clk12mhz);
    
    end process;
    
@@ -66,15 +71,16 @@ begin
      stop <= not watch;
      
      if not watch then
-       report "clkgen_sim : Wait for sysclk restart, output clock stopped";
-       wait until rising_edge(sysclk);
+       print("clkgen_sim : Wait for clk12mhz restart, output clock stopped");
+       wait until rising_edge(clk12mhz);
+       print("clkgen_sim: clk12Mhz rising edge detected, Output clock enabled");
      end if;  
        
    end process;
 
 
    TbClock <= not TbClock after CLK_PERIOD/2 when not stop else '0';
-   clkout <= tbClock;
+   sysclk <= tbClock;
 
 
 end;

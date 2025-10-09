@@ -34,14 +34,15 @@ architecture TB_ARCHITECTURE of cmods7_top_tb is
   	);
 	end component;
 	constant ClockPeriod : time :=  ( 1000.0 / real(12) ) * 1 ns;
+	constant UART_BAUDRATE : natural := 115200;
 
 	-- Stimulus signals - signals mapped to the input and inout ports of tested entity
 	signal sysclk : STD_LOGIC := '0';
-	signal resetn : STD_LOGIC;
+	signal I_RESET : STD_LOGIC;
 	signal uart0_rxd : STD_LOGIC := '1';
 	-- Observed signals - signals mapped to the output ports of tested entity
 	signal uart0_txd : STD_LOGIC;
-	signal led : STD_LOGIC_VECTOR(7 downto 0);
+	signal led : STD_LOGIC_VECTOR(3 downto 0);
 
 	
     signal TbSimEnded : std_logic := '0';
@@ -79,7 +80,7 @@ begin
 	-- Unit Under Test port map
 	UUT : cmod_s7_top
 		port map (
-			I_RESET    => resetn,
+			I_RESET    => I_RESET,
 			CLK12MHZ   => sysclk,
 			uart0_txd  => uart0_txd,
 			uart0_rxd  => uart0_rxd,
@@ -109,16 +110,22 @@ begin
 	 );	
 
 
+	process
+    begin
+      wait on led;
+      print("LEDs:" & str(led) & "(" & hstr(led) & ")");
+
+	end process;
 	
-	sysclk <= not sysclk after ClockPeriod / 2;
+	sysclk <= not sysclk after ClockPeriod / 2  when TbSimEnded /= '1' else '0';
 	
 	stimuli : process
     begin
       
         wait for ClockPeriod;
-        reset <= '1';
+        I_RESET <= '1';
         wait for ClockPeriod * 3;
-        reset <= '0';
+        I_RESET <= '0';
         print("Start simulation"); 
     
         wait until uart0_stop;
