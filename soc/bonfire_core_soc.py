@@ -180,8 +180,8 @@ class BonfireCoreSoC:
             wb_master_local = bonfire_interfaces.Wishbone_master_bundle()
         else:
             wb_master_local = wb_master
-        bram_port_a = ram_dp.RamPort32(readOnly=True)
-        bram_port_b = ram_dp.RamPort32()
+        bram_port_a = ram_dp.RamPort32(adrWidth=self.bramAdrWidth, readOnly=True)
+        bram_port_b = ram_dp.RamPort32(adrWidth=self.bramAdrWidth)
 
 
 
@@ -286,7 +286,16 @@ class BonfireCoreSoC:
             else:
                 wb_master = None
 
-            inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked,wb_master=wb_master)
+            try:
+                inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked,wb_master=wb_master)
+            except FileNotFoundError as fnf_error:
+                print(f"File not found: {fnf_error}")
+                import sys
+                sys.exit(1)
+            except Exception as e:
+                print(f"Error initializing bonfire_core_soc: {e}")
+                import sys
+                sys.exit(1)
 
         with warnings.catch_warnings():
             warnings.filterwarnings(

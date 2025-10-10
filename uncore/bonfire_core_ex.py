@@ -25,8 +25,8 @@ def bonfireCoreExtendedInterface(wb_master,db_master,bram_a,bram_b,clock,reset,
     """
     wb_master: Wishbone_master_bundle mapped at address 0x02000000
     db_master: DbusBundle mapped at address 0x100000000
-    bram_a: Instruction RamPort32, should be read only, mapped at address 0
-    bram_b: Data RamPort32 mapped at address 0
+    bram_a: Instruction RamPort32, should be read only
+    bram_b: Data RamPort32 mapped
     clock : cpu clock
     reset : reset signal
     wb_mask : Address mask for Wishbone interface 

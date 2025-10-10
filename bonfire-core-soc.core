@@ -124,7 +124,7 @@ generate:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
-      bram_adr_width: 12
+      bram_adr_width: 14
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
       hexfile: "../bonfire-software/monitor/build/BONFIRE_CORE_CMODS7/BONFIRE_CORE_CMODS7_monitor.hex"
