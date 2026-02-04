@@ -6,6 +6,16 @@ TARGET_LD := $(TARGET_PREFIX)-gcc
 TARGET_SIZE := $(TARGET_PREFIX)-size
 TARGET_OBJCOPY := $(TARGET_PREFIX)-objcopy
 
+BUILD_DIR ?= build
+
+# By default, GNU make deletes intermediate files (like the generated %.elf)
+# after building the final target (%.hex). For integration tests that need
+# the ELF (e.g., for signature extraction), set KEEP_ELF=1.
+ifeq ($(KEEP_ELF),1)
+# Keep intermediate files (including generated *.elf) for downstream tooling.
+.SECONDARY:
+endif
+
 
 GCC_VERSION := $(shell $(TARGET_CC) -dumpversion | cut -f1 -d.)
 ifeq ($(shell echo "$(GCC_VERSION) >= 10" | bc), 1)
@@ -18,26 +28,31 @@ endif
 
 ABI = ilp32
 HEXDUMP ?= hexdump
-LINKDEF?=lxp.ld
+LINKDEF?=bonfire_core.ld
 
-%.elf : %.S
-	$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI)  -nostartfiles -T$(LINKDEF) -o $@ $<
+$(BUILD_DIR):
+	@mkdir -p $@
+
+$(BUILD_DIR)/%.elf : %.S | $(BUILD_DIR)
+	$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI) -nostartfiles -T$(LINKDEF) -o $@ $<
 
 
-%.hex : %.elf
+$(BUILD_DIR)/%.hex : $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 	$(TARGET_OBJCOPY) -j .text -O binary $< $(basename $@).bin
 	$(HEXDUMP) -v -e '1/4 "%08x\n"' $(basename $@).bin >$@
 	$(TARGET_PREFIX)-objdump -d $< >$(basename $@).lst
 	$(TARGET_PREFIX)-objdump -t $< >$(basename $@).sym
 	$(TARGET_PREFIX)-size  $<
 
-basic_alu.hex : basic_alu.S
+PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap
+HEXES := $(addprefix $(BUILD_DIR)/,$(addsuffix .hex,$(PROGRAMS)))
 
+all: $(HEXES)
 
-all: basic_alu.hex simple_loop.hex loop.hex loadsave.hex branch.hex wb_test.hex csr.hex trap.hex
-    
-	
-info:	
+clean:
+	rm -rf $(BUILD_DIR)
+
+info:
 	@echo "GCC version $(GCC_VERSION) detected"
 	@echo "Setting ARCH to $(ARCH)"
     
