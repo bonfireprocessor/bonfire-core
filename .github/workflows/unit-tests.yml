@@ -28,7 +28,7 @@ jobs:
 
       - name: Run unit tests (no core integration / no compliance)
         run: |
-          pytest -q \
+          pytest -vv \
             tests/test_ut_alu.py \
             tests/test_ut_barrel_shifter.py \
             tests/test_ut_decoder.py \
