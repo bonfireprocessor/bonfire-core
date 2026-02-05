@@ -1,0 +1,75 @@
+name: riscv-compliance
+
+on:
+  # Run on PRs (requested)
+  pull_request:
+
+  # Nightly run (requested)
+  schedule:
+    - cron: "0 2 * * *"  # 02:00 UTC daily
+
+  # Manual trigger (requested)
+  workflow_dispatch:
+
+jobs:
+  compliance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout bonfire-core
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install RISC-V toolchain (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            binutils-riscv64-unknown-elf \
+            gcc-riscv64-unknown-elf
+
+      - name: Create venv for compliance harness
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -U pip
+          python -m pip install myhdl==0.11.51 pyelftools pytest
+
+      - name: Clone riscv-compliance (bonfireprocessor fork)
+        run: |
+          git clone --depth 1 https://github.com/bonfireprocessor/riscv-compliance.git riscv-compliance
+
+      - name: Run riscv-compliance (rv32i + rv32Zicsr)
+        env:
+          BONFIRE_CORE_ROOT: ${{ github.workspace }}
+          PYTHON: ${{ github.workspace }}/.venv/bin/python
+        run: |
+          cd riscv-compliance
+          make RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
+          make RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
+
+      # Email notification (requires SMTP secrets in repo settings)
+      - name: Email workflow result
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "[bonfire-core] riscv-compliance ${{ job.status }} (${{ github.ref_name }})"
+          to: ${{ secrets.COMPLIANCE_MAIL_TO }}
+          from: ${{ secrets.COMPLIANCE_MAIL_FROM }}
+          body: |
+            Repo: ${{ github.repository }}
+            Workflow: ${{ github.workflow }}
+            Status: ${{ job.status }}
+            Event: ${{ github.event_name }}
+            Ref: ${{ github.ref }}
+            SHA: ${{ github.sha }}
+
+            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
