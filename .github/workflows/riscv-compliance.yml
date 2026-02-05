@@ -54,7 +54,7 @@ jobs:
 
       # Email notification (requires SMTP secrets in repo settings)
       - name: Email workflow result
-        if: always()
+        if: always() && secrets.SMTP_SERVER != '' && secrets.COMPLIANCE_MAIL_TO != ''
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: ${{ secrets.SMTP_SERVER }}
