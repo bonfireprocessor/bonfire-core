@@ -42,3 +42,42 @@ jobs:
             tests/test_ut_regfile.py \
             tests/test_ut_loadstore.py \
             tests/test_integration_pipeline.py
+
+  riscv-compliance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout bonfire-core
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install RISC-V toolchain (apt)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            binutils-riscv64-unknown-elf \
+            gcc-riscv64-unknown-elf
+
+      - name: Create venv for compliance harness
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -U pip
+          python -m pip install myhdl==0.11.51 pyelftools pytest
+
+      - name: Clone riscv-compliance (bonfireprocessor fork)
+        run: |
+          git clone --depth 1 https://github.com/bonfireprocessor/riscv-compliance.git riscv-compliance
+
+      - name: Run riscv-compliance (rv32i + rv32Zicsr)
+        env:
+          BONFIRE_CORE_ROOT: ${{ github.workspace }}
+        run: |
+          cd riscv-compliance
+          ./scripts/run_bonfire_compliance.sh RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
+          ./scripts/run_bonfire_compliance.sh RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
