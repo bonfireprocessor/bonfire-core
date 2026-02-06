@@ -34,7 +34,8 @@ $(BUILD_DIR):
 	@mkdir -p $@
 
 $(BUILD_DIR)/%.elf : %.S | $(BUILD_DIR)
-	$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI) -nostartfiles -T$(LINKDEF) -o $@ $<
+	# These are freestanding bare-metal programs; do not pull in libc/startup files.
+	$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI) -nostdlib -nostartfiles -T$(LINKDEF) -o $@ $<
 
 
 $(BUILD_DIR)/%.hex : $(BUILD_DIR)/%.elf | $(BUILD_DIR)
