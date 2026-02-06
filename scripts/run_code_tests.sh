@@ -11,6 +11,9 @@ CODE_DIR="$ROOT_DIR/code"
 
 TOOLCHAIN_BIN_DEFAULT="$HOME/opt/riscv-gnu-toolchain/bin"
 TOOLCHAIN_BIN="${TOOLCHAIN_BIN:-$TOOLCHAIN_BIN_DEFAULT}"
+# TARGET_PREFIX can be either:
+#   - a plain prefix (e.g. riscv64-unknown-elf)
+#   - a full path prefix (e.g. /opt/toolchain/bin/riscv64-unknown-elf)
 TARGET_PREFIX="${TARGET_PREFIX:-riscv64-unknown-elf}"
 
 SKIP_HEX=("wb_test.hex")
@@ -23,13 +26,23 @@ if [[ ! -d "$ROOT_DIR/.venv" ]]; then
   exit 2
 fi
 
-if [[ ! -x "$TOOLCHAIN_BIN/${TARGET_PREFIX}-gcc" ]]; then
-  echo "ERROR: toolchain not found: $TOOLCHAIN_BIN/${TARGET_PREFIX}-gcc"
-  echo "Set TOOLCHAIN_BIN or TOOLCHAIN_BIN_DEFAULT accordingly."
+# Resolve the gcc binary for the toolchain.
+if [[ "$TARGET_PREFIX" == */* ]]; then
+  TARGET_GCC="${TARGET_PREFIX}-gcc"
+else
+  TARGET_GCC="$TOOLCHAIN_BIN/${TARGET_PREFIX}-gcc"
+fi
+
+if [[ ! -x "$TARGET_GCC" ]]; then
+  echo "ERROR: toolchain not found: $TARGET_GCC"
+  echo "Set TARGET_PREFIX (plain or full path prefix) and/or TOOLCHAIN_BIN accordingly."
   exit 2
 fi
 
-export PATH="$TOOLCHAIN_BIN:$PATH"
+# Only prepend TOOLCHAIN_BIN to PATH when TARGET_PREFIX is not already a full path.
+if [[ "$TARGET_PREFIX" != */* ]]; then
+  export PATH="$TOOLCHAIN_BIN:$PATH"
+fi
 
 pushd "$CODE_DIR" >/dev/null
 make all TARGET_PREFIX="$TARGET_PREFIX"
@@ -50,10 +63,10 @@ pushd "$ROOT_DIR" >/dev/null
 # shellcheck disable=SC1091
 . .venv/bin/activate
 
-for f in "$CODE_DIR"/*.hex; do
+for f in "$CODE_DIR"/build/*.hex; do
   base="$(basename "$f")"
 
-  echo "=== code/$base ==="
+  echo "=== code/build/$base ==="
 
   if [[ -n "${SKIP[$base]:-}" ]]; then
     echo "SKIP"
@@ -63,7 +76,7 @@ for f in "$CODE_DIR"/*.hex; do
   fi
 
   # Capture output for parsing + debugging.
-  out="$(python tb_run.py --hex="code/$base" 2>&1)" || true
+  out="$(python tb_run.py --hex="code/build/$base" 2>&1)" || true
   echo "$out"
 
   last_line="$(grep -E 'Monitor write: .* 10000000:' <<<"$out" | tail -n 1 || true)"
