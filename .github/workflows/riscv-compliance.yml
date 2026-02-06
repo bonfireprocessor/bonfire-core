@@ -52,24 +52,3 @@ jobs:
           make RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
           make RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
 
-      # Email notification (requires SMTP secrets in repo settings)
-      - name: Email workflow result
-        if: always() && secrets.SMTP_SERVER != '' && secrets.COMPLIANCE_MAIL_TO != ''
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: ${{ secrets.SMTP_SERVER }}
-          server_port: ${{ secrets.SMTP_PORT }}
-          username: ${{ secrets.SMTP_USERNAME }}
-          password: ${{ secrets.SMTP_PASSWORD }}
-          subject: "[bonfire-core] riscv-compliance ${{ job.status }} (${{ github.ref_name }})"
-          to: ${{ secrets.COMPLIANCE_MAIL_TO }}
-          from: ${{ secrets.COMPLIANCE_MAIL_FROM }}
-          body: |
-            Repo: ${{ github.repository }}
-            Workflow: ${{ github.workflow }}
-            Status: ${{ job.status }}
-            Event: ${{ github.event_name }}
-            Ref: ${{ github.ref }}
-            SHA: ${{ github.sha }}
-
-            Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}

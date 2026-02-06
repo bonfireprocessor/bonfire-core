@@ -33,7 +33,7 @@ jobs:
           python -m pip install -U pip
           python -m pip install myhdl==0.11.51 pyelftools pytest
 
-      - name: Run unit + pipeline integration tests (no core integration / no compliance)
+      - name: Run unit + integration tests (incl. core integration; no compliance)
         run: |
           pytest -vv \
             tests/test_ut_alu.py \
@@ -41,4 +41,5 @@ jobs:
             tests/test_ut_decoder.py \
             tests/test_ut_regfile.py \
             tests/test_ut_loadstore.py \
-            tests/test_integration_pipeline.py
+            tests/test_integration_pipeline.py \
+            tests/test_core.py
