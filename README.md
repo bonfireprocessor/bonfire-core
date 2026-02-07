@@ -21,7 +21,14 @@ The FPGA implementation is not part of this project, it is part of the bonfire-b
 - **Python** (tested with **Python 3.8 .. 3.13.5**) + `pip`
 - Recommended: use a **virtual environment** in the repo (`.venv/`)
 
-Quick setup:
+Quick setup (recommended): use the universal runner to create/update the venv and install deps:
+
+```bash
+cd bonfire-core
+scripts/bonfire-core --install
+```
+
+Manual setup (if you prefer):
 
 ```bash
 cd bonfire-core
@@ -54,159 +61,38 @@ See also hint below to compile with picolibc.
 
 ## Running tests
 
-bonfire-core uses **pytest** for the test suite (unit + integration).
+For day-to-day development, the recommended entry point is the universal runner:
 
-For an overview of the different test groups (unit tests, pipeline tests, core integration tests, etc.) see:
-- [`tests/README.md`](tests/README.md)
+- [`scripts/bonfire-core`](scripts/bonfire-core)
 
-The legacy runner **`tb_run.py`** is still available for compatibility and for some workflows (see also [`TB_RUN.md`](TB_RUN.md)).
+Quick test run (unit + integration):
 
-RISC-V compliance testing (riscv-compliance harness + signature dumping) is documented here:
-- [`COMPLIANCE.md`](COMPLIANCE.md)
-
-### Run the full pytest suite
 ```bash
 cd bonfire-core
-source .venv/bin/activate
-pytest
-```
-Expected output (example):
-```text
-s.......................                                                 [100%]
-23 passed, 1 skipped in 4.2s
+scripts/bonfire-core --install
+scripts/bonfire-core --all
 ```
 
-Show every test name + status:
-```bash
-pytest -vv
-```
-Expected output (example, shortened):
-```text
-============================= test session starts ==============================
-platform linux -- Python 3.13.x, pytest-x.y.z
-rootdir: .../bonfire-core
-collected 24 items
+To run specific test groups, see the runner documentation:
 
-tests/test_ut_alu.py::test_alu_comb PASSED                                [  4%]
-tests/test_ut_loadstore.py::test_loadstore PASSED                          [  8%]
-...
-tests/test_core.py::test_core[code/trap.hex] PASSED                        [100%]
+- [`scripts/README.md`](scripts/README.md)
 
-======================== 23 passed, 1 skipped in 4.2s =========================
-```
+### Experts: run pytest directly
 
-Run a single file / single test:
-```bash
-pytest tests/test_ut_alu.py
-pytest tests/test_ut_alu.py::test_alu_comb
-```
-Expected output (example):
-```text
-============================= test session starts ==============================
-collected 1 item
+The test suite is implemented with **pytest** and can also be run directly.
+Test-suite overview (groups, mapping, environment variables) is documented here:
 
-tests/test_ut_alu.py .                                                   [100%]
-
-============================== 1 passed in 0.2s ===============================
-```
-
-Filter by keyword:
-```bash
-pytest -k loadsave -vv
-```
-Expected output (example, shortened):
-```text
-collected 24 items / 23 deselected / 1 selected
-
-tests/test_core.py::test_core[code/loadsave.hex] PASSED                   [100%]
-
-====================== 1 passed, 23 deselected in 0.8s =======================
-```
-
-### HEX integration tests (tb_run-style monitor output)
-The HEX integration tests run `tb_core` on the `code/build/*.hex` programs and check the monitor "PASS" convention.
-
-If you want the **same console output** you used to get with `tb_run.py` (Monitor writes, etc.), run pytest with `-s`:
-
-```bash
-pytest -s -vv tests/test_core.py
-```
-Expected output (example, shortened):
-```text
-============================= test session starts ==============================
-collecting ... collected 7 items
-
-tests/test_core.py::test_core[code/build/basic_alu.hex] PASSED             [ 14%]
-tests/test_core.py::test_core[code/build/branch.hex] PASSED                [ 28%]
-...
-tests/test_core.py::test_core[code/build/trap.hex] PASSED                  [100%]
-
-============================== 7 passed in 3.4s ===============================
-```
-
-Filter to a single program (example `loadsave`):
-
-```bash
-pytest -s -vv tests/test_core.py -k loadsave
-```
-Expected output (example, incl. MyHDL monitor output):
-```text
-collected 7 items / 6 deselected / 1 selected
-
-tests/test_core.py::test_core[code/build/loadsave.hex]
-eof at adr:0x118
-Created ram with size 16384 words
-5 3
-Shifter implemented with one pipeline stage: 3:0 || 5:3
-Shifter instance with config 3 0
-Shifter instance with config 5 3
-Shifter instance with config 5 3
-Monitor write: @275 10000200: fa55aa55 (-95049131)
-Monitor write: @595 10000204: 00005555 (21845)
-Monitor write: @805 10000208: 000000aa (170)
-Monitor write: @1015 1000020c: ffffffaa (-86)
-Monitor write: @1225 10000210: 00000055 (85)
-Monitor write: @1435 10000214: 00000055 (85)
-Monitor write: @1775 10000218: fa55aa55 (-95049131)
-Monitor write: @1995 1000021c: 0000fa55 (64085)
-Monitor write: @2205 10000220: fffffa55 (-1451)
-Monitor write: @2425 10000224: 0000aa55 (43605)
-Monitor write: @2645 10000228: ffffaa55 (-21931)
-Monitor write: @2925 1000022c: fa55aa55 (-95049131)
-Monitor write: @3055 10000000: 00000001 (1)
-PASSED
-
-====================== 1 passed, 6 deselected in 0.7s ========================
-```
-
-Convenience wrapper (builds the `.hex` programs into `code/build/` and then runs only the core integration tests):
-
-```bash
-scripts/run_core_integration_pytest.sh -vv
-scripts/run_core_integration_pytest.sh -vv -s -k loadsave
-```
-Expected output (example, shortened):
-```text
-riscv64-unknown-elf-gcc ... -o build/basic_alu.elf basic_alu.S
-...
-============================= test session starts ==============================
-collecting ... collected 7 items
-
-tests/test_core.py::test_core[code/build/basic_alu.hex] PASSED             [ 14%]
-...
-tests/test_core.py::test_core[code/build/trap.hex] PASSED                  [100%]
-
-============================== 7 passed in 3.5s ===============================
-```
-
-### Legacy tb_run.py (still supported)
-The legacy runner `tb_run.py` is still supported for debugging and some workflows, but it has been moved into a separate document:
-
-- [`TB_RUN.md`](TB_RUN.md) (legacy runner)
-- [`COMPLIANCE.md`](COMPLIANCE.md) (riscv-compliance harness + signature dumping)
-
-Test-suite overview (pytest + mapping) is in:
 - [`tests/README.md`](tests/README.md)
+
+### Legacy tb_run.py / Compliance
+
+The legacy runner **`tb_run.py`** is still available for debugging/compatibility:
+- [`TB_RUN.md`](TB_RUN.md)
+
+RISC-V compliance testing (riscv-compliance harness + signature dumping):
+- [`COMPLIANCE.md`](COMPLIANCE.md)
+
+(see above)
 
 # New Bonfire Core SOC
 

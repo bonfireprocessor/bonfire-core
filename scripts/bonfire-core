@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# bonfire-core: universal frontend for the bonfire-core development environment.
+#
+# - Runs pytest-based unit tests and core integration tests
+# - Can manage the local Python venv (via scripts/install.sh)
+# - Can run a single core integration program (--hex/--elf/--sig/--vcd)
+#
+# Any options not recognized by this script are passed through to pytest.
+# Use "--" to force all remaining args to be passed to pytest.
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CODE_DIR="$ROOT_DIR/code"
+
+TOOLCHAIN_BIN_DEFAULT="$HOME/opt/riscv-gnu-toolchain/bin"
+TOOLCHAIN_BIN="${TOOLCHAIN_BIN:-$TOOLCHAIN_BIN_DEFAULT}"
+
+# TARGET_PREFIX can be either:
+# - a plain prefix like "riscv64-unknown-elf"
+# - OR a full path prefix like "/opt/.../bin/riscv64-unknown-elf"
+TARGET_PREFIX="${TARGET_PREFIX:-riscv64-unknown-elf}"
+
+# Where the build will leave ELFs (relative to repo root by default)
+BONFIRE_ELF_DIR_DEFAULT="code/build"
+BONFIRE_ELF_DIR="${BONFIRE_ELF_DIR:-$BONFIRE_ELF_DIR_DEFAULT}"
+
+# Where signature files will be written
+BONFIRE_SIG_DIR_DEFAULT="signatures"
+BONFIRE_SIG_DIR="${BONFIRE_SIG_DIR:-$BONFIRE_SIG_DIR_DEFAULT}"
+
+usage() {
+  cat <<'USAGE'
+bonfire-core - bonfire-core universal test runner
+
+Usage:
+  scripts/bonfire-core [OPTIONS] [-- PYTEST_ARGS...]
+
+Test selection:
+  --ut              Run unit + pipeline integration tests (pytest-based)
+  --integration     Run core HEX integration tests (pytest-based)
+  --all             Run all tests (default when no args are given)
+
+Environment / venv:
+  --install         Create/update ./\.venv and install Python deps (runs scripts/install.sh)
+  --keepenv         Do not activate ./\.venv; keep current Python environment
+                    (also via BONFIRE_CORE_KEEPENV=1)
+
+Single core run (pytest-based):
+  --hex PATH        Run exactly one HEX program via tests/test_core.py
+  --elf PATH        Optional ELF path (override)
+  --sig PATH        Optional signature output path (override)
+  --vcd PATH        Optional VCD output path (MyHDL appends .vcd automatically)
+
+Other:
+  --help, -h        Show this help
+
+Notes:
+- Any unknown options are passed through to pytest.
+- Use "--" to pass arguments to pytest unmodified.
+
+Examples:
+  scripts/bonfire-core --all -vv
+  scripts/bonfire-core --ut -q
+  scripts/bonfire-core --hex code/build/loop.hex --vcd /tmp/loop.vcd
+  scripts/bonfire-core --integration -- -k loadsave -vv
+USAGE
+}
+
+RUN_UT=0
+RUN_INTEGRATION=0
+DO_INSTALL=0
+KEEPENV=0
+
+TB_HEX=""
+TB_ELF=""
+TB_SIG=""
+TB_VCD=""
+
+PYTEST_ARGS=()
+
+# Default behavior:
+# - no args -> same as --all
+if [[ $# -eq 0 ]]; then
+  RUN_UT=1
+  RUN_INTEGRATION=1
+fi
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --help|-h)
+      usage
+      exit 0
+      ;;
+
+    --install)
+      DO_INSTALL=1
+      shift
+      ;;
+
+    --keepenv)
+      KEEPENV=1
+      shift
+      ;;
+
+    --ut)
+      RUN_UT=1
+      shift
+      ;;
+
+    --integration)
+      RUN_INTEGRATION=1
+      shift
+      ;;
+
+    --all)
+      RUN_UT=1
+      RUN_INTEGRATION=1
+      shift
+      ;;
+
+    --hex)
+      TB_HEX="${2:-}"
+      [[ -n "$TB_HEX" ]] || { echo "ERROR: --hex requires a value" >&2; exit 2; }
+      shift 2
+      ;;
+
+    --elf)
+      TB_ELF="${2:-}"
+      [[ -n "$TB_ELF" ]] || { echo "ERROR: --elf requires a value" >&2; exit 2; }
+      shift 2
+      ;;
+
+    --sig)
+      TB_SIG="${2:-}"
+      [[ -n "$TB_SIG" ]] || { echo "ERROR: --sig requires a value" >&2; exit 2; }
+      shift 2
+      ;;
+
+    --vcd)
+      TB_VCD="${2:-}"
+      [[ -n "$TB_VCD" ]] || { echo "ERROR: --vcd requires a value" >&2; exit 2; }
+      shift 2
+      ;;
+
+    --)
+      shift
+      PYTEST_ARGS+=("$@")
+      break
+      ;;
+
+    *)
+      # Pass-through to pytest.
+      PYTEST_ARGS+=("$1")
+      shift
+      ;;
+  esac
+done
+
+if [[ "${BONFIRE_CORE_KEEPENV:-}" == "1" ]]; then
+  KEEPENV=1
+fi
+
+# If the user did not explicitly choose a test selection mode and provided args,
+# default to --all.
+if [[ $RUN_UT -eq 0 && $RUN_INTEGRATION -eq 0 ]]; then
+  RUN_UT=1
+  RUN_INTEGRATION=1
+fi
+
+# Resolve gcc path. If TARGET_PREFIX already contains a path, don't prepend TOOLCHAIN_BIN.
+GCC=""
+if [[ "$TARGET_PREFIX" == */* ]]; then
+  GCC="${TARGET_PREFIX}-gcc"
+  TOOLCHAIN_BIN_RESOLVED="$(dirname "$TARGET_PREFIX")"
+else
+  GCC="$TOOLCHAIN_BIN/${TARGET_PREFIX}-gcc"
+  TOOLCHAIN_BIN_RESOLVED="$TOOLCHAIN_BIN"
+fi
+
+if [[ ! -x "$GCC" ]]; then
+  echo "ERROR: toolchain not found: $GCC" >&2
+  echo "Hint: either set TARGET_PREFIX=riscv64-unknown-elf (and TOOLCHAIN_BIN=/path/to/bin)" >&2
+  echo "      or set TARGET_PREFIX=/path/to/bin/riscv64-unknown-elf" >&2
+  exit 2
+fi
+
+# Ensure toolchain bin dir is on PATH (needed when Makefiles call objdump/objcopy/etc.)
+export PATH="$TOOLCHAIN_BIN_RESOLVED:$PATH"
+
+if [[ $DO_INSTALL -eq 1 ]]; then
+  "$ROOT_DIR/scripts/install.sh"
+fi
+
+if [[ $KEEPENV -eq 0 ]]; then
+  if [[ ! -d "$ROOT_DIR/.venv" ]]; then
+    echo "ERROR: Python venv not found at $ROOT_DIR/.venv (use --install or create it)" >&2
+    exit 2
+  fi
+  # shellcheck disable=SC1091
+  . "$ROOT_DIR/.venv/bin/activate"
+fi
+
+mkdir -p "$ROOT_DIR/$BONFIRE_SIG_DIR"
+
+pushd "$ROOT_DIR" >/dev/null
+export BONFIRE_ELF_DIR
+export BONFIRE_SIG_DIR
+
+# Optional waveform output (applies to both --hex and --integration runs).
+# NOTE: This traces *every selected* test case. Prefer "-k <hexname>" to keep it small.
+if [[ -n "$TB_VCD" ]]; then
+  TB_VCD_BASE="$TB_VCD"
+  TB_VCD_BASE="${TB_VCD_BASE%.vcd}"
+  export BONFIRE_CORE_VCD="$TB_VCD_BASE"
+fi
+
+# Single-run mode: restrict test_core parametrization to exactly one hex.
+if [[ -n "$TB_HEX" ]]; then
+  export BONFIRE_CORE_HEX="$TB_HEX"
+  [[ -n "$TB_ELF" ]] && export BONFIRE_CORE_ELF="$TB_ELF"
+  [[ -n "$TB_SIG" ]] && export BONFIRE_CORE_SIG="$TB_SIG"
+
+  # For a single-run, we prefer -s so monitor output is visible.
+  exec pytest -s -vv tests/test_core.py "${PYTEST_ARGS[@]}"
+fi
+
+# Build code programs only when we run core integration tests.
+if [[ $RUN_INTEGRATION -eq 1 ]]; then
+  pushd "$CODE_DIR" >/dev/null
+  make -B all TARGET_PREFIX="$TARGET_PREFIX" KEEP_ELF=1
+  popd >/dev/null
+fi
+
+if [[ $RUN_UT -eq 1 ]]; then
+  pytest \
+    tests/test_ut_alu.py \
+    tests/test_ut_barrel_shifter.py \
+    tests/test_ut_decoder.py \
+    tests/test_ut_regfile.py \
+    tests/test_ut_loadstore.py \
+    tests/test_integration_pipeline.py \
+    "${PYTEST_ARGS[@]}"
+fi
+
+if [[ $RUN_INTEGRATION -eq 1 ]]; then
+  pytest tests/test_core.py "${PYTEST_ARGS[@]}"
+fi
+
+popd >/dev/null

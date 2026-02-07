@@ -1,6 +1,7 @@
 
 
-TARGET_PREFIX ?= riscv32-unknown-elf
+# bonfire-core uses a riscv64-unknown-elf multilib toolchain (building rv32 targets).
+TARGET_PREFIX ?= riscv64-unknown-elf
 TARGET_CC := $(TARGET_PREFIX)-gcc
 TARGET_LD := $(TARGET_PREFIX)-gcc
 TARGET_SIZE := $(TARGET_PREFIX)-size
@@ -33,16 +34,16 @@ LINKDEF?=bonfire_core.ld
 $(BUILD_DIR):
 	@mkdir -p $@
 
+# These are freestanding bare-metal programs; do not pull in libc/startup files.
 $(BUILD_DIR)/%.elf : %.S | $(BUILD_DIR)
-	# These are freestanding bare-metal programs; do not pull in libc/startup files.
-	$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI) -nostdlib -nostartfiles -T$(LINKDEF) -o $@ $<
+	@$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI) -nostdlib -nostartfiles -T$(LINKDEF) -o $@ $<
 
 
 $(BUILD_DIR)/%.hex : $(BUILD_DIR)/%.elf | $(BUILD_DIR)
-	$(TARGET_OBJCOPY) -j .text -O binary $< $(basename $@).bin
-	$(HEXDUMP) -v -e '1/4 "%08x\n"' $(basename $@).bin >$@
-	$(TARGET_PREFIX)-objdump -d $< >$(basename $@).lst
-	$(TARGET_PREFIX)-objdump -t $< >$(basename $@).sym
+	@$(TARGET_OBJCOPY) -j .text -O binary $< $(basename $@).bin
+	@$(HEXDUMP) -v -e '1/4 "%08x\n"' $(basename $@).bin >$@
+	@$(TARGET_PREFIX)-objdump -d $< >$(basename $@).lst
+	@$(TARGET_PREFIX)-objdump -t $< >$(basename $@).sym
 	$(TARGET_PREFIX)-size  $<
 
 PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap

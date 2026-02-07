@@ -27,3 +27,6 @@ fusesoc.conf
 
 # fusesoc cache/libraries created by local tooling
 fusesoc_libraries/
+
+# Temporary test directory
+temp/

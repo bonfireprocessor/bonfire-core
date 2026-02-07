@@ -10,7 +10,27 @@ from tb import tb_core
 from .conftest import assert_monitor_pass, run_sim
 
 
+def _opt_env(name: str) -> str | None:
+    v = os.environ.get(name, "").strip()
+    return v or None
+
+
 def _hex_files(repo_root: Path) -> list[str]:
+    """List HEX programs for core integration tests.
+
+    If BONFIRE_CORE_HEX is set, run exactly that one program (single-run mode).
+    Otherwise, collect all code/build/*.hex (excluding wb_test.hex).
+    """
+
+    single = _opt_env("BONFIRE_CORE_HEX")
+    if single:
+        p = Path(single)
+        # Normalize to a repo-root relative string when possible (helps pytest id output).
+        try:
+            return [str(p.resolve().relative_to(repo_root))]
+        except Exception:
+            return [str(p)]
+
     files = sorted((repo_root / "code" / "build").glob("*.hex"))
     # wb_test is a special case, not runnable with the normal tb.
     files = [p for p in files if p.name != "wb_test.hex"]
@@ -33,15 +53,23 @@ def _paths_for_hex(repo_root: Path, hex_path: str) -> tuple[str, str, str]:
     elf_dir = os.environ.get("BONFIRE_ELF_DIR", "").strip()
     sig_dir = os.environ.get("BONFIRE_SIG_DIR", "").strip()
 
+    # Single-run mode can pass exact ELF/SIG paths (tb_run-style).
+    elf_override = _opt_env("BONFIRE_CORE_ELF")
+    sig_override = _opt_env("BONFIRE_CORE_SIG")
+
     elf_rel = ""
-    if elf_dir:
+    if elf_override:
+        elf_rel = elf_override
+    elif elf_dir:
         elf_path = (Path(elf_dir) / f"{stem}.elf")
-        elf_rel = str(elf_path) if elf_path.is_absolute() else str(elf_path)
+        elf_rel = str(elf_path)
 
     sig_rel = ""
-    if sig_dir:
+    if sig_override:
+        sig_rel = sig_override
+    elif sig_dir:
         sig_path = (Path(sig_dir) / f"{stem}.sig")
-        sig_rel = str(sig_path) if sig_path.is_absolute() else str(sig_path)
+        sig_rel = str(sig_path)
 
     return hex_rel, elf_rel, sig_rel
 
@@ -51,8 +79,20 @@ def test_core(sim_env, capsys: pytest.CaptureFixture[str], request: pytest.Fixtu
     repo_root = Path(__file__).resolve().parents[1]
     hex_file, elf_file, sig_file = _paths_for_hex(repo_root, hex_path)
 
-    tb = tb_core.tb(hexFile=hex_file, elfFile=elf_file, sigFile=sig_file, ramsize=16384, verbose=False)
-    run_sim(tb, trace=False, filename=None, duration=20_000, waveforms_dir=sim_env["waveforms_dir"])
+    verbose = _opt_env("BONFIRE_CORE_VERBOSE") in ("1", "true", "yes", "on")
+    vcd = _opt_env("BONFIRE_CORE_VCD")
+
+    trace = bool(vcd)
+    if vcd:
+        vcd_path = Path(vcd)
+        if not vcd_path.is_absolute():
+            vcd_path = sim_env["waveforms_dir"] / vcd_path
+        filename = str(vcd_path.resolve())
+    else:
+        filename = None
+
+    tb = tb_core.tb(hexFile=hex_file, elfFile=elf_file, sigFile=sig_file, ramsize=16384, verbose=verbose)
+    run_sim(tb, trace=trace, filename=filename, duration=20_000, waveforms_dir=sim_env["waveforms_dir"])
 
     out = capsys.readouterr().out
 
