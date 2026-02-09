@@ -237,6 +237,7 @@ if [[ $RUN_UT -eq 1 ]]; then
     tests/test_ut_alu.py \
     tests/test_ut_barrel_shifter.py \
     tests/test_ut_decoder.py \
+    tests/test_ut_divider.py \
     tests/test_ut_regfile.py \
     tests/test_ut_loadstore.py \
     tests/test_integration_pipeline.py \

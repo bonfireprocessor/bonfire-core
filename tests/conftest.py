@@ -62,7 +62,7 @@ def sim_env(tmp_path: Path, repo_root: Path, monkeypatch: pytest.MonkeyPatch) ->
     # Some TBs convert to VHDL into ./vhdl_gen
     (repo_root / "vhdl_gen").mkdir(exist_ok=True)
 
-    waveforms_dir = tmp_path / "waveforms"
+    waveforms_dir = repo_root / "waveforms"
     waveforms_dir.mkdir(parents=True, exist_ok=True)
 
     return {"waveforms_dir": waveforms_dir}
