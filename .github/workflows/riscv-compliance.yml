@@ -65,6 +65,7 @@ jobs:
       - name: Run riscv-compliance (rv32i + rv32Zicsr)
         env:
           BONFIRE_CORE_ROOT: ${{ github.workspace }}
+          PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
           cd riscv-compliance
           make RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
