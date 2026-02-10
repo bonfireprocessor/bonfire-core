@@ -51,12 +51,12 @@ jobs:
           mkdir -p ~/.cache/apt/archives
           sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
 
-      - name: Setup bonfire-core environment
-        run: |
-          python -m venv .venv
-          . .venv/bin/activate
-          python -m pip install -U pip
-          python -m pip install -r requirements.txt
+      # - name: Setup bonfire-core environment
+      #   run: |
+      #     python -m venv .venv
+      #     . .venv/bin/activate
+      #     python -m pip install -U pip
+      #     python -m pip install -r requirements.txt
 
       - name: Clone riscv-compliance (bonfireprocessor fork)
         run: |
