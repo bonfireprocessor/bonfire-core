@@ -52,3 +52,5 @@ jobs:
           make RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
           make RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
 
+
+          

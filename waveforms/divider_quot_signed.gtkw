@@ -1,0 +1,30 @@
+[*]
+[*] GTKWave Analyzer v3.3.121 (w)1999-2024 BSI
+[*] Mon Feb  9 15:30:51 2026
+[*]
+[dumpfile] "/home/thomas/.openclaw/workspace/bonfire-core/waveforms/divider_signed_quot.vcd"
+[dumpfile_mtime] "Mon Feb  9 15:25:06 2026"
+[dumpfile_size] 163354
+[savefile] "/home/thomas/.openclaw/workspace/bonfire-core/waveforms/divider_quot_signed.gtkw"
+[timestart] 467
+[size] 1000 844
+[pos] 304 25
+*-8.131894 1510 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] testbench.
+[sst_width] 254
+[signals_width] 386
+[sst_expanded] 1
+[sst_vpaned_height] 270
+@28
+testbench.clk
+testbench.div_bundle_ce_i
+testbench.div_bundle_ce_o
+@420
+testbench.div_bundle_op1_i[31:0]
+testbench.div_bundle_op2_i[31:0]
+@28
+testbench.div_bundle_rem_i
+@420
+testbench.div_bundle_result_o[31:0]
+[pattern_trace] 1
+[pattern_trace] 0
