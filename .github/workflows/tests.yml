@@ -51,8 +51,10 @@ jobs:
           mkdir -p ~/.cache/apt/archives
           sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
 
-      - name: Install Python dependencies
+      - name: Setup bonfire-core Python environment
         run: |
+          python -m venv .venv
+          . .venv/bin/activate
           python -m pip install -U pip
           python -m pip install -r requirements.txt
 
@@ -64,10 +66,12 @@ jobs:
 
       - name: Run unit + integration tests
         run: |
+          . .venv/bin/activate
           pytest -vv tests/
 
       - name: Test VHDL core with FuseSoC
         run: |
+          . .venv/bin/activate
           fusesoc run --target=sim bonfire-core --testfile=code/build/loop.hex
 
       - name: Clone riscv-compliance (bonfireprocessor fork)
