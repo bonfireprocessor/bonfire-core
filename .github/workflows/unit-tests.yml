@@ -43,11 +43,4 @@ jobs:
 
       - name: Run unit + integration tests (incl. core integration; no compliance)
         run: |
-          pytest -vv \
-            tests/test_ut_alu.py \
-            tests/test_ut_barrel_shifter.py \
-            tests/test_ut_decoder.py \
-            tests/test_ut_regfile.py \
-            tests/test_ut_loadstore.py \
-            tests/test_integration_pipeline.py \
-            tests/test_core.py
+          pytest -vv tests/ --ignore=tests/test_compliance_single.py

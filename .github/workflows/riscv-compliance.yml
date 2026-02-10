@@ -1,6 +1,9 @@
 name: riscv-compliance
 
 on:
+  # Run on every push (same as unit-tests)
+  push:
+
   # Run on PRs (requested)
   pull_request:
 
@@ -53,4 +56,3 @@ jobs:
           make RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
 
 
-          
