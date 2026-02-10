@@ -1,0 +1,7 @@
+# bonfire-core Python dependencies
+# Used by GitHub Actions and local development
+
+myhdl==0.11.51
+pyelftools
+pytest
+fusesoc
