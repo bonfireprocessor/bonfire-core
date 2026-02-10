@@ -26,10 +26,7 @@ jobs:
       - name: Cache apt packages
         uses: actions/cache@v4
         with:
-          path: |
-            /var/cache/apt/archives
-            !/var/cache/apt/archives/lock
-            !/var/cache/apt/archives/partial
+          path: ~/.cache/apt/archives
           key: apt-${{ runner.os }}-riscv-${{ hashFiles('.github/workflows/riscv-compliance.yml') }}
           restore-keys: |
             apt-${{ runner.os }}-riscv-
@@ -42,10 +39,17 @@ jobs:
 
       - name: Install RISC-V toolchain (apt)
         run: |
+          # Restore cached .deb files if available
+          if [ -d ~/.cache/apt/archives ]; then
+            sudo cp ~/.cache/apt/archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          fi
           sudo apt-get update
           sudo apt-get install -y \
             binutils-riscv64-unknown-elf \
             gcc-riscv64-unknown-elf
+          # Copy downloaded .deb files to user cache for next run
+          mkdir -p ~/.cache/apt/archives
+          sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
 
       - name: Create venv for compliance harness
         run: |
