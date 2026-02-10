@@ -31,11 +31,11 @@ jobs:
           restore-keys: |
             apt-${{ runner.os }}-riscv-
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-          cache: 'pip'
+      # - name: Set up Python
+      #   uses: actions/setup-python@v5
+      #   with:
+      #     python-version: "3.13"
+      #     cache: 'pip'
 
       - name: Install RISC-V toolchain (apt)
         run: |
