@@ -92,14 +92,7 @@ pytest -s -vv tests/test_core.py -k loadsave
 Notes:
 - `wb_test.hex` is intentionally skipped (special case).
 
-### RISC-V compliance: single-test runner
-Purpose: adapter used by the `riscv-compliance` harness to run exactly one ELF/HEX test and (optionally) dump a signature.
-
-Pytest file:
-- `test_compliance_single.py`
-
-This test is **not** intended to be run directly unless the required env vars are set by the harness.
-
 ## General notes
 - Some legacy testbenches emit VHDL conversion output into `./vhdl_gen/`.
 - Waveforms are written into a per-test temporary directory.
+- The RISC-V compliance suite uses `run_compliance.py` (via `run_compliance.sh`) directly, not pytest. See [COMPLIANCE.md](../COMPLIANCE.md).

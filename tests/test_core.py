@@ -101,4 +101,7 @@ def test_core(sim_env, capsys: pytest.CaptureFixture[str], request: pytest.Fixtu
     if request.config.getoption("capture") == "no":
         print(out, end="")
 
-    assert_monitor_pass(out)
+    # For compliance tests (sig_file set), skip monitor assertion.
+    # The compliance suite decides pass/fail via signature comparison.
+    if sig_file is None:
+        assert_monitor_pass(out)

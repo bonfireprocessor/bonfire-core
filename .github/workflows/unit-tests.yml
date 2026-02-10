@@ -60,7 +60,7 @@ jobs:
 
       - name: Run unit + integration tests (incl. core integration; no compliance)
         run: |
-          pytest -vv tests/ --ignore=tests/test_compliance_single.py
+          pytest -vv tests/
 
       - name: Test VHDL core with FuseSoC
         run: |

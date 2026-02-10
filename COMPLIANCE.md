@@ -2,9 +2,7 @@
 
 This document describes how to run the **riscv-compliance** suite against **bonfire-core**.
 
-Historically the compliance Makefiles called `tb_run.py` directly. The current workflow runs the simulator through **pytest** via:
-
-- `tests/test_compliance_single.py` (runs exactly one compliance program)
+The compliance suite calls **`run_compliance.sh`** (a lightweight wrapper around `run_compliance.py`), which runs the simulator directly without pytest overhead.
 
 `tb_run.py` remains useful for debugging, but it is not the recommended entry point for the compliance suite.
 
@@ -16,15 +14,15 @@ For each compliance test, the harness provides:
 - a **HEX** file (32-bit hexdump loaded by the testbench)
 - a **signature output** file path (written by the simulator)
 
-`tests/test_compliance_single.py` reads these environment variables:
+`run_compliance.py` accepts these command-line arguments:
 
-- `BONFIRE_COMPLIANCE_ELF`
-- `BONFIRE_COMPLIANCE_HEX`
-- `BONFIRE_COMPLIANCE_SIG`
+- `--hex <file.hex>`
+- `--elf <file.elf>`
+- `--sig <file.sig>`
 
-It then runs `tb_core` and (if possible) dumps a signature via `tb/sim_monitor.py`.
+It runs `tb_core` directly and dumps a signature via `tb/sim_monitor.py`.
 
-If a test produces **no signature** (or an empty signature), the pytest adapter treats it as **ignored** and removes the empty file so that the compliance `verify.sh` prints `... IGNORE` and the overall run continues.
+If a test produces **no signature** (or an empty signature), the simulator handles it gracefully and the compliance `verify.sh` prints `... IGNORE` and the overall run continues.
 
 ## Prerequisites
 
@@ -115,24 +113,29 @@ OK: 48/48 RISCV_TARGET=bonfire-core RISCV_DEVICE=rv32i RISCV_ISA=rv32i
 
 ## Running a single compliance test manually
 
-This is mainly for debugging the adapter.
+This is mainly for debugging the compliance adapter.
 
 1) Build the test in `riscv-compliance` (the Makefiles create files under `work/<isa>/`).
-2) Run the pytest adapter with the proper env vars:
+2) Run the compliance script directly:
 
 ```bash
 cd bonfire-core
 . .venv/bin/activate
 
-# Easiest: use the wrapper script and pass the base path (no extension)
-scripts/run_compliance_single.sh /path/to/riscv-compliance/work/rv32i/I-ADD-01
-# (runs: pytest -s -vv tests/test_compliance_single.py)
+# Use the wrapper (activates venv automatically)
+./run_compliance.sh \
+  --hex /path/to/riscv-compliance/work/rv32i/I-ADD-01.elf.hex \
+  --elf /path/to/riscv-compliance/work/rv32i/I-ADD-01.elf \
+  --sig /path/to/riscv-compliance/work/rv32i/I-ADD-01.signature.output
 
-# (Equivalent manual invocation)
-export BONFIRE_COMPLIANCE_ELF=/path/to/riscv-compliance/work/rv32i/I-ADD-01.elf
-export BONFIRE_COMPLIANCE_HEX=/path/to/riscv-compliance/work/rv32i/I-ADD-01.elf.hex
-export BONFIRE_COMPLIANCE_SIG=/path/to/riscv-compliance/work/rv32i/I-ADD-01.signature.output
-pytest -q tests/test_compliance_single.py
+# Or call Python directly (venv must be active)
+python run_compliance.py \
+  --hex /path/to/riscv-compliance/work/rv32i/I-ADD-01.elf.hex \
+  --elf /path/to/riscv-compliance/work/rv32i/I-ADD-01.elf \
+  --sig /path/to/riscv-compliance/work/rv32i/I-ADD-01.signature.output
+
+# Optional: Enable verbose output
+./run_compliance.sh --hex ... --elf ... --sig ... --verbose
 ```
 
 ## Notes

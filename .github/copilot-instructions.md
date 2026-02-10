@@ -87,7 +87,6 @@ All tests live in [tests/](../tests/) directory:
   - Example: [tests/test_divider_convert.py](../tests/test_divider_convert.py)
 - **Pipeline integration**: `test_integration_pipeline.py`
 - **Core integration**: `test_core.py` (runs [code/](../code/) test programs)
-- **Compliance adapter**: `test_compliance_single.py` (called by riscv-compliance harness)
 
 ### Test Programs
 Small RISC-V assembly programs in [code/](../code/):
@@ -108,9 +107,10 @@ Uses the [bonfireprocessor/riscv-compliance](https://github.com/bonfireprocessor
 ./scripts/run_bonfire_compliance.sh RISCV_TARGET=bonfire-core
 ```
 
-Compliance harness calls [tests/test_compliance_single.py](../tests/test_compliance_single.py), which:
-- Reads `BONFIRE_COMPLIANCE_ELF`, `BONFIRE_COMPLIANCE_HEX`, `BONFIRE_COMPLIANCE_SIG` env vars
-- Runs [tb/tb_core.py](../tb/tb_core.py) testbench
+Compliance harness calls [run_compliance.sh](../run_compliance.sh), which:
+- Activates bonfire-core venv
+- Runs [run_compliance.py](../run_compliance.py) with `--hex`, `--elf`, `--sig` arguments
+- Executes [tb/tb_core.py](../tb/tb_core.py) testbench directly (no pytest overhead)
 - Dumps memory signature via [tb/sim_monitor.py](../tb/sim_monitor.py)
 
 See [COMPLIANCE.md](../COMPLIANCE.md) for details.
@@ -257,7 +257,7 @@ Monitor write: @570 10000200: fa55aa55 (-95049131)
 
 GitHub Actions workflows in [.github/workflows/](../../../.github/workflows/):
 - **unit-tests.yml**: Runs on every push to all branches
-  - Uses exclude pattern: `pytest -vv tests/ --ignore=tests/test_compliance_single.py`
+  - Runs all tests in tests/ directory
   - Automatically includes new tests without workflow updates
   - Runs ~28 tests including unit, integration, and conversion tests
 - **riscv-compliance.yml**: Runs on push, PRs, nightly (2 AM UTC), and manual trigger
