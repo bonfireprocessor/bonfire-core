@@ -84,5 +84,5 @@ jobs:
           PYTHON: ${{ github.workspace }}/.venv/bin/python
         run: |
           cd riscv-compliance
-          make RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
-          make RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
+          make -j3 RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
+          make -j3 RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
