@@ -1,43 +1,40 @@
-name: riscv-compliance
+name: tests
 
 on:
-  # Run on every push (same as unit-tests)
   push:
-
-  # Run on PRs (requested)
   pull_request:
-
-  # Nightly run (requested)
   schedule:
     - cron: "0 2 * * *"  # 02:00 UTC daily
-
-  # Manual trigger (requested)
   workflow_dispatch:
 
 jobs:
-  compliance:
+  test:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.13"]
 
     steps:
-      - name: Checkout bonfire-core
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Cache apt packages
         uses: actions/cache@v4
         with:
           path: ~/.cache/apt/archives
-          key: apt-${{ runner.os }}-riscv-${{ hashFiles('.github/workflows/riscv-compliance.yml') }}
+          key: apt-${{ runner.os }}-riscv-ghdl-${{ hashFiles('.github/workflows/tests.yml') }}
           restore-keys: |
-            apt-${{ runner.os }}-riscv-
+            apt-${{ runner.os }}-riscv-ghdl-
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.13"
+          python-version: ${{ matrix.python-version }}
           cache: 'pip'
 
-      - name: Install RISC-V toolchain (apt)
+      - name: Install RISC-V toolchain + build deps (apt)
         run: |
           # Restore cached .deb files if available
           if [ -d ~/.cache/apt/archives ]; then
@@ -46,17 +43,32 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             binutils-riscv64-unknown-elf \
-            gcc-riscv64-unknown-elf
+            gcc-riscv64-unknown-elf \
+            bc \
+            bsdextrautils \
+            ghdl
           # Copy downloaded .deb files to user cache for next run
           mkdir -p ~/.cache/apt/archives
           sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
 
-      - name: Setup bonfire-core environment
+      - name: Install Python dependencies
         run: |
-          python -m venv .venv
-          . .venv/bin/activate
           python -m pip install -U pip
           python -m pip install -r requirements.txt
+
+      - name: Build core integration test programs (HEX)
+        run: |
+          # The repo currently installs the riscv64-unknown-elf toolchain, which can
+          # still build RV32 code; the Makefile default expects riscv32-unknown-elf.
+          make -C code clean all TARGET_PREFIX=riscv64-unknown-elf
+
+      - name: Run unit + integration tests
+        run: |
+          pytest -vv tests/
+
+      - name: Test VHDL core with FuseSoC
+        run: |
+          fusesoc run --target=sim bonfire-core --testfile=code/build/loop.hex
 
       - name: Clone riscv-compliance (bonfireprocessor fork)
         run: |
@@ -70,5 +82,3 @@ jobs:
           cd riscv-compliance
           make RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
           make RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
-
-
