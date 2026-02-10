@@ -23,7 +23,7 @@ signatures/*
 build
 /.vscode/.ropeproject/*
 *.code-workspace
-fusesoc.conf
+
 
 # fusesoc cache/libraries created by local tooling
 fusesoc_libraries/
