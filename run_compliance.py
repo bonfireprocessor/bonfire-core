@@ -62,7 +62,7 @@ def main():
     sig_path.parent.mkdir(parents=True, exist_ok=True)
     
     if args.verbose:
-        print(f"Running compliance test:")
+        print(f"run_compliance.py - Running compliance test:")
         print(f"  HEX: {args.hex}")
         print(f"  ELF: {args.elf}")
         print(f"  SIG: {args.sig}")
