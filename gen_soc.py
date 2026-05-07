@@ -95,8 +95,8 @@ targets:
             hdl = get(parameters,"language","VHDL")
             entity_name= get(parameters,"entity_name","bonfire_core_soc_top")
             extented_soc = get(parameters,"extended_soc",False)
-            # In case of the extended_soc option the VHDL wrapper will be define the top level entity name and the
-            # myhdl generated entity name by the name speciify in myhdl_entity_name
+            # In case of the extended_soc option the VHDL wrapper will define the top level entity name and the
+            # myhdl generated entity will use the name specified in myhdl_entity_name
             # Without extendted_soc the myhdl generated entity will implement entity_name directly and
             # myhdl_entity_name is ignored
             if extented_soc:
