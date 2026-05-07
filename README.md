@@ -381,3 +381,32 @@ source ~/opt/oss-cad-suite/environment
 fusesoc --cores-root . run --target ulx3s bonfire-core-soc
 
 ````
+
+### Bonfire extended core
+
+The extended core relies on an external dependeny - bonfire-library
+You can install it locally with git clone and add it to the bonfire project
+
+```
+fusesoc library add  --sync-type=local  bonfire-library ../bonfire-library
+```
+
+```
+usage: fusesoc library add [-h] [--sync-version SYNC-VERSION] [--location LOCATION] [--sync-type {git,local}] [--no-auto-sync] [--global]
+                           [name] sync-uri
+
+positional arguments:
+  name                  A friendly name for the library. Defaults to last part of sync-uri if not specified.
+  sync-uri              The URI source for the library (can be a file system path)
+
+options:
+  -h, --help            show this help message and exit
+  --sync-version SYNC-VERSION
+                        Optionally specify the version of the library to use, for providers that support it
+  --location LOCATION   The location to store the library into (defaults to fusesoc_libraries/[name] or $XDG_DATA_HOME/[name] when --global is
+                        set)
+  --sync-type {git,local}
+                        The provider type for the library. Defaults to 'git'.
+  --no-auto-sync        Disable automatic updates of the library
+  --global              Use the global FuseSoC config file in $XDG_CONFIG_HOME/fusesoc/fusesoc.conf
+  ```

@@ -94,7 +94,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/tb_run.py",
             "args": [
-                "--hex=../bonfire-software/test/sim_hello.hex",
+                "--hex=../bonfire-software/test/ledsim.hex",
                 "--new_soc",
                 "--vcd=tb_new_soc",
             ],

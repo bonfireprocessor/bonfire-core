@@ -1,17 +1,16 @@
 library ieee;
 use ieee.std_logic_1164.all;
 
-entity ulx3s_top is
+entity fireant_top is
     port (
         sysclk    : in  std_logic;
         uart0_tx  : out std_logic;
         uart0_rx  : in  std_logic;
         led       : out std_logic_vector(7 downto 0)
-       
     );
-end entity ulx3s_top;
+end entity fireant_top;
 
-architecture rtl of ulx3s_top is
+architecture rtl of fireant_top is
 
     -- Component declaration for bonfire_core_soc_top
     component bonfire_core_soc_top
@@ -27,10 +26,7 @@ architecture rtl of ulx3s_top is
     );
     port(
         sysclk  : in  std_logic;
-       -- Reset Logic
-        resetn   : in  std_logic; -- Reset button, active low
-        i_locked : in std_logic; -- PLL locked input
-        o_resetn : out std_logic; -- Reset output, to be connected to PLL
+        I_RESET   : in  std_logic;
          -- UART0 signals:
         uart0_txd : out std_logic;
         uart0_rxd : in  std_logic :='1';
@@ -53,7 +49,7 @@ architecture rtl of ulx3s_top is
 
 
     -- signal sysclk         : std_logic;
-    signal resetn        : std_logic :='1';
+    signal I_RESET        : std_logic :='0';
     
     -- signal uart1_txd      : std_logic;
     -- signal uart1_rxd      : std_logic := '1';
@@ -73,7 +69,7 @@ architecture rtl of ulx3s_top is
 begin
 
     soc_inst: bonfire_core_soc_top
-    generic map (
+    -- generic map (
     --   NUM_SPI => NUM_SPI,
     --   NUM_GPIO => NUM_GPIO,
     --   ENABLE_UART1 => ENABLE_UART1,
@@ -81,14 +77,10 @@ begin
     --   NUM_LEDS => NUM_LEDS,
     --   ENABLE_GPIO => ENABLE_GPIO,
     --   DEBUG => DEBUG
-        UART_TEST => true   -- Instantiate only zpuino UART
-    )
+    -- )
     port map(
         sysclk => sysclk,
-        resetn => resetn,
-        i_locked => '1',
-        o_resetn => open,
-
+        I_RESET => I_RESET,
         uart0_txd => uart0_tx,
         uart0_rxd => uart0_rx,
         uart1_txd => open,
