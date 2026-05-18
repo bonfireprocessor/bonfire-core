@@ -274,6 +274,7 @@ end process;
     stimuli : process
     begin
 
+        print("UART Baudrate:" & str(UART_BAUDRATE) & " Clk:" & str(CLK_FREQ_MHZ));
         wait for ClockPeriod;
         resetn <= '0';
         wait for ClockPeriod * 3;

@@ -30,11 +30,22 @@ filesets:
     files:
     - fpga/ulx3s/board.lpf
 
+  icepizero_lpf:
+    file_type: LPF 
+    files:
+    - fpga/icepizero/board.lpf  
+
   ulx3s_top:
     file_type: vhdlSource-2008
     files:
     - "extended_soc? (fpga/ulx3s/ulx3s_top_ex.vhdl)"
     - "!extended_soc? (fpga/ulx3s/ulx3s_top.vhdl)"
+
+  icepizero_top:
+    file_type: vhdlSource-2008
+    files:
+    - "extended_soc? (fpga/icepizero/icepizero_top_ex.vhdl)"
+    - "!extended_soc? (fpga/icepizero/icepizero_top.vhdl)"  
 
   scripts:
     file_type: user
@@ -50,7 +61,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../bonfire-software/test/ledslow.hex"
+      hexfile: "../../bonfire-software/test/ledslow.hex"
 
   soc_top_nonlaned:
     generator: gen_bonfire_core_soc
@@ -60,7 +71,7 @@ generate:
       laned_memory : false
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../bonfire-software/test/ledslow.hex"
+      hexfile: "../../bonfire-software/test/ledslow.hex"
 
   soc_top_ulx3s:
     generator: gen_bonfire_core_soc
@@ -69,8 +80,20 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../bonfire-software/test/ledslow.hex"
+      hexfile: "../../bonfire-software/test/ledslow.hex"
       num_leds: 8
+      led_active_low: false
+      laned_memory : false
+
+  soc_top_icepizero:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_adr_width: 11
+      conversion_warnings: 'ignore'
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "../../bonfire-software/test/ledslow.hex"
+      num_leds: 5
       led_active_low: false
       laned_memory : false
 
@@ -81,7 +104,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../bonfire-software/test/sim_hello.hex"
+      hexfile: "../../bonfire-software/test/sim_hello.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false
@@ -94,7 +117,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../bonfire-software/test/hw_hello.hex"
+      hexfile: "../../bonfire-software/test/hw_hello.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false
@@ -110,7 +133,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'tb_bonfire_core_soc'
-      hexfile: "../bonfire-software/test/ledsim.hex"
+      hexfile: "../../bonfire-software/test/ledsim.hex"
 
 
 targets:
@@ -193,6 +216,7 @@ targets:
     filesets: [ulx3s_lpf, ulx3s_top, scripts]
     generate: [ soc_top_ulx3s ]
     toplevel: ulx3s_top
+    
 
   ulx3s_extended:
     default_tool: trellis
@@ -210,5 +234,18 @@ targets:
     toplevel: ulx3s_top
    
 
+  icepizero:
+    default_tool: trellis
+    flags:  
+      extended_soc : false
+    tools:
+        trellis:
+            arch: ecp5
+            output_format: json
+            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
+            nextpnr_options: ['--25k','--package CABGA256','--speed 6' ]
 
+    filesets: [icepizero_lpf,icepizero_top , scripts]
+    generate: [ soc_top_icepizero ]
+    toplevel: icepizero_top
 

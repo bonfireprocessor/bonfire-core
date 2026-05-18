@@ -222,7 +222,7 @@ if [[ -n "$TB_HEX" ]]; then
   [[ -n "$TB_SIG" ]] && export BONFIRE_CORE_SIG="$TB_SIG"
 
   # For a single-run, we prefer -s so monitor output is visible.
-  exec pytest -s -vv tests/test_core.py "${PYTEST_ARGS[@]}"
+  exec python -m pytest -s -vv tests/test_core.py ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"}
 fi
 
 # Build code programs only when we run core integration tests.
@@ -233,7 +233,7 @@ if [[ $RUN_INTEGRATION -eq 1 ]]; then
 fi
 
 if [[ $RUN_UT -eq 1 ]]; then
-  pytest \
+  python -m pytest \
     tests/test_ut_alu.py \
     tests/test_ut_barrel_shifter.py \
     tests/test_ut_decoder.py \
@@ -241,11 +241,11 @@ if [[ $RUN_UT -eq 1 ]]; then
     tests/test_ut_regfile.py \
     tests/test_ut_loadstore.py \
     tests/test_integration_pipeline.py \
-    "${PYTEST_ARGS[@]}"
+    ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"}
 fi
 
 if [[ $RUN_INTEGRATION -eq 1 ]]; then
-  pytest tests/test_core.py "${PYTEST_ARGS[@]}"
+  python -m pytest tests/test_core.py ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"}
 fi
 
 popd >/dev/null

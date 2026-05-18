@@ -87,7 +87,7 @@ targets:
         with open(sys.argv[1], mode='r') as f:
             p=yaml.load(f, Loader=yaml.Loader)
             print(yaml.dump(p))
-            files_root=p["files_root"] # Diretory from which fusesoc is invoked (usually the bonfire-core root directory)
+            files_root=p["files_root"] # Diretory from which fusesoc is invoked (usually the  directory with the main core file)
             parameters=p["parameters"]
             print("Generating into: {}".format(os.getcwd()))
 
@@ -152,7 +152,7 @@ targets:
             filelist = [ "pck_myhdl_011.vhd",myhdl_entity_name+".vhd"]
             if extented_soc:
                 print("Generating extended soc vhdl")
-                template_path = os.path.normpath(os.path.join(files_root, "soc/vhdl/soc_top.vhd"))
+                template_path = os.path.normpath(os.path.join(files_root, "../soc/vhdl/soc_top.vhd"))
                 if not gen_extended_soc_vhdl(soc_config=soc_config,
                                             template_path=template_path,
                                             gen_path=gen_path):
@@ -162,7 +162,7 @@ targets:
                 filelist.append(entity_name+".vhd") # Add wrapper file to filelist
 
                 print("Generating extended soc vhdl testbench")
-                template_path = os.path.normpath(os.path.join(files_root, "soc/vhdl/tb_soc.vhd"))
+                template_path = os.path.normpath(os.path.join(files_root, "../soc/vhdl/tb_soc.vhd"))
                 TBFileName="tb_"+entity_name+".vhd"
                 if not gen_extended_soc_vhdl(soc_config=soc_config,
                                             template_path=template_path,

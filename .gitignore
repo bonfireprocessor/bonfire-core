@@ -30,3 +30,5 @@ fusesoc_libraries/
 
 # Temporary test directory
 temp/
+.venv
+
