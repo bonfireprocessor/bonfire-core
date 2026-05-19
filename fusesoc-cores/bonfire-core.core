@@ -4,7 +4,7 @@ name: ::bonfire-core:0
 generators:
   gen_bonfire_core:
     interpreter: python3
-    command: gen_core.py
+    command: ../gen_core.py
     description: "Generates a VHDL version of bonfore-core"
 
 generate:

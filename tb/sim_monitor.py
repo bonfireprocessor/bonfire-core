@@ -17,14 +17,22 @@ def dump_signature(memArray,elf,sig):
     with open(elf,mode="rb") as f:
         elf = ELFFile(f)
         symtab = elf.get_section_by_name('.symtab')
-        # for s in symtab.iter_symbols():
-        #     print(s.name,hex(s['st_value']))
+        if symtab is None:
+            # No symbols => cannot dump signature
+            return
 
-        start=symtab.get_symbol_by_name("begin_signature")[0]['st_value']
-        end=symtab.get_symbol_by_name("end_signature")[0]['st_value']
-        assert(end>start)
-        assert(end-start < 1000)
-       
+        start_sym = symtab.get_symbol_by_name("begin_signature")
+        end_sym = symtab.get_symbol_by_name("end_signature")
+
+        # Not all test programs provide signature symbols (e.g., simple hand-written tests).
+        # In that case, skip dumping the signature instead of failing the whole run.
+        if not start_sym or not end_sym:
+            return
+
+        start = start_sym[0]['st_value']
+        end = end_sym[0]['st_value']
+        assert(end > start)
+        assert(end - start < 1000)
 
         sf=open(sig,"w")
 
