@@ -60,12 +60,12 @@ There are a few test programs in the code subdirectory. With a RISC-V toolchain 
 
 One of these files can than be run with e.g:
 ```
-python tb_run.py --hex=code/loadsave.hex
+python tb_run.py --hex=code/build/core-tests/loadsave.hex
 ```
 The tests will end with writing a result to the monitor port base address. As outlined above, writing 1 means success:
 ```
-python tb_run.py --hex=code/loadsave.hex
---hex code/loadsave.hex
+python tb_run.py --hex=code/build/core-tests/loadsave.hex
+--hex code/build/core-tests/loadsave.hex
 eof at adr:0x118
 Created ram with size 16384 words
 5 3
@@ -91,9 +91,9 @@ Monitor write: @6830 10000000: 00000001 (1)
 The -v option will also write the executed instructions to the console:
 
 ```
-python tb_run.py -v --hex=code/loadsave.hex
+python tb_run.py -v --hex=code/build/core-tests/loadsave.hex
 -v 
---hex code/loadsave.hex
+--hex code/build/core-tests/loadsave.hex
 eof at adr:0x118
 Created ram with size 16384 words
 5 3
@@ -130,4 +130,4 @@ Compliance testing has been moved into a separate document:
 
 
 
-    fusesoc --cores-root .  run --target=sim   bonfire-core --testfile=code/loadsave.hex
+    fusesoc --cores-root .  run --target=sim   bonfire-core --testfile=code/build/core-tests/loadsave.hex

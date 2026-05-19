@@ -179,13 +179,13 @@ rootdir: /home/thomas/.openclaw/workspace/bonfire-core
 configfile: pytest.ini
 collecting ... collected 7 items
 
-tests/test_core.py::test_core[code/build/basic_alu.hex] PASSED           [ 14%]
-tests/test_core.py::test_core[code/build/branch.hex] PASSED              [ 28%]
-tests/test_core.py::test_core[code/build/csr.hex] PASSED                 [ 42%]
-tests/test_core.py::test_core[code/build/loadsave.hex] PASSED            [ 57%]
-tests/test_core.py::test_core[code/build/loop.hex] PASSED                [ 71%]
-tests/test_core.py::test_core[code/build/simple_loop.hex] PASSED         [ 85%]
-tests/test_core.py::test_core[code/build/trap.hex] PASSED                [100%]
+tests/test_core.py::test_core[code/build/core-tests/basic_alu.hex] PASSED           [ 14%]
+tests/test_core.py::test_core[code/build/core-tests/branch.hex] PASSED              [ 28%]
+tests/test_core.py::test_core[code/build/core-tests/csr.hex] PASSED                 [ 42%]
+tests/test_core.py::test_core[code/build/core-tests/loadsave.hex] PASSED            [ 57%]
+tests/test_core.py::test_core[code/build/core-tests/loop.hex] PASSED                [ 71%]
+tests/test_core.py::test_core[code/build/core-tests/simple_loop.hex] PASSED         [ 85%]
+tests/test_core.py::test_core[code/build/core-tests/trap.hex] PASSED                [100%]
 
 ============================== 7 passed in 3.30s ===============================
 ```
@@ -230,7 +230,7 @@ rootdir: /home/thomas/.openclaw/workspace/bonfire-core
 configfile: pytest.ini
 collecting ... collected 7 items / 6 deselected / 1 selected
 
-tests/test_core.py::test_core[code/build/loadsave.hex] PASSED            [100%]
+tests/test_core.py::test_core[code/build/core-tests/loadsave.hex] PASSED            [100%]
 
 ======================= 1 passed, 6 deselected in 0.34s ========================
 ```
@@ -246,7 +246,7 @@ scripts/bonfire-core --integration -- -s -vv
 ### Run a single HEX program (single-run mode)
 
 ```bash
-scripts/bonfire-core --hex code/build/loadsave.hex
+scripts/bonfire-core --hex code/build/core-tests/loadsave.hex
 ```
 
 Expected output (example):
@@ -286,7 +286,7 @@ Monitor write: @3055 10000000: 00000001 (1)
 With VCD output (file name base, MyHDL will append `.vcd`):
 
 ```bash
-scripts/bonfire-core --hex code/build/loadsave.hex --vcd /tmp/loadsave.vcd
+scripts/bonfire-core --hex code/build/core-tests/loadsave.hex --vcd /tmp/loadsave.vcd
 ```
 
 VCD also works for integration tests (it traces all *selected* test cases, so combine it with `-k`):
@@ -309,7 +309,8 @@ scripts/bonfire-core --integration --vcd /tmp/loadsave.vcd -- -k loadsave -q
 
 ### Test artifacts
 
-- `BONFIRE_ELF_DIR` (default: `code/build`) — where built `.elf` files are expected
+- `BONFIRE_CORE_HEX_DIR` (default: `code/build/core-tests`) — where integration-test `.hex` files are discovered
+- `BONFIRE_ELF_DIR` (default: `code/build/core-tests`) — where built `.elf` files are expected
 - `BONFIRE_SIG_DIR` (default: `signatures`) — where signature files are written/collected
 
 ### Keep current Python environment

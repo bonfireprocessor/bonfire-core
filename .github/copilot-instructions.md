@@ -70,7 +70,7 @@ scripts/bonfire-core --all
 scripts/bonfire-core --ut
 
 # Run single HEX program with VCD trace
-scripts/bonfire-core --hex code/build/loadsave.hex --vcd /tmp/debug.vcd
+scripts/bonfire-core --hex code/build/core-tests/loadsave.hex --vcd /tmp/debug.vcd
 ```
 
 ### Test Structure (pytest-based)
@@ -135,7 +135,7 @@ bonfire-core uses **FuseSoC generators** to convert MyHDL → VHDL for simulatio
 
 Generate VHDL and simulate:
 ```bash
-fusesoc run --target=sim bonfire-core --testfile=code/build/loop.hex
+fusesoc run --target=sim bonfire-core --testfile=code/build/core-tests/loop.hex
 ```
 
 ## Key Conventions
@@ -223,7 +223,7 @@ When writing MyHDL code for VHDL conversion:
 ### VCD Traces
 Generate waveforms for debug:
 ```bash
-scripts/bonfire-core --hex code/build/loadsave.hex --vcd ~/debug.vcd
+scripts/bonfire-core --hex code/build/core-tests/loadsave.hex --vcd ~/debug.vcd
 # Opens as ~/debug.vcd.vcd (MyHDL appends .vcd)
 ```
 
@@ -319,9 +319,9 @@ GitHub Actions workflows in [.github/workflows/](../../../.github/workflows/):
 | Unit tests only | `scripts/bonfire-core --ut` |
 | Integration tests | `scripts/bonfire-core --integration` |
 | Build test code | `make -C code all TARGET_PREFIX=riscv64-unknown-elf` |
-| Debug single program | `scripts/bonfire-core --hex code/build/loop.hex --vcd /tmp/trace.vcd` |
+| Debug single program | `scripts/bonfire-core --hex code/build/core-tests/loop.hex --vcd /tmp/trace.vcd` |
 | Run compliance | `cd riscv-compliance && ./scripts/run_bonfire_compliance.sh` |
-| Generate VHDL | `fusesoc run --target=sim bonfire-core --testfile=code/build/loop.hex` |
+| Generate VHDL | `fusesoc run --target=sim bonfire-core --testfile=code/build/core-tests/loop.hex` |
 
 ## Further Reading
 

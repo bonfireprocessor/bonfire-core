@@ -19,7 +19,8 @@ def _hex_files(repo_root: Path) -> list[str]:
     """List HEX programs for core integration tests.
 
     If BONFIRE_CORE_HEX is set, run exactly that one program (single-run mode).
-    Otherwise, collect all code/build/*.hex (excluding wb_test.hex).
+    Otherwise, collect all HEX files from BONFIRE_CORE_HEX_DIR
+    (default: code/build/core-tests, excluding wb_test.hex).
     """
 
     single = _opt_env("BONFIRE_CORE_HEX")
@@ -31,10 +32,20 @@ def _hex_files(repo_root: Path) -> list[str]:
         except Exception:
             return [str(p)]
 
-    files = sorted((repo_root / "code" / "build").glob("*.hex"))
+    hex_dir = Path(os.environ.get("BONFIRE_CORE_HEX_DIR", "code/build/core-tests"))
+    if not hex_dir.is_absolute():
+        hex_dir = repo_root / hex_dir
+
+    files = sorted(hex_dir.glob("*.hex"))
     # wb_test is a special case, not runnable with the normal tb.
     files = [p for p in files if p.name != "wb_test.hex"]
-    return [str(p.relative_to(repo_root)) for p in files]
+    result = []
+    for p in files:
+        try:
+            result.append(str(p.relative_to(repo_root)))
+        except ValueError:
+            result.append(str(p))
+    return result
 
 
 def _paths_for_hex(repo_root: Path, hex_path: str) -> tuple[str, str, str]:

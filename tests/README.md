@@ -63,7 +63,8 @@ pytest -vv tests/test_integration_pipeline.py
 ### Core integration tests
 Purpose: run the complete core in a testbench environment (16KB RAM @ 0) with the monitor port at `0x10000000..0x1fffffff`.
 
-These tests execute `code/build/*.hex` programs using `tb_core` and treat a run as PASS when the final monitor base write (`0x10000000`) equals `1`.
+These tests execute `code/build/core-tests/*.hex` programs using `tb_core` and treat a run as PASS when the final monitor base write (`0x10000000`) equals `1`.
+The discovery directory can be overridden with `BONFIRE_CORE_HEX_DIR`.
 
 The test programs are documented in: [`../code/README.md`](../code/README.md)
 
@@ -83,7 +84,7 @@ Run a single program (examples):
 pytest -vv tests/test_core.py -k loadsave
 
 # exact parameter id match
-pytest -vv tests/test_core.py -k "code/build/loadsave.hex"
+pytest -vv tests/test_core.py -k "code/build/core-tests/loadsave.hex"
 
 # with monitor output for a single program
 pytest -s -vv tests/test_core.py -k loadsave

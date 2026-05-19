@@ -8,6 +8,8 @@ TARGET_SIZE := $(TARGET_PREFIX)-size
 TARGET_OBJCOPY := $(TARGET_PREFIX)-objcopy
 
 BUILD_DIR ?= build
+CORE_TEST_DIR ?= core-tests
+CORE_TEST_BUILD_DIR ?= $(BUILD_DIR)/core-tests
 
 # By default, GNU make deletes intermediate files (like the generated %.elf)
 # after building the final target (%.hex). For integration tests that need
@@ -29,17 +31,17 @@ endif
 
 ABI = ilp32
 HEXDUMP ?= hexdump
-LINKDEF?=bonfire_core.ld
+LINKDEF?=$(CORE_TEST_DIR)/bonfire_core.ld
 
-$(BUILD_DIR):
+$(BUILD_DIR) $(CORE_TEST_BUILD_DIR):
 	@mkdir -p $@
 
 # These are freestanding bare-metal programs; do not pull in libc/startup files.
-$(BUILD_DIR)/%.elf : %.S | $(BUILD_DIR)
+$(CORE_TEST_BUILD_DIR)/%.elf : $(CORE_TEST_DIR)/%.S | $(CORE_TEST_BUILD_DIR)
 	@$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI) -nostdlib -nostartfiles -T$(LINKDEF) -o $@ $<
 
 
-$(BUILD_DIR)/%.hex : $(BUILD_DIR)/%.elf | $(BUILD_DIR)
+$(CORE_TEST_BUILD_DIR)/%.hex : $(CORE_TEST_BUILD_DIR)/%.elf | $(CORE_TEST_BUILD_DIR)
 	@$(TARGET_OBJCOPY) -j .text -O binary $< $(basename $@).bin
 	@$(HEXDUMP) -v -e '1/4 "%08x\n"' $(basename $@).bin >$@
 	@$(TARGET_PREFIX)-objdump -d $< >$(basename $@).lst
@@ -47,7 +49,7 @@ $(BUILD_DIR)/%.hex : $(BUILD_DIR)/%.elf | $(BUILD_DIR)
 	$(TARGET_PREFIX)-size  $<
 
 PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap
-HEXES := $(addprefix $(BUILD_DIR)/,$(addsuffix .hex,$(PROGRAMS)))
+HEXES := $(addprefix $(CORE_TEST_BUILD_DIR)/,$(addsuffix .hex,$(PROGRAMS)))
 
 all: $(HEXES)
 

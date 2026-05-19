@@ -72,7 +72,7 @@ jobs:
       - name: Test VHDL core with FuseSoC
         run: |
           . .venv/bin/activate
-          fusesoc run --target=sim bonfire-core --testfile=code/build/loop.hex
+          fusesoc run --target=sim bonfire-core --testfile=code/build/core-tests/loop.hex
 
       - name: Clone riscv-compliance (bonfireprocessor fork)
         run: |
