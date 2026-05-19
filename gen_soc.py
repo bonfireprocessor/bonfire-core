@@ -140,7 +140,7 @@ targets:
             print("jump_bypass {}".format(config.jump_bypass))
 
             hexfile_path = os.path.normpath(os.path.join(files_root, hexfile))
-            print(f"Checking existence hex file: {hexfile_path}")
+            print(f"Checking existence of hex file: {hexfile_path}")
             if not os.path.isfile(hexfile_path):
                 print(f"Error: Hex file '{hexfile_path}' does not exist.")
                 raise FileNotFoundError(f"Hex file '{hexfile_path}' does not exist.")
@@ -188,9 +188,11 @@ targets:
             print(f"Generated {entity_name}.core")
 
 
-        return True;
+        return True
+    # TODO: check error handling
     except FileNotFoundError as err:
-        return False;
+        print(f"Error: {err}")
+        return False
 
 
 
