@@ -32,3 +32,4 @@ fusesoc_libraries/
 temp/
 .venv
 
+piplist.txt
