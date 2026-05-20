@@ -19,22 +19,23 @@ make all TARGET_PREFIX=riscv64-unknown-elf KEEP_ELF=1
 
 Small C programs for the MyHDL SoC live under `soc/apps/`:
 
-- `soc/apps/ledsim/main.c`: fast LED counter for simulation.
-- `soc/apps/ledslow/main.c`: slowed LED counter for FPGA boards.
+- `soc/apps/led/main.c`: LED counter smoke test.
 
 They use the local platform headers in `soc/platforms/` and do not depend on
 the external `bonfire-software` repository.
 Each platform also has a matching linker script in `soc/linker/` for board-
 specific RAM origin and size.
+The platform header controls the visible blink speed through
+`BONFIRE_LED_SHIFT`; the simulation platform uses shift `0`.
 
 Build one SoC program:
 
 ```bash
-make soc SOC_APP=ledsim SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
-make soc SOC_APP=ledslow SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
+make soc SOC_APP=led SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make soc SOC_APP=led SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 ```
 
-Build only the currently defined SoC LED variants:
+Build only the currently defined SoC firmware variants:
 
 ```bash
 make soc-all TARGET_PREFIX=riscv64-unknown-elf

@@ -101,19 +101,20 @@ It uses FuseSoC and the Generator feature of FuseSoC to generate VHDL files and 
 
 There is a Generator for generating a Test Bench and for generating a Toplevel Module for FPGAs
 
-### Creating Test Code ledslow and ledsim
-The SoC LED smoke-test programs now live in this repository under
-`code/soc/apps`.
+### Creating the SoC LED Test Code
+The SoC LED smoke-test program lives in this repository under `code/soc/apps`.
+Its visible speed is selected by the board profile through `BONFIRE_LED_SHIFT`
+(`0` for simulation).
 
-Build the simulator LED test:
+Build the LED test for simulation:
 
-    make -C code soc SOC_APP=ledsim SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+    make -C code soc SOC_APP=led SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 
-Build the slow FPGA LED test for a board profile:
+Build the same LED test for an FPGA board profile:
 
-    make -C code soc SOC_APP=ledslow SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
+    make -C code soc SOC_APP=led SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 
-Build all currently defined SoC LED test variants:
+Build all currently defined SoC firmware variants:
 
     make -C code soc-all TARGET_PREFIX=riscv64-unknown-elf
 
@@ -121,7 +122,7 @@ Build all currently defined SoC LED test variants:
 
 
 
-    python tb_run.py  --new_soc --hex=code/build/soc/sim/ledsim.hex  [ -vcd=<vcdfile> ]
+    python tb_run.py  --new_soc --hex=code/build/soc/sim/led.hex  [ -vcd=<vcdfile> ]
 
 The Output should look like this:
 ````

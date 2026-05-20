@@ -13,7 +13,7 @@ BUILD_DIR ?= build
 CORE_TEST_DIR ?= core-tests
 CORE_TEST_BUILD_DIR ?= $(BUILD_DIR)/core-tests
 SOC_DIR ?= soc
-SOC_APP ?= ledsim
+SOC_APP ?= led
 SOC_PLATFORM ?= sim
 SOC_BUILD_DIR ?= $(BUILD_DIR)/soc/$(SOC_PLATFORM)
 
@@ -40,7 +40,7 @@ HEXDUMP ?= hexdump
 LINKDEF?=$(CORE_TEST_DIR)/bonfire_core.ld
 SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Os -ffreestanding -fno-builtin -Wall -Wextra
 
-SOC_APPS := ledsim ledslow
+SOC_APPS := led
 SOC_PLATFORMS := sim icepizero ulx3s cmods7
 SOC_PLATFORM_DEFINES_sim := BONFIRE_PLATFORM_SIM
 SOC_PLATFORM_DEFINES_icepizero := BONFIRE_PLATFORM_ICEPIZERO

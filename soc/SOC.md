@@ -203,17 +203,18 @@ that `soc/vhdl/soc_top.vhd` can attach VHDL peripherals to the Wishbone bus.
 
 ## Firmware Smoke Tests
 
-The repository contains small SoC LED programs under `code/soc/apps`:
+The repository contains a small SoC LED program under `code/soc/apps`:
 
-- `ledsim`: increments the LED register on every loop iteration for simulation.
-- `ledslow`: shifts the counter by a platform-specific amount for visible FPGA
-  blinking.
+- `led`: writes an incrementing counter to the LED register.
+
+The platform header selects the visible blink speed with `BONFIRE_LED_SHIFT`.
+The simulation platform uses shift `0`; FPGA board profiles use larger shifts.
 
 Build examples:
 
 ```bash
-make -C code soc SOC_APP=ledsim SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
-make -C code soc SOC_APP=ledslow SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
+make -C code soc SOC_APP=led SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make -C code soc SOC_APP=led SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 make -C code soc-all TARGET_PREFIX=riscv64-unknown-elf
 ```
 
