@@ -102,24 +102,26 @@ It uses FuseSoC and the Generator feature of FuseSoC to generate VHDL files and 
 There is a Generator for generating a Test Bench and for generating a Toplevel Module for FPGAs
 
 ### Creating Test Code ledslow and ledsim
-Clone the repo https://github.com/bonfireprocessor/bonfire-software.git
-Switch to branch lfs_migrate (the master branch is not updated yet...)
-execute these commands:
+The SoC LED smoke-test programs now live in this repository under
+`code/soc/apps`.
 
-    cd test
-    make ARCH=rv32i_zicsr_zifencei PLATFORM=BONFIRE_CORE ledsim.hex ledslow.hex
+Build the simulator LED test:
 
-Hint: When using the latest Toolchain in Debian Trixie (which uses picolibc instead of newlib) the make command should look like this:
+    make -C code soc SOC_APP=ledsim SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 
-    make ARCH=rv32i_zicsr_zifencei PLATFORM=BONFIRE_CORE LINKSPECS=picolibc.specs ledsim.hex ledslow.hex
+Build the slow FPGA LED test for a board profile:
 
+    make -C code soc SOC_APP=ledslow SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 
+Build all currently defined SoC LED test variants:
+
+    make -C code soc-all TARGET_PREFIX=riscv64-unknown-elf
 
 ### Running the MyHDL Testbench
 
 
 
-    python tb_run.py  --new_soc --hex=../bonfire-software/test/ledsim.hex  [ -vcd=<vcdfile> ]
+    python tb_run.py  --new_soc --hex=code/build/soc/sim/ledsim.hex  [ -vcd=<vcdfile> ]
 
 The Output should look like this:
 ````

@@ -8,12 +8,39 @@ They are written in assembly (`core-tests/*.S`) and built into artifacts under
 - `*.hex` (text hexdump of 32-bit words, loaded by `tb_core`)
 - `*.lst` / `*.sym` (objdump outputs)
 
-Build all programs:
+Build all core and SoC test programs:
 ```bash
 cd bonfire-core/code
 make clean
 make all TARGET_PREFIX=riscv64-unknown-elf KEEP_ELF=1
 ```
+
+## SoC LED programs
+
+Small C programs for the MyHDL SoC live under `soc/apps/`:
+
+- `soc/apps/ledsim/main.c`: fast LED counter for simulation.
+- `soc/apps/ledslow/main.c`: slowed LED counter for FPGA boards.
+
+They use the local platform headers in `soc/platforms/` and do not depend on
+the external `bonfire-software` repository.
+Each platform also has a matching linker script in `soc/linker/` for board-
+specific RAM origin and size.
+
+Build one SoC program:
+
+```bash
+make soc SOC_APP=ledsim SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make soc SOC_APP=ledslow SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
+```
+
+Build only the currently defined SoC LED variants:
+
+```bash
+make soc-all TARGET_PREFIX=riscv64-unknown-elf
+```
+
+Generated artifacts are written below `code/build/soc/<platform>/`.
 
 ## Monitor convention
 Most programs use the bonfire-core testbench **monitor port**:

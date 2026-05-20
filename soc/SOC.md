@@ -201,6 +201,28 @@ Important FuseSoC parameters include:
 When `extended_soc` is true, `gen_soc.py` forces `exposeWishboneMaster=True` so
 that `soc/vhdl/soc_top.vhd` can attach VHDL peripherals to the Wishbone bus.
 
+## Firmware Smoke Tests
+
+The repository contains small SoC LED programs under `code/soc/apps`:
+
+- `ledsim`: increments the LED register on every loop iteration for simulation.
+- `ledslow`: shifts the counter by a platform-specific amount for visible FPGA
+  blinking.
+
+Build examples:
+
+```bash
+make -C code soc SOC_APP=ledsim SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make -C code soc SOC_APP=ledslow SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
+make -C code soc-all TARGET_PREFIX=riscv64-unknown-elf
+```
+
+The generated HEX files are written below `code/build/soc/<platform>/`. The
+FuseSoC SoC targets in `fusesoc-cores/bonfire-core-soc.core` reference these
+local HEX files instead of the older external `bonfire-software` paths.
+Board-specific constants live in `code/soc/platforms`, and matching RAM layouts
+live in `code/soc/linker`.
+
 ## Current Limitations
 
 - UART is not implemented in the MyHDL SoC; only a loopback dummy exists.
