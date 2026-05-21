@@ -56,7 +56,8 @@ def test_myhdl_soc(
         filename = None
         trace = False
 
-    run_sim(tb, trace=trace, filename=filename, duration=20_000, waveforms_dir=sim_env["waveforms_dir"])
+    duration = 80_000 if expose_wishbone else 20_000
+    run_sim(tb, trace=trace, filename=filename, duration=duration, waveforms_dir=sim_env["waveforms_dir"])
 
     out = capsys.readouterr().out
     if request.config.getoption("capture") == "no":
