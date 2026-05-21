@@ -8,6 +8,7 @@ It covers the same *test intents* that historically existed in the `tb_run.py` w
 - **Load/Store unit tests** (LSU behavior/configurations)
 - **Pipeline integration tests** (backend + fetch)
 - **Core integration tests** (run full core against small programs)
+- **SoC integration tests** (run the pure MyHDL SoC testbench)
 
 For the legacy `tb_run.py` commands, see: [`../TB_RUN.md`](../TB_RUN.md)
 
@@ -92,6 +93,26 @@ pytest -s -vv tests/test_core.py -k loadsave
 
 Notes:
 - `wb_test.hex` is intentionally skipped (special case).
+
+### SoC integration tests
+Purpose: run the pure MyHDL SoC testbench that was historically available via
+`tb_run.py --new_soc`.
+
+Pytest file:
+- `test_soc_myhdl.py`
+
+The test runs two variants:
+
+- `code/build/soc/sim/led.hex` with the internal Wishbone dummy.
+- `code/build/soc/sim/wishbone.hex` with the Wishbone master exposed and
+  connected to `Wishbone_bfm`.
+
+The firmware image can be overridden with `BONFIRE_SOC_HEX`.
+
+Run:
+```bash
+pytest -vv tests/test_soc_myhdl.py
+```
 
 ## General notes
 - Some legacy testbenches emit VHDL conversion output into `./vhdl_gen/`.

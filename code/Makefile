@@ -40,7 +40,7 @@ HEXDUMP ?= hexdump
 LINKDEF?=$(CORE_TEST_DIR)/bonfire_core.ld
 SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Os -ffreestanding -fno-builtin -Wall -Wextra
 
-SOC_APPS := led
+SOC_APPS := led wishbone
 SOC_PLATFORMS := sim icepizero ulx3s cmods7
 SOC_PLATFORM_DEFINES_sim := BONFIRE_PLATFORM_SIM
 SOC_PLATFORM_DEFINES_icepizero := BONFIRE_PLATFORM_ICEPIZERO

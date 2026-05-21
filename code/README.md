@@ -20,6 +20,8 @@ make all TARGET_PREFIX=riscv64-unknown-elf KEEP_ELF=1
 Small C programs for the MyHDL SoC live under `soc/apps/`:
 
 - `soc/apps/led/main.c`: LED counter smoke test.
+- `soc/apps/wishbone/main.c`: Wishbone bridge smoke test that reports success
+  through the LED register.
 
 They use the local platform headers in `soc/platforms/` and do not depend on
 the external `bonfire-software` repository.
@@ -32,6 +34,7 @@ Build one SoC program:
 
 ```bash
 make soc SOC_APP=led SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make soc SOC_APP=wishbone SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=led SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 ```
 

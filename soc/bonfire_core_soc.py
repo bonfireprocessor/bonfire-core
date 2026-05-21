@@ -23,6 +23,7 @@ class BonfireCoreSoC:
         self.UseVHDLMemory = soc_config.get('UseVHDLMemory', False) # not used yet
         self.exposeWishboneMaster = soc_config.get('exposeWishboneMaster', False)
         self.conversion=False
+        self.reset_signal = None
 
 
 
@@ -174,6 +175,7 @@ class BonfireCoreSoC:
         self.config.reset_address=self.resetAdr
 
         reset=ResetSignal(0,active=1,isasync=False)
+        self.reset_signal = reset
 
         dbus = bonfire_interfaces.DbusBundle(config)
         if wb_master is None:
@@ -215,51 +217,6 @@ class BonfireCoreSoC:
 
         return instances()
 
-    @block
-    def soc_testbench(self):
-
-        from tb import ClkDriver
-
-        sysclk = Signal(bool(0))
-        resetn = Signal(bool(1))
-        LED = Signal(modbv(0)[self.numLeds:])
-        uart0_txd = Signal(bool(1))
-        uart0_rxd = Signal(bool(0))
-
-        o_resetn = Signal(bool(1))
-        i_locked = Signal(bool(0))
-
-        old_led = Signal(modbv(0)[self.numLeds:])
-
-        clk_driver_i=ClkDriver.ClkDriver(sysclk,period=10)
-
-        self.ledActiveLow = False
-
-
-        inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked)
-
-        @always(sysclk.posedge)
-        def observer():
-            if LED != old_led:
-                print("LED status @%s ns: %s" % (now(),LED))
-                old_led.next = LED
-                if LED.val==LED.max-1:
-                    raise StopSimulation
-
-
-        @instance
-        def do_reset():
-
-            for i in range(5):
-                yield sysclk.posedge
-            i_locked.next = True
-
-
-
-        return instances()
-
-
-
     def gen_soc(self,hdl,name,path,gentb=False,handleWarnings='default'):
         from myhdl import ToVHDLWarning
         import warnings
@@ -267,7 +224,15 @@ class BonfireCoreSoC:
         self.conversion=True
 
         if gentb:
-            inst = self.soc_testbench()
+            from soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
+            tb = BonfireCoreSoCTestbench(self.config, hexfile=self.hexfile, soc_config={
+                "bramAdrWidth": self.bramAdrWidth,
+                "LanedMemory": self.LanedMemory,
+                "numLeds": self.numLeds,
+                "ledActiveLow": False,
+                "exposeWishboneMaster": self.exposeWishboneMaster,
+            }, conversion=True)
+            inst = tb.testbench()
         else:
 
 
@@ -302,6 +267,4 @@ class BonfireCoreSoC:
                 handleWarnings,
                 category=ToVHDLWarning)
             inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
-
-
 

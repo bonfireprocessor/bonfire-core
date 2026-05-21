@@ -203,9 +203,11 @@ that `soc/vhdl/soc_top.vhd` can attach VHDL peripherals to the Wishbone bus.
 
 ## Firmware Smoke Tests
 
-The repository contains a small SoC LED program under `code/soc/apps`:
+The repository contains small SoC smoke-test programs under `code/soc/apps`:
 
 - `led`: writes an incrementing counter to the LED register.
+- `wishbone`: writes and reads the Wishbone bridge, then reports success through
+  the LED register.
 
 The platform header selects the visible blink speed with `BONFIRE_LED_SHIFT`.
 The simulation platform uses shift `0`; FPGA board profiles use larger shifts.
@@ -214,6 +216,7 @@ Build examples:
 
 ```bash
 make -C code soc SOC_APP=led SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make -C code soc SOC_APP=wishbone SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make -C code soc SOC_APP=led SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 make -C code soc-all TARGET_PREFIX=riscv64-unknown-elf
 ```
@@ -223,6 +226,19 @@ FuseSoC SoC targets in `fusesoc-cores/bonfire-core-soc.core` reference these
 local HEX files instead of the older external `bonfire-software` paths.
 Board-specific constants live in `code/soc/platforms`, and matching RAM layouts
 live in `code/soc/linker`.
+
+## MyHDL Testbench
+
+The pure MyHDL testbench lives in `soc/bonfire_core_soc_tb.py`. It can run the
+SoC in two modes:
+
+- internal Wishbone dummy, used by the LED firmware test,
+- exposed Wishbone master connected to `Wishbone_bfm`, used by the Wishbone
+  bridge firmware test.
+
+The older `uncore/tb_soc.py` testbench for `bonfireCoreExtendedInterface` has
+been removed; `bonfireCoreExtendedInterface` remains an implementation block
+used by `BonfireCoreSoC`.
 
 ## Current Limitations
 
