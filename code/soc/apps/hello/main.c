@@ -11,11 +11,13 @@ static void led_out(uint32_t value)
     bonfire_write32(BONFIRE_LED_BASE, value & BONFIRE_LED_MASK);
 }
 
+#if BONFIRE_ENABLE_GPIO
 static void gpio_write(uint32_t value)
 {
     bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_EN, 0xff);
     bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_VAL, value);
 }
+#endif
 
 static void report_platform(void)
 {
@@ -28,13 +30,14 @@ static void report_platform(void)
 
 int main(void)
 {
-    uint32_t i = 0;
-
     led_out(1u);
     bonfire_uart_init();
     led_out(2u);
     report_platform();
     led_out(3u);
+
+#if BONFIRE_ENABLE_GPIO
+    uint32_t i = 0;
 
     while (i < 8) {
         uint32_t value = 1u << i;
@@ -42,6 +45,7 @@ int main(void)
         gpio_write(value);
         i++;      
     }
+#endif
     led_out(4u);
 #if defined(BONFIRE_PLATFORM_SIM)
     bonfire_uart_putc(0x1a);
@@ -51,6 +55,7 @@ int main(void)
     uint32_t counter = 0;
 
     while (1) {
-        bonfire_write32(BONFIRE_LED_BASE, (counter++ >> BONFIRE_LED_SHIFT) & BONFIRE_LED_MASK);
-    }
+        bonfire_write32(BONFIRE_LED_BASE, (counter++) & BONFIRE_LED_MASK);
+        report_platform();
+    }    
 }

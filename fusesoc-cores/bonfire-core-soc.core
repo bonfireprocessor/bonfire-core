@@ -137,8 +137,21 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/ulx3s/led.hex"
+      hexfile: "../code/build/soc/ulx3s/hello.hex"
       num_leds: 8
+      led_active_low: false
+      laned_memory : false
+      extended_soc: true
+
+  soc_extended_icepizero:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_adr_width: 11
+      conversion_warnings: 'ignore'
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "../code/build/soc/icepizero/hello.hex"
+      num_leds: 5
       led_active_low: false
       laned_memory : false
       extended_soc: true
@@ -317,4 +330,19 @@ targets:
 
     filesets: [icepizero_lpf,icepizero_top , scripts]
     generate: [ soc_top_icepizero ]
+    toplevel: icepizero_top
+
+  icepizero_extended:
+    default_tool: trellis
+    flags:
+      extended_soc : true
+    tools:
+        trellis:
+            arch: ecp5
+            output_format: json
+            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
+            nextpnr_options: ['--25k','--package CABGA256','--speed 6' ]
+
+    filesets: [icepizero_lpf, scripts, soc_io, icepizero_top ]
+    generate: [ soc_extended_icepizero ]
     toplevel: icepizero_top

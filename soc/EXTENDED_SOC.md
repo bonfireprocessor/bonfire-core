@@ -249,6 +249,11 @@ Targets that use the Extended SoC path include:
   - uses extended ULX3S board top-level files
   - includes `soc_io`
 
+- `icepizero_extended`
+  - `generate: [ soc_extended_icepizero ]`
+  - uses extended IcePi Zero board top-level files
+  - includes `soc_io`
+
 - `cmods7_extended`
   - `generate: [ soc_extended_cmods7 ]`
   - uses Vivado and CMOD-S7 board/IP files
