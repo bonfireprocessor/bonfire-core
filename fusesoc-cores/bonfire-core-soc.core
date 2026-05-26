@@ -117,7 +117,7 @@ generate:
       led_active_low: false
       laned_memory : false
 
-  soc_extented_sim:
+  soc_extended_sim:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
@@ -130,7 +130,7 @@ generate:
       laned_memory : false
       extended_soc: true
 
-  soc_extented:
+  soc_extended:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
@@ -143,7 +143,7 @@ generate:
       laned_memory : false
       extended_soc: true
 
-  soc_extented_cmods7:
+  soc_extended_cmods7:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
@@ -186,7 +186,7 @@ targets:
   sim_extended:
     default_tool: ghdl
     filesets: [ soc_io ]
-    generate: [ soc_extented_sim ]
+    generate: [ soc_extended_sim ]
     flags:
       simulation_target : true
    
@@ -230,7 +230,7 @@ targets:
           board_part: DIGILENTINC.COM:CMOD-S7-25:PART0:1.0
       toplevel:
       - cmod_s7_top
-      generate: [ soc_extented_cmods7 ]
+      generate: [ soc_extended_cmods7 ]
 
   cmods7_extended_sim:
       flags:  
@@ -249,7 +249,7 @@ targets:
           xelab_options: [ "--debug typical" ]
       toplevel:
       - cmods7_top_tb
-      generate: [ soc_extented_cmods7 ]
+      generate: [ soc_extended_cmods7 ]
 
 
   cmods7:
@@ -300,7 +300,7 @@ targets:
             nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
 
     filesets: [ulx3s_lpf, scripts, soc_io, ulx3s_top ]
-    generate: [ soc_extented ]
+    generate: [ soc_extended ]
     toplevel: ulx3s_top
    
 

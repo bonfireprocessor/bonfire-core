@@ -240,24 +240,23 @@ does not stop based on LED activity.
 Targets that use the Extended SoC path include:
 
 - `sim_extended`
-  - `generate: [ soc_extented_sim ]`
+  - `generate: [ soc_extended_sim ]`
   - includes `soc_io`
   - GHDL simulation target with top-level `tb_soc`
 
 - `ulx3s_extended`
-  - `generate: [ soc_extented ]`
+  - `generate: [ soc_extended ]`
   - uses extended ULX3S board top-level files
   - includes `soc_io`
 
 - `cmods7_extended`
-  - `generate: [ soc_extented_cmods7 ]`
+  - `generate: [ soc_extended_cmods7 ]`
   - uses Vivado and CMOD-S7 board/IP files
 
 - `cmods7_extended_sim`
   - simulation target for the CMOD-S7 extended top/testbench path
 
-The generate block names currently contain the typo `soc_extented`. This is
-only a name, but it is part of the existing FuseSoC interface.
+The generate block names use the corrected `soc_extended*` spelling.
 
 ## Dependencies
 

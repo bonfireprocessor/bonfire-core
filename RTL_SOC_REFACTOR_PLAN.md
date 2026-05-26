@@ -73,9 +73,8 @@ follow-up cleanup tasks.
   - split `generate_from_fusesoc()` into smaller orchestration helpers,
   - consider replacing the legacy `getopt` CLI compatibility mode with
     `argparse` or removing it after confirming no local workflow depends on it.
-- Decide whether to keep the historic misspelled FuseSoC generate names
-  `soc_extented*` indefinitely or introduce correctly spelled aliases such as
-  `soc_extended*` while preserving compatibility.
+- Historic misspelled FuseSoC generate names were renamed from
+  `soc_extented*` to `soc_extended*`; no compatibility aliases are kept.
 - Consider whether the project should eventually move from top-level `rtl` and
   `tb` packages into a dedicated Python package namespace.
 
