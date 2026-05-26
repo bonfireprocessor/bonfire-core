@@ -28,6 +28,16 @@ class Wishbone_bfm:
         check_term = Signal(bool(0)) # Asserted when cycle terminates, will trigger after cycle check code - see below
 
         wait_counter = Signal(0)
+        memory = {}
+
+        def wb_adr():
+            return int(wb.wbm_adr_o << 2)
+
+        def read_word():
+            return memory.get(wb_adr(), 0xdeadbeef)
+
+        def write_word():
+            memory[wb_adr()] = int(wb.wbm_db_o)
 
 
         @always_comb
@@ -48,15 +58,19 @@ class Wishbone_bfm:
                         active_cycle_r.next = True
                     else:
                         wb.wbm_ack_i.next = True
+                        if wb.wbm_we_o:
+                            write_word()
                         if not wb.wbm_we_o:
-                            wb.wbm_db_i.next = 0xdeadbeef     
+                            wb.wbm_db_i.next = read_word()
 
                 if active_cycle_r: # Subsequent clock cylces of bus cycle
                     if wait_counter==0:
                         active_cycle_r.next = False
                         wb.wbm_ack_i.next = True
+                        if wb.wbm_we_o:
+                            write_word()
                         if not wb.wbm_we_o:
-                            wb.wbm_db_i.next = 0xdeadbeef
+                            wb.wbm_db_i.next = read_word()
                             
                     else:
                         wait_counter.next = wait_counter - 1

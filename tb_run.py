@@ -2,8 +2,7 @@ from __future__ import print_function
 
 from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipeline,tb_loadstore,tb_fetch,tb_core
 
-from uncore import tb_soc
-from soc import bonfire_core_soc
+from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
 
 from rtl import config
 
@@ -110,22 +109,17 @@ def core_integration_tests(hex,elf,sig,vcd,verbose):
     test(tb,trace=bool(vcd),filename=vcd,duration=20000)
     
 
-def soc_test(hex,vcd,elf,sig):
-    tb=tb_soc.tb(hexFile=hex,elfFile=elf,sigFile=sig)
-    test(tb,trace=bool(vcd),filename=vcd,duration=20000)
-    
-    
 def new_soc_test(hex,vcd):
     conf = config.BonfireConfig()
     conf.jump_bypass = False
-    Soc = bonfire_core_soc.BonfireCoreSoC(conf,hexfile=hex)
-    tb=Soc.soc_testbench()
+    SocTb = BonfireCoreSoCTestbench(conf, hexfile=hex)
+    tb=SocTb.testbench()
     test(tb,trace=bool(vcd),filename=vcd,duration=20000)
     
 
 try:
     opts, args = getopt.getopt(sys.argv[1:],"e:,x:v" ,
-    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","soc","ut_cache","new_soc","vcd=","sig="])
+    ["elf=","hex=","ut_modules","ut_loadstore", "pipeline","all","ut_cache","new_soc","vcd=","sig="])
 except getopt.GetoptError as err:
     # print help information and exit:
     print(err)  # will print something like "option -a not recognized"
@@ -177,11 +171,7 @@ if "--ut_cache" in options:
     cache_unit_tests()
 
 if hexname:
-    if "--soc" in options:
-        soc_test(hexname,vcdname,elfname,signame)
-    elif "--new_soc" in options:
+    if "--new_soc" in options:
         new_soc_test(hexname,vcdname)
     else:     
         core_integration_tests(hexname,elfname,signame,vcdname,"-v" in options)
-
-

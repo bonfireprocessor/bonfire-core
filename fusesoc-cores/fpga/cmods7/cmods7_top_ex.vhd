@@ -51,7 +51,8 @@ architecture Behavioral of cmod_s7_top is
         NUM_LEDS       : natural := 8;
         ENABLE_GPIO     : boolean := true;
         DEBUG          : boolean := false;
-        UART_TEST    : boolean := false
+        UART_FIFO_DEPTH : natural := 6;
+        INST_UART_ONLY  : boolean := false
     );
     port(
         sysclk  : in  std_logic;
@@ -126,7 +127,7 @@ begin
          NUM_LEDS => 4,
     --   ENABLE_GPIO => ENABLE_GPIO,
     --   DEBUG => DEBUG
-        UART_TEST => false -- Instantiate complete soc_io 
+        INST_UART_ONLY => false -- Instantiate complete soc_io
      )
     port map(
         sysclk => sysclk,

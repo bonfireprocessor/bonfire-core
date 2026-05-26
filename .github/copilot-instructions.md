@@ -70,7 +70,7 @@ scripts/bonfire-core --all
 scripts/bonfire-core --ut
 
 # Run single HEX program with VCD trace
-scripts/bonfire-core --hex code/build/loadsave.hex --vcd /tmp/debug.vcd
+scripts/bonfire-core --hex code/build/core-tests/loadsave.hex --vcd /tmp/debug.vcd
 ```
 
 ### Test Structure (pytest-based)
@@ -129,29 +129,35 @@ See [COMPLIANCE.md](../COMPLIANCE.md) for details.
 ## FuseSoC Integration
 
 bonfire-core uses **FuseSoC generators** to convert MyHDL → VHDL for simulation/synthesis:
-- Core definition: [bonfire-core.core](../bonfire-core.core)
-- SoC definition: [bonfire-core-soc.core](../bonfire-core-soc.core)
-- Generators: [gen_core.py](../gen_core.py), [gen_soc.py](../gen_soc.py)
+- Core definition: [bonfire-core.core](../fusesoc-cores/bonfire-core.core)
+- SoC definition: [bonfire-core-soc.core](../fusesoc-cores/bonfire-core-soc.core)
+- Generators: [gen_core.py](../fusesoc-cores/generators/gen_core.py), [gen_soc.py](../fusesoc-cores/generators/gen_soc.py)
 
 Generate VHDL and simulate:
 ```bash
-fusesoc run --target=sim bonfire-core --testfile=code/build/loop.hex
+fusesoc run --target=sim bonfire-core --testfile=code/build/core-tests/loop.hex
 ```
 
 ## Key Conventions
 
 ### File Organization
-- **rtl/**: Core MyHDL modules (fetch, decode, execute, divider, etc.)
-- **tb/**: Testbenches (unit + integration)
+- **rtl/**: Synthesizable MyHDL RTL code
+  - `rtl/*.py`: CPU core modules (fetch, decode, execute, divider, etc.)
+  - `rtl/soc/`: MyHDL SoC wrapper RTL
+  - `rtl/uncore/`: RAM, interconnect, and CPU-to-bus wrapper RTL
+- **tb/**: MyHDL testbenches, BFMs, and simulation helpers
+  - `tb/soc/`: SoC testbench code
+  - `tb/uncore/`: uncore/Wishbone BFM test helpers
 - **tests/**: pytest test suite
   - `test_ut_*.py`: Unit tests for individual modules
   - `test_*_convert.py`: VHDL conversion verification tests
   - `test_integration_*.py`: Pipeline integration tests
   - `test_core.py`: Full core integration tests
-- **code/**: Assembly test programs
-- **uncore/**: Peripherals (RAM, interconnect, monitor)
-- **soc/**: SoC wrapper
-- **vhdl/**: Hand-written VHDL testbench components
+- **code/**: RISC-V test programs and local SoC firmware
+- **soc/**: SoC documentation
+- **fusesoc-cores/**: FuseSoC core files, FPGA board wrappers, generator scripts, and VHDL templates
+  - `fusesoc-cores/generators/`: FuseSoC generator entry points
+  - `fusesoc-cores/templates/`: Extended SoC VHDL templates rendered by generators
 - **vhdl_gen/**: MyHDL-generated VHDL (created by FuseSoC or conversion tests)
 - **waveforms/**: VCD trace files from test runs (project-local, not committed)
 
@@ -223,7 +229,7 @@ When writing MyHDL code for VHDL conversion:
 ### VCD Traces
 Generate waveforms for debug:
 ```bash
-scripts/bonfire-core --hex code/build/loadsave.hex --vcd ~/debug.vcd
+scripts/bonfire-core --hex code/build/core-tests/loadsave.hex --vcd ~/debug.vcd
 # Opens as ~/debug.vcd.vcd (MyHDL appends .vcd)
 ```
 
@@ -319,9 +325,9 @@ GitHub Actions workflows in [.github/workflows/](../../../.github/workflows/):
 | Unit tests only | `scripts/bonfire-core --ut` |
 | Integration tests | `scripts/bonfire-core --integration` |
 | Build test code | `make -C code all TARGET_PREFIX=riscv64-unknown-elf` |
-| Debug single program | `scripts/bonfire-core --hex code/build/loop.hex --vcd /tmp/trace.vcd` |
+| Debug single program | `scripts/bonfire-core --hex code/build/core-tests/loop.hex --vcd /tmp/trace.vcd` |
 | Run compliance | `cd riscv-compliance && ./scripts/run_bonfire_compliance.sh` |
-| Generate VHDL | `fusesoc run --target=sim bonfire-core --testfile=code/build/loop.hex` |
+| Generate VHDL | `fusesoc run --target=sim bonfire-core --testfile=code/build/core-tests/loop.hex` |
 
 ## Further Reading
 

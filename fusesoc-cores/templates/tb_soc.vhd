@@ -57,11 +57,12 @@ entity tb_soc is
         ENABLE_UART1    : boolean := {enableUart1};
         ENABLE_SPI      : boolean := {enableSPI};
         NUM_LEDS       : natural := {numLeds};
-        ENABLE_GPIO     : boolean := true;
+        ENABLE_GPIO     : boolean := {enableGpio};
         CLK_FREQ_MHZ  : natural := 25;
         UART_BAUDRATE : natural := 115200;
-        DEBUG          : boolean := false;
-        UART_TEST    : boolean := false
+        DEBUG          : boolean := {debug};
+        UART_FIFO_DEPTH : natural := {uartFifoDepth};
+        INST_UART_ONLY  : boolean := {instUartOnly}
     );
 end tb_soc;
 
@@ -74,9 +75,10 @@ architecture tb of tb_soc is
         ENABLE_UART1    : boolean := {enableUart1};
         ENABLE_SPI      : boolean := {enableSPI};
         NUM_LEDS       : natural := {numLeds};
-        ENABLE_GPIO     : boolean := true;
-        DEBUG          : boolean := false;
-        UART_TEST    : boolean := true
+        ENABLE_GPIO     : boolean := {enableGpio};
+        DEBUG          : boolean := {debug};
+        UART_FIFO_DEPTH : natural := {uartFifoDepth};
+        INST_UART_ONLY  : boolean := {instUartOnly}
     );
     port(
         sysclk  : in  std_logic;
@@ -165,7 +167,8 @@ begin
       NUM_LEDS => NUM_LEDS,
       ENABLE_GPIO => ENABLE_GPIO,
       DEBUG => DEBUG,
-      UART_TEST => UART_TEST
+      UART_FIFO_DEPTH => UART_FIFO_DEPTH,
+      INST_UART_ONLY => INST_UART_ONLY
     )
     port map(
         sysclk => TbClock,

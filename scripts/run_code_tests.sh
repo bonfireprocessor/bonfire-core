@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Run bonfire-core code/*.hex programs in the MyHDL testbench.
+# Run bonfire-core core-test HEX programs in the MyHDL testbench.
 #
 # PASS criterion: last write to monitor base address (0x10000000) is 1.
 # (This matches the convention used by loadsave.S and the updated basic_alu.S / simple_loop.S.)
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CODE_DIR="$ROOT_DIR/code"
+CORE_TEST_BUILD_DIR="$CODE_DIR/build/core-tests"
 
 TOOLCHAIN_BIN_DEFAULT="$HOME/opt/riscv-gnu-toolchain/bin"
 TOOLCHAIN_BIN="${TOOLCHAIN_BIN:-$TOOLCHAIN_BIN_DEFAULT}"
@@ -63,10 +64,10 @@ pushd "$ROOT_DIR" >/dev/null
 # shellcheck disable=SC1091
 . .venv/bin/activate
 
-for f in "$CODE_DIR"/build/*.hex; do
+for f in "$CORE_TEST_BUILD_DIR"/*.hex; do
   base="$(basename "$f")"
 
-  echo "=== code/build/$base ==="
+  echo "=== code/build/core-tests/$base ==="
 
   if [[ -n "${SKIP[$base]:-}" ]]; then
     echo "SKIP"
@@ -76,7 +77,7 @@ for f in "$CODE_DIR"/build/*.hex; do
   fi
 
   # Capture output for parsing + debugging.
-  out="$(python tb_run.py --hex="code/build/$base" 2>&1)" || true
+  out="$(python tb_run.py --hex="code/build/core-tests/$base" 2>&1)" || true
   echo "$out"
 
   last_line="$(grep -E 'Monitor write: .* 10000000:' <<<"$out" | tail -n 1 || true)"

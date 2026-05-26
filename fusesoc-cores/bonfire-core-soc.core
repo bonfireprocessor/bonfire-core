@@ -4,7 +4,7 @@ name: ::bonfire-core-soc:0
 generators:
   gen_bonfire_core_soc:
     interpreter: python3
-    command: ../gen_soc.py
+    command: generators/gen_soc.py
     description: "Generates a VHDL version of bonfore-core-soc"
 
 
@@ -81,7 +81,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../../bonfire-software/test/ledslow.hex"
+      hexfile: "../code/build/soc/sim/led.hex"
 
   soc_top_nonlaned:
     generator: gen_bonfire_core_soc
@@ -91,7 +91,7 @@ generate:
       laned_memory : false
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../../bonfire-software/test/ledslow.hex"
+      hexfile: "../code/build/soc/sim/led.hex"
 
   soc_top_ulx3s:
     generator: gen_bonfire_core_soc
@@ -100,7 +100,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../../bonfire-software/test/ledslow.hex"
+      hexfile: "../code/build/soc/ulx3s/led.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false
@@ -112,45 +112,58 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../../bonfire-software/test/ledslow.hex"
+      hexfile: "../code/build/soc/icepizero/led.hex"
       num_leds: 5
       led_active_low: false
       laned_memory : false
 
-  soc_extented_sim:
+  soc_extended_sim:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
       bram_adr_width: 12
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../../bonfire-software/test/sim_hello.hex"
+      hexfile: "../code/build/soc/sim/hello.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false
       extended_soc: true
 
-  soc_extented:
+  soc_extended:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../../bonfire-software/test/hw_hello.hex"
+      hexfile: "../code/build/soc/ulx3s/hello.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false
       extended_soc: true
 
-  soc_extented_cmods7:
+  soc_extended_icepizero:
+    generator: gen_bonfire_core_soc
+    parameters:
+      language: vhdl
+      bram_adr_width: 11
+      conversion_warnings: 'ignore'
+      entity_name: 'bonfire_core_soc_top'
+      hexfile: "../code/build/soc/icepizero/hello.hex"
+      num_leds: 5
+      led_active_low: false
+      laned_memory : false
+      extended_soc: true
+
+  soc_extended_cmods7:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
       bram_adr_width: 14
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../../bonfire-software/monitor/build/BONFIRE_CORE_CMODS7/BONFIRE_CORE_CMODS7_monitor.hex"
+      hexfile: "../code/build/soc/cmods7/led.hex"
       num_leds: 4
       led_active_low: false
       laned_memory : false
@@ -165,7 +178,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'tb_bonfire_core_soc'
-      hexfile: "../../bonfire-software/test/ledsim.hex"
+      hexfile: "../code/build/soc/sim/led.hex"
 
 
 targets:
@@ -186,7 +199,7 @@ targets:
   sim_extended:
     default_tool: ghdl
     filesets: [ soc_io ]
-    generate: [ soc_extented_sim ]
+    generate: [ soc_extended_sim ]
     flags:
       simulation_target : true
    
@@ -230,7 +243,7 @@ targets:
           board_part: DIGILENTINC.COM:CMOD-S7-25:PART0:1.0
       toplevel:
       - cmod_s7_top
-      generate: [ soc_extented_cmods7 ]
+      generate: [ soc_extended_cmods7 ]
 
   cmods7_extended_sim:
       flags:  
@@ -249,7 +262,7 @@ targets:
           xelab_options: [ "--debug typical" ]
       toplevel:
       - cmods7_top_tb
-      generate: [ soc_extented_cmods7 ]
+      generate: [ soc_extended_cmods7 ]
 
 
   cmods7:
@@ -300,7 +313,7 @@ targets:
             nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
 
     filesets: [ulx3s_lpf, scripts, soc_io, ulx3s_top ]
-    generate: [ soc_extented ]
+    generate: [ soc_extended ]
     toplevel: ulx3s_top
    
 
@@ -317,4 +330,19 @@ targets:
 
     filesets: [icepizero_lpf,icepizero_top , scripts]
     generate: [ soc_top_icepizero ]
+    toplevel: icepizero_top
+
+  icepizero_extended:
+    default_tool: trellis
+    flags:
+      extended_soc : true
+    tools:
+        trellis:
+            arch: ecp5
+            output_format: json
+            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
+            nextpnr_options: ['--25k','--package CABGA256','--speed 6' ]
+
+    filesets: [icepizero_lpf, scripts, soc_io, icepizero_top ]
+    generate: [ soc_extended_icepizero ]
     toplevel: icepizero_top
