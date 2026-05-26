@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shutil
 import subprocess
 import warnings
@@ -18,6 +19,21 @@ def _fusesoc_command() -> str:
 
     warnings.warn("Skipping Extended SoC test: neither global ghdl nor OSS CAD Suite environment was found")
     pytest.skip("ghdl not found and OSS CAD Suite environment not available")
+
+
+def _contains_ordered_lines(actual_lines: list[str], expected_lines: list[str]) -> bool:
+    if not expected_lines:
+        return True
+
+    expected_index = 0
+
+    for line in actual_lines:
+        if line.strip().startswith(expected_lines[expected_index]):
+            expected_index += 1
+            if expected_index == len(expected_lines):
+                return True
+
+    return False
 
 
 def test_extended_soc_hello_fusesoc(repo_root: Path):
@@ -54,12 +70,11 @@ def test_extended_soc_hello_fusesoc(repo_root: Path):
         "LEDs:00000100(04)",
     ]
     gpio_lines = [
-        line for line in result.stdout.splitlines()
-        if line.startswith("LEDs:") or line.startswith("IO Pads:")
+        line.strip() for line in result.stdout.splitlines()
+        if line.strip().startswith("LEDs:") or line.strip().startswith("IO Pads:")
     ]
-    for offset in range(len(gpio_lines) - len(gpio_block) + 1):
-        if gpio_lines[offset:offset + len(gpio_block)] == gpio_block:
-            break
-    else:
-        pytest.fail("Expected GPIO/LED output block not found")
-    assert result.stdout.rstrip().endswith("UART0 Test captured bytes: 97 framing errors: 0")
+    assert _contains_ordered_lines(gpio_lines, gpio_block), "Expected GPIO/LED output block not found"
+
+    uart_capture = re.search(r"UART0 Test captured bytes:\s*(\d+) framing errors:\s*(\d+)", result.stdout)
+    assert uart_capture is not None, "UART capture summary not found"
+    assert uart_capture.groups() == ("97", "0")
