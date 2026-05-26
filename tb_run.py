@@ -2,7 +2,7 @@ from __future__ import print_function
 
 from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipeline,tb_loadstore,tb_fetch,tb_core
 
-from soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
+from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
 
 from rtl import config
 
@@ -175,4 +175,3 @@ if hexname:
         new_soc_test(hexname,vcdname)
     else:     
         core_integration_tests(hexname,elfname,signame,vcdname,"-v" in options)
-

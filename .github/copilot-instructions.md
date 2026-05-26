@@ -131,7 +131,7 @@ See [COMPLIANCE.md](../COMPLIANCE.md) for details.
 bonfire-core uses **FuseSoC generators** to convert MyHDL → VHDL for simulation/synthesis:
 - Core definition: [bonfire-core.core](../bonfire-core.core)
 - SoC definition: [bonfire-core-soc.core](../bonfire-core-soc.core)
-- Generators: [gen_core.py](../gen_core.py), [gen_soc.py](../gen_soc.py)
+- Generators: [gen_core.py](../fusesoc-cores/generators/gen_core.py), [gen_soc.py](../fusesoc-cores/generators/gen_soc.py)
 
 Generate VHDL and simulate:
 ```bash

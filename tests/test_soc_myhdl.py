@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from rtl import config
-from soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
+from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
 
 from .conftest import run_sim
 

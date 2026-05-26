@@ -22,7 +22,8 @@ architecture rtl of fireant_top is
         NUM_LEDS       : natural := 8;
         ENABLE_GPIO     : boolean := true;
         DEBUG          : boolean := false;
-        UART_TEST    : boolean := false
+        UART_FIFO_DEPTH : natural := 6;
+        INST_UART_ONLY  : boolean := false
     );
     port(
         sysclk  : in  std_logic;

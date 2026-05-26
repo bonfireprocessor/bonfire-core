@@ -6,6 +6,7 @@ TARGET_CC := $(TARGET_PREFIX)-gcc
 TARGET_LD := $(TARGET_PREFIX)-gcc
 TARGET_SIZE := $(TARGET_PREFIX)-size
 TARGET_OBJCOPY := $(TARGET_PREFIX)-objcopy
+TARGET_OBJDUMP := $(TARGET_PREFIX)-objdump
 
 .PHONY: all soc soc-all clean info
 
@@ -38,37 +39,40 @@ endif
 ABI = ilp32
 HEXDUMP ?= hexdump
 LINKDEF?=$(CORE_TEST_DIR)/bonfire_core.ld
-SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Os -ffreestanding -fno-builtin -Wall -Wextra
+OBJDUMP_FLAGS := -d -S
+CORE_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -g
+SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Og -g -ffreestanding -fno-builtin -Wall -Wextra
 
-SOC_APPS := led wishbone
+SOC_APPS := led wishbone hello
 SOC_PLATFORMS := sim icepizero ulx3s cmods7
 SOC_PLATFORM_DEFINES_sim := BONFIRE_PLATFORM_SIM
 SOC_PLATFORM_DEFINES_icepizero := BONFIRE_PLATFORM_ICEPIZERO
 SOC_PLATFORM_DEFINES_ulx3s := BONFIRE_PLATFORM_ULX3S
 SOC_PLATFORM_DEFINES_cmods7 := BONFIRE_PLATFORM_CMODS7
+SOC_COMMON_SRCS := $(SOC_DIR)/runtime/console.c $(SOC_DIR)/runtime/snprintf.c
 
 $(BUILD_DIR) $(CORE_TEST_BUILD_DIR):
 	@mkdir -p $@
 
 # These are freestanding bare-metal programs; do not pull in libc/startup files.
 $(CORE_TEST_BUILD_DIR)/%.elf : $(CORE_TEST_DIR)/%.S | $(CORE_TEST_BUILD_DIR)
-	@$(TARGET_CC) -march=$(ARCH) -mabi=$(ABI) -nostdlib -nostartfiles -T$(LINKDEF) -o $@ $<
+	@$(TARGET_CC) $(CORE_CFLAGS) -nostdlib -nostartfiles -T$(LINKDEF) -o $@ $<
 
 
 $(CORE_TEST_BUILD_DIR)/%.hex : $(CORE_TEST_BUILD_DIR)/%.elf | $(CORE_TEST_BUILD_DIR)
 	@$(TARGET_OBJCOPY) -j .text -O binary $< $(basename $@).bin
 	@$(HEXDUMP) -v -e '1/4 "%08x\n"' $(basename $@).bin >$@
-	@$(TARGET_PREFIX)-objdump -d $< >$(basename $@).lst
-	@$(TARGET_PREFIX)-objdump -t $< >$(basename $@).sym
+	@$(TARGET_OBJDUMP) $(OBJDUMP_FLAGS) $< >$(basename $@).lst
+	@$(TARGET_OBJDUMP) -t $< >$(basename $@).sym
 	$(TARGET_PREFIX)-size  $<
 
 PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap
 HEXES := $(addprefix $(CORE_TEST_BUILD_DIR)/,$(addsuffix .hex,$(PROGRAMS)))
 
 define SOC_APP_RULE
-$(BUILD_DIR)/soc/$(1)/$(2).elf: $(SOC_DIR)/apps/$(2)/main.c $(SOC_DIR)/startup/crt0.S $(SOC_DIR)/linker/$(1).ld $(SOC_DIR)/linker/common-sections.ld
+$(BUILD_DIR)/soc/$(1)/$(2).elf: $(SOC_DIR)/apps/$(2)/main.c $(SOC_COMMON_SRCS) $(SOC_DIR)/startup/crt0.S $(SOC_DIR)/linker/$(1).ld $(SOC_DIR)/linker/common-sections.ld
 	@mkdir -p $$(@D)
-	@$$(TARGET_CC) $$(SOC_CFLAGS) -D$$(SOC_PLATFORM_DEFINES_$(1)) -I$$(SOC_DIR)/include -I$$(SOC_DIR)/platforms -nostdlib -nostartfiles -T$$(SOC_DIR)/linker/$(1).ld -Wl,--gc-sections -o $$@ $$(SOC_DIR)/startup/crt0.S $$<
+	@$$(TARGET_CC) $$(SOC_CFLAGS) -D$$(SOC_PLATFORM_DEFINES_$(1)) -I$$(SOC_DIR)/include -I$$(SOC_DIR)/platforms -nostdlib -nostartfiles -T$$(SOC_DIR)/linker/$(1).ld -Wl,--gc-sections -o $$@ $$(SOC_DIR)/startup/crt0.S $$< $$(SOC_COMMON_SRCS)
 endef
 
 $(foreach platform,$(SOC_PLATFORMS),$(foreach app,$(SOC_APPS),$(eval $(call SOC_APP_RULE,$(platform),$(app)))))
@@ -76,8 +80,8 @@ $(foreach platform,$(SOC_PLATFORMS),$(foreach app,$(SOC_APPS),$(eval $(call SOC_
 $(BUILD_DIR)/soc/%.hex : $(BUILD_DIR)/soc/%.elf
 	@$(TARGET_OBJCOPY) -O binary $< $(basename $@).bin
 	@$(HEXDUMP) -v -e '1/4 "%08x\n"' $(basename $@).bin >$@
-	@$(TARGET_PREFIX)-objdump -d $< >$(basename $@).lst
-	@$(TARGET_PREFIX)-objdump -t $< >$(basename $@).sym
+	@$(TARGET_OBJDUMP) $(OBJDUMP_FLAGS) $< >$(basename $@).lst
+	@$(TARGET_OBJDUMP) -t $< >$(basename $@).sym
 	$(TARGET_PREFIX)-size $<
 
 SOC_HEXES := $(foreach platform,$(SOC_PLATFORMS),$(addprefix $(BUILD_DIR)/soc/$(platform)/,$(addsuffix .hex,$(SOC_APPS))))

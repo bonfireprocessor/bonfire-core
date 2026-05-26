@@ -12,8 +12,8 @@ from rtl import config
 from rtl import bonfire_interfaces
 
 
-from uncore.ram_dp import *
-from uncore.dbus_interconnect import *
+from rtl.uncore.ram_dp import *
+from rtl.uncore.dbus_interconnect import *
 from tb.sim_monitor import *
 
 @block

@@ -1,0 +1,56 @@
+#include <stdint.h>
+
+#include <bonfire/console.h>
+#include <bonfire/gpio.h>
+#include <bonfire/mmio.h>
+#include <bonfire/platform.h>
+#include <bonfire/uart.h>
+
+static void led_out(uint32_t value)
+{
+    bonfire_write32(BONFIRE_LED_BASE, value & BONFIRE_LED_MASK);
+}
+
+static void gpio_write(uint32_t value)
+{
+    bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_EN, 0xff);
+    bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_VAL, value);
+}
+
+static void report_platform(void)
+{
+    printk("\nHello from Bonfire Core!\n");
+    printk("platform=%s\n", BONFIRE_PLATFORM_NAME);
+    printk("sysclk=%u\n", BONFIRE_SYSCLK_HZ);
+    printk("baud=%u\n", BONFIRE_UART_BAUD);
+    printk("sram_base=0x%x\n\n", BONFIRE_SRAM_BASE); // Two new lines for smoother VHDL test output in case of sim.
+}
+
+int main(void)
+{
+    uint32_t i = 0;
+
+    led_out(1u);
+    bonfire_uart_init();
+    led_out(2u);
+    report_platform();
+    led_out(3u);
+
+    while (i < 8) {
+        uint32_t value = 1u << i;
+
+        gpio_write(value);
+        i++;      
+    }
+    led_out(4u);
+#if defined(BONFIRE_PLATFORM_SIM)
+    bonfire_uart_putc(0x1a);
+    bonfire_uart_wait_tx_complete();
+#endif
+
+    uint32_t counter = 0;
+
+    while (1) {
+        bonfire_write32(BONFIRE_LED_BASE, (counter++ >> BONFIRE_LED_SHIFT) & BONFIRE_LED_MASK);
+    }
+}

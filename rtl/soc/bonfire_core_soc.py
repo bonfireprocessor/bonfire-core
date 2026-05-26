@@ -2,8 +2,8 @@ from __future__ import print_function
 
 from myhdl import *
 
-from  uncore import bonfire_core_ex,ram_dp
-from uncore.dbus_interconnect import AdrMask
+from rtl.uncore import bonfire_core_ex, ram_dp
+from rtl.uncore.dbus_interconnect import AdrMask
 from rtl import bonfire_interfaces,config
 
 
@@ -224,7 +224,7 @@ class BonfireCoreSoC:
         self.conversion=True
 
         if gentb:
-            from soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
+            from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
             tb = BonfireCoreSoCTestbench(self.config, hexfile=self.hexfile, soc_config={
                 "bramAdrWidth": self.bramAdrWidth,
                 "LanedMemory": self.LanedMemory,
@@ -267,4 +267,3 @@ class BonfireCoreSoC:
                 handleWarnings,
                 category=ToVHDLWarning)
             inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
-

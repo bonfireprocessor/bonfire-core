@@ -1,7 +1,7 @@
 # Bonfire Core SoC
 
 This document describes the current System-on-Chip wrapper implemented in
-`soc/bonfire_core_soc.py`. The SoC is still a work in progress. At the MyHDL
+`rtl/soc/bonfire_core_soc.py`. The SoC is still a work in progress. At the MyHDL
 level it currently provides the CPU core, internal block RAM, a small LED
 register, reset handling, and a Wishbone bridge. UART/GPIO/SPI integration is
 not complete in the MyHDL SoC itself.
@@ -20,13 +20,15 @@ window.
 
 ## Main Files
 
-- `soc/bonfire_core_soc.py`: MyHDL SoC top-level generator.
-- `uncore/bonfire_core_ex.py`: connects the CPU core to BRAM, native DBus, and
+- `rtl/soc/bonfire_core_soc.py`: MyHDL SoC top-level generator.
+- `rtl/uncore/bonfire_core_ex.py`: connects the CPU core to BRAM, native DBus, and
   Wishbone via the DBus interconnect.
-- `uncore/dbus_interconnect.py`: simple 1-master/3-slave DBus address decoder.
-- `uncore/ram_dp.py`: dual-port RAM implementations.
-- `soc/vhdl/soc_top.vhd`: optional generated VHDL wrapper around the MyHDL SoC.
-- `gen_soc.py`: FuseSoC generator entry point for SoC VHDL conversion.
+- `rtl/uncore/dbus_interconnect.py`: simple 1-master/3-slave DBus address decoder.
+- `rtl/uncore/ram_dp.py`: dual-port RAM implementations.
+- `fusesoc-cores/templates/soc_top.vhd`: optional generated VHDL wrapper around
+  the MyHDL SoC.
+- `fusesoc-cores/generators/gen_soc.py`: FuseSoC generator entry point for SoC VHDL
+  conversion.
 
 ## Top-Level Structure
 
@@ -55,7 +57,7 @@ It instantiates these blocks:
 - `reset_logic` or `no_reset_logic`: reset generation.
 
 The CPU core itself is instantiated by `BonfireCoreTop.createInstance()` inside
-`uncore/bonfire_core_ex.py`.
+`rtl/uncore/bonfire_core_ex.py`.
 
 ## Address Map
 
@@ -141,8 +143,9 @@ This is only a loopback placeholder. Software cannot yet use this MyHDL UART as
 a real serial peripheral.
 
 For extended SoC generation, `gen_soc.py` can wrap the MyHDL core with
-`soc/vhdl/soc_top.vhd`. That VHDL wrapper exposes the MyHDL Wishbone master to
-external VHDL peripherals. Depending on the `UART_TEST` generic it instantiates
+`fusesoc-cores/templates/soc_top.vhd`. That VHDL wrapper exposes the MyHDL
+Wishbone master to external VHDL peripherals. Depending on the `INST_UART_ONLY`
+generic it instantiates
 either:
 
 - `zpuino_uart`, or
@@ -199,7 +202,8 @@ Important FuseSoC parameters include:
 - `expose_wishbone_master`: expose the Wishbone master directly.
 
 When `extended_soc` is true, `gen_soc.py` forces `exposeWishboneMaster=True` so
-that `soc/vhdl/soc_top.vhd` can attach VHDL peripherals to the Wishbone bus.
+that `fusesoc-cores/templates/soc_top.vhd` can attach VHDL peripherals to the
+Wishbone bus.
 
 ## Firmware Smoke Tests
 
@@ -229,7 +233,7 @@ live in `code/soc/linker`.
 
 ## MyHDL Testbench
 
-The pure MyHDL testbench lives in `soc/bonfire_core_soc_tb.py`. It can run the
+The pure MyHDL testbench lives in `tb/soc/bonfire_core_soc_tb.py`. It can run the
 SoC in two modes:
 
 - internal Wishbone dummy, used by the LED firmware test,

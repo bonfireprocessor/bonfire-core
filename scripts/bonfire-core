@@ -245,7 +245,7 @@ if [[ $RUN_UT -eq 1 ]]; then
 fi
 
 if [[ $RUN_INTEGRATION -eq 1 ]]; then
-  python -m pytest tests/test_core.py tests/test_soc_myhdl.py ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"}
+  python -m pytest tests/test_core.py tests/test_soc_myhdl.py tests/test_extended_soc_fusesoc.py ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"}
 fi
 
 popd >/dev/null

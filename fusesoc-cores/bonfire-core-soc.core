@@ -4,7 +4,7 @@ name: ::bonfire-core-soc:0
 generators:
   gen_bonfire_core_soc:
     interpreter: python3
-    command: ../gen_soc.py
+    command: generators/gen_soc.py
     description: "Generates a VHDL version of bonfore-core-soc"
 
 
@@ -124,7 +124,7 @@ generate:
       bram_adr_width: 12
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/sim/led.hex"
+      hexfile: "../code/build/soc/sim/hello.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false

@@ -22,9 +22,14 @@ Small C programs for the MyHDL SoC live under `soc/apps/`:
 - `soc/apps/led/main.c`: LED counter smoke test.
 - `soc/apps/wishbone/main.c`: Wishbone bridge smoke test that reports success
   through the LED register.
+- `soc/apps/hello/main.c`: Extended SoC UART/GPIO smoke test used by the VHDL
+  Extended SoC simulation.
 
 They use the local platform headers in `soc/platforms/` and do not depend on
 the external `bonfire-software` repository.
+Shared minimal runtime helpers live under `soc/runtime/`; currently this is a
+small UART console wrapper plus a compact `snprintf`/`printk` implementation
+for test output without pulling in a full C runtime.
 Each platform also has a matching linker script in `soc/linker/` for board-
 specific RAM origin and size.
 The platform header controls the visible blink speed through
@@ -35,6 +40,7 @@ Build one SoC program:
 ```bash
 make soc SOC_APP=led SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=wishbone SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make soc SOC_APP=hello SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=led SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 ```
 

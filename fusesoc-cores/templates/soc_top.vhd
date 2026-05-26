@@ -26,9 +26,10 @@ entity {entity_name} is
         ENABLE_UART1    : boolean := {enableUart1};
         ENABLE_SPI      : boolean := {enableSPI};
         NUM_LEDS       : natural := {numLeds};
-        ENABLE_GPIO     : boolean := true;
-        DEBUG          : boolean := false;
-        UART_TEST    : boolean := true
+        ENABLE_GPIO     : boolean := {enableGpio};
+        DEBUG          : boolean := {debug};
+        UART_FIFO_DEPTH : natural := {uartFifoDepth};
+        INST_UART_ONLY  : boolean := {instUartOnly}
     );
 
     port(
@@ -126,14 +127,14 @@ U_BONFIRE_CORE: {gen_core_name}
 
     io_adr(io_adr'range) <= adr_map(io_adr'length-1 downto 0); -- Map different address indexing
 
-io_gen: if not UART_TEST  generate
+io_gen: if not INST_UART_ONLY  generate
     
     
     Inst_bonfire_soc_io: entity  work.bonfire_soc_io
     GENERIC MAP (
     NUM_GPIO_BITS => gpio_o'length,
     ADR_HIGH => io_adr_high,
-    UART_FIFO_DEPTH => 6,
+    UART_FIFO_DEPTH => UART_FIFO_DEPTH,
     ENABLE_UART0 => true,
     ENABLE_UART1 => ENABLE_UART1,
     ENABLE_SPI => ENABLE_SPI,
@@ -167,12 +168,12 @@ io_gen: if not UART_TEST  generate
 
 end generate;
 
-uart_gen:  if UART_TEST generate
+uart_gen:  if INST_UART_ONLY generate
    
 
     Inst_uart1: entity work.zpuino_uart
         generic map (
-            bits      => 6, -- Example FIFO depth (change as needed)
+            bits      => UART_FIFO_DEPTH,
             wordSize  => 32,
             maxIObit  => io_adr_high,
             minIObit  => 2,

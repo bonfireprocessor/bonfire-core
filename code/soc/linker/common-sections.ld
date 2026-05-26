@@ -30,6 +30,8 @@ SECTIONS
         *(.sbss .sbss.*)
         *(.bss .bss.*)
         *(COMMON)
+        . = ALIGN(4);
+        _ebss = .;
         end = .;
         _end = .;
         __end = .;

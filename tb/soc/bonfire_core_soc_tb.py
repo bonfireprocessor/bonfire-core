@@ -3,9 +3,9 @@ from __future__ import print_function
 from myhdl import *
 
 from rtl import bonfire_interfaces, config
-from soc import bonfire_core_soc
+from rtl.soc.bonfire_core_soc import BonfireCoreSoC
 from tb import ClkDriver
-from uncore.tb_wishbone_bfm import Wishbone_bfm
+from tb.uncore.tb_wishbone_bfm import Wishbone_bfm
 
 
 class BonfireCoreSoCTestbench:
@@ -35,7 +35,7 @@ class BonfireCoreSoCTestbench:
 
         local_soc_config = dict(self.soc_config)
         local_soc_config["ledActiveLow"] = False
-        soc = bonfire_core_soc.BonfireCoreSoC(self.config, hexfile=self.hexfile, soc_config=local_soc_config)
+        soc = BonfireCoreSoC(self.config, hexfile=self.hexfile, soc_config=local_soc_config)
         soc.conversion = self.conversion
 
         if self.expose_wishbone:
