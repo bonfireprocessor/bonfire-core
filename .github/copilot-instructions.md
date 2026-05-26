@@ -129,8 +129,8 @@ See [COMPLIANCE.md](../COMPLIANCE.md) for details.
 ## FuseSoC Integration
 
 bonfire-core uses **FuseSoC generators** to convert MyHDL → VHDL for simulation/synthesis:
-- Core definition: [bonfire-core.core](../bonfire-core.core)
-- SoC definition: [bonfire-core-soc.core](../bonfire-core-soc.core)
+- Core definition: [bonfire-core.core](../fusesoc-cores/bonfire-core.core)
+- SoC definition: [bonfire-core-soc.core](../fusesoc-cores/bonfire-core-soc.core)
 - Generators: [gen_core.py](../fusesoc-cores/generators/gen_core.py), [gen_soc.py](../fusesoc-cores/generators/gen_soc.py)
 
 Generate VHDL and simulate:
@@ -141,17 +141,23 @@ fusesoc run --target=sim bonfire-core --testfile=code/build/core-tests/loop.hex
 ## Key Conventions
 
 ### File Organization
-- **rtl/**: Core MyHDL modules (fetch, decode, execute, divider, etc.)
-- **tb/**: Testbenches (unit + integration)
+- **rtl/**: Synthesizable MyHDL RTL code
+  - `rtl/*.py`: CPU core modules (fetch, decode, execute, divider, etc.)
+  - `rtl/soc/`: MyHDL SoC wrapper RTL
+  - `rtl/uncore/`: RAM, interconnect, and CPU-to-bus wrapper RTL
+- **tb/**: MyHDL testbenches, BFMs, and simulation helpers
+  - `tb/soc/`: SoC testbench code
+  - `tb/uncore/`: uncore/Wishbone BFM test helpers
 - **tests/**: pytest test suite
   - `test_ut_*.py`: Unit tests for individual modules
   - `test_*_convert.py`: VHDL conversion verification tests
   - `test_integration_*.py`: Pipeline integration tests
   - `test_core.py`: Full core integration tests
-- **code/**: Assembly test programs
-- **uncore/**: Peripherals (RAM, interconnect, monitor)
-- **soc/**: SoC wrapper
-- **vhdl/**: Hand-written VHDL testbench components
+- **code/**: RISC-V test programs and local SoC firmware
+- **soc/**: SoC documentation
+- **fusesoc-cores/**: FuseSoC core files, FPGA board wrappers, generator scripts, and VHDL templates
+  - `fusesoc-cores/generators/`: FuseSoC generator entry points
+  - `fusesoc-cores/templates/`: Extended SoC VHDL templates rendered by generators
 - **vhdl_gen/**: MyHDL-generated VHDL (created by FuseSoC or conversion tests)
 - **waveforms/**: VCD trace files from test runs (project-local, not committed)
 
