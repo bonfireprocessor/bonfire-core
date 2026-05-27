@@ -100,7 +100,7 @@ $(BUILD_DIR)/soc/%.hex : $(BUILD_DIR)/soc/%.elf
 
 SOC_HEXES := $(foreach platform,$(SOC_PLATFORMS),$(addprefix $(BUILD_DIR)/soc/$(platform)/,$(addsuffix .hex,$(SOC_APPS))))
 
-all: $(HEXES) $(SOC_HEXES)
+all: $(HEXES) $(DEBUG_HEXES) $(SOC_HEXES)
 
 debug-tests: $(DEBUG_HEXES)
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import re
 import shutil
 import subprocess
@@ -9,16 +10,18 @@ from pathlib import Path
 import pytest
 
 
-def _fusesoc_command() -> str:
-    if shutil.which("ghdl") is not None:
-        return "fusesoc run --target=sim_extended ::bonfire-core-soc:0"
+def _fusesoc_invocation() -> tuple[list[str], dict[str, str] | None]:
+    fusesoc = shutil.which("fusesoc")
+    if shutil.which("ghdl") is not None and fusesoc is not None:
+        return [fusesoc, "run", "--target=sim_extended", "::bonfire-core-soc:0"], None
 
     env_script = Path.home() / "opt" / "oss-cad-new" / "oss-cad-suite" / "environment"
     if env_script.is_file():
-        return f"source {env_script} && fusesoc run --target=sim_extended ::bonfire-core-soc:0"
+        command = f"source {env_script} && fusesoc run --target=sim_extended ::bonfire-core-soc:0"
+        return ["bash", "-lc", command], os.environ.copy()
 
-    warnings.warn("Skipping Extended SoC test: neither global ghdl nor OSS CAD Suite environment was found")
-    pytest.skip("ghdl not found and OSS CAD Suite environment not available")
+    warnings.warn("Skipping Extended SoC test: fusesoc/ghdl not found and OSS CAD Suite environment not available")
+    pytest.skip("fusesoc/ghdl not found and OSS CAD Suite environment not available")
 
 
 def _contains_ordered_lines(actual_lines: list[str], expected_lines: list[str]) -> bool:
@@ -41,9 +44,11 @@ def test_extended_soc_hello_fusesoc(repo_root: Path):
     if not hexfile.is_file():
         pytest.skip(f"Extended SoC hello HEX file not found: {hexfile}")
 
+    command, env = _fusesoc_invocation()
     result = subprocess.run(
-        ["bash", "-lc", _fusesoc_command()],
+        command,
         cwd=repo_root,
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
