@@ -13,6 +13,8 @@ TARGET_OBJDUMP := $(TARGET_PREFIX)-objdump
 BUILD_DIR ?= build
 CORE_TEST_DIR ?= core-tests
 CORE_TEST_BUILD_DIR ?= $(BUILD_DIR)/core-tests
+DEBUG_TEST_DIR ?= debug-tests
+DEBUG_TEST_BUILD_DIR ?= $(BUILD_DIR)/debug-tests
 SOC_DIR ?= soc
 SOC_APP ?= led
 SOC_PLATFORM ?= sim
@@ -51,12 +53,15 @@ SOC_PLATFORM_DEFINES_ulx3s := BONFIRE_PLATFORM_ULX3S
 SOC_PLATFORM_DEFINES_cmods7 := BONFIRE_PLATFORM_CMODS7
 SOC_COMMON_SRCS := $(SOC_DIR)/runtime/console.c $(SOC_DIR)/runtime/snprintf.c
 
-$(BUILD_DIR) $(CORE_TEST_BUILD_DIR):
+$(BUILD_DIR) $(CORE_TEST_BUILD_DIR) $(DEBUG_TEST_BUILD_DIR):
 	@mkdir -p $@
 
 # These are freestanding bare-metal programs; do not pull in libc/startup files.
 $(CORE_TEST_BUILD_DIR)/%.elf : $(CORE_TEST_DIR)/%.S | $(CORE_TEST_BUILD_DIR)
 	@$(TARGET_CC) $(CORE_CFLAGS) -nostdlib -nostartfiles -T$(LINKDEF) -o $@ $<
+
+$(DEBUG_TEST_BUILD_DIR)/%.elf : $(DEBUG_TEST_DIR)/%.S | $(DEBUG_TEST_BUILD_DIR)
+	@$(TARGET_CC) $(CORE_CFLAGS) -nostdlib -nostartfiles -T$(CORE_TEST_DIR)/bonfire_core.ld -o $@ $<
 
 
 $(CORE_TEST_BUILD_DIR)/%.hex : $(CORE_TEST_BUILD_DIR)/%.elf | $(CORE_TEST_BUILD_DIR)
@@ -66,8 +71,17 @@ $(CORE_TEST_BUILD_DIR)/%.hex : $(CORE_TEST_BUILD_DIR)/%.elf | $(CORE_TEST_BUILD_
 	@$(TARGET_OBJDUMP) -t $< >$(basename $@).sym
 	$(TARGET_PREFIX)-size  $<
 
+$(DEBUG_TEST_BUILD_DIR)/%.hex : $(DEBUG_TEST_BUILD_DIR)/%.elf | $(DEBUG_TEST_BUILD_DIR)
+	@$(TARGET_OBJCOPY) -j .text -O binary $< $(basename $@).bin
+	@$(HEXDUMP) -v -e '1/4 "%08x\n"' $(basename $@).bin >$@
+	@$(TARGET_OBJDUMP) $(OBJDUMP_FLAGS) $< >$(basename $@).lst
+	@$(TARGET_OBJDUMP) -t $< >$(basename $@).sym
+	$(TARGET_PREFIX)-size  $<
+
 PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap
 HEXES := $(addprefix $(CORE_TEST_BUILD_DIR)/,$(addsuffix .hex,$(PROGRAMS)))
+DEBUG_PROGRAMS := debug endless
+DEBUG_HEXES := $(addprefix $(DEBUG_TEST_BUILD_DIR)/,$(addsuffix .hex,$(DEBUG_PROGRAMS)))
 
 define SOC_APP_RULE
 $(BUILD_DIR)/soc/$(1)/$(2).elf: $(SOC_DIR)/apps/$(2)/main.c $(SOC_COMMON_SRCS) $(SOC_DIR)/startup/crt0.S $(SOC_DIR)/linker/$(1).ld $(SOC_DIR)/linker/common-sections.ld
@@ -87,6 +101,8 @@ $(BUILD_DIR)/soc/%.hex : $(BUILD_DIR)/soc/%.elf
 SOC_HEXES := $(foreach platform,$(SOC_PLATFORMS),$(addprefix $(BUILD_DIR)/soc/$(platform)/,$(addsuffix .hex,$(SOC_APPS))))
 
 all: $(HEXES) $(SOC_HEXES)
+
+debug-tests: $(DEBUG_HEXES)
 
 soc: $(SOC_BUILD_DIR)/$(SOC_APP).hex
 

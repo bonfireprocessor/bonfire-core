@@ -25,7 +25,7 @@ class FetchUnit(PipelineControl):
         
 
     @block
-    def SimpleFetchUnit(self,fetch,ibus,clock,reset):
+    def SimpleFetchUnit(self,fetch,ibus,clock,reset,debugRegisterBundle=None):
         """
        
         fetch : FetchInputBundle, input to backend pipeline
@@ -43,6 +43,7 @@ class FetchUnit(PipelineControl):
         new_jump = Signal(bool(0))
 
         run = Signal(bool(0)) # processor not in reset 
+        debug_halted = Signal(bool(0))
 
         # Fifo 
         current_word = [Signal(modbv(0)[32:0]) for i in range(0,2)]
@@ -53,9 +54,16 @@ class FetchUnit(PipelineControl):
 
         p_inst = self.pipeline_instance(busy,valid)
 
+        if debugRegisterBundle:
+            from rtl.debugModule import t_debugHartState
+
+            @always_comb
+            def debug_reg_comb():
+                debug_halted.next = debugRegisterBundle.hartState == t_debugHartState.halted
+
         @always_comb
         def new_j():
-            new_jump.next = self.jump_i and not jump_taken
+            new_jump.next = self.jump_i and not (jump_taken or debug_halted)
              
 
         @always_comb
@@ -86,11 +94,11 @@ class FetchUnit(PipelineControl):
             if not run:
                 run.next = True # Comming out of reset 
             else: 
-                if valid: # reset jump_taken when valid fetch
+                if valid or debug_halted: # reset jump_taken
                     jump_taken.next = False
 
                 if ( not outstanding or ibus.ack_i ) and new_jump: # a new jump resets the fetch unit
-                    # assert self.jump_dest_i[2:]==0,"misaligned jump detected"
+                    assert self.jump_dest_i[2:]==0,"misaligned jump detected"
                     ip.next = self.jump_dest_i
                     jump_taken.next = True
                     valid.next = False
@@ -108,7 +116,7 @@ class FetchUnit(PipelineControl):
                             busy.next = True
                     else:
                         if busy:
-                            # assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
+                            assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
                             current_word[0].next = current_word[1]
                             #current_word[1].next=0 # debug only
                             current_ip[0].next = current_ip[1]
