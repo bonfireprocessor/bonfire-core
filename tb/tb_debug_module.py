@@ -4,9 +4,11 @@ Bonfire Core debug module testbench
 License: See LICENSE
 """
 
-from __future__ import print_function
+from __future__ import annotations, print_function
 
+from collections.abc import Generator
 from math import log
+from typing import Any
 
 from myhdl import *
 
@@ -21,7 +23,15 @@ from tb.sim_ram import sim_ram
 
 
 class BonfireCoreDebugTestbench:
-    def __init__(self, config=config.BonfireConfig(), hexfile="", elfFile="", sigFile="", ramsize=16384, verbose=False):
+    def __init__(
+        self,
+        config: config.BonfireConfig = config.BonfireConfig(),
+        hexfile: str = "",
+        elfFile: str = "",
+        sigFile: str = "",
+        ramsize: int = 16384,
+        verbose: bool = False,
+    ) -> None:
         self.config = config
         self.hexfile = hexfile
         self.elfFile = elfFile
@@ -29,11 +39,11 @@ class BonfireCoreDebugTestbench:
         self.ramsize = ramsize
         self.verbose = verbose
 
-    def log(self, message):
+    def log(self, message: str) -> None:
         print("@{}ns [debug-tb] {}".format(now(), message))
 
-    def create_ram(self, progfile, ramsize):
-        ram = []
+    def create_ram(self, progfile: str, ramsize: int) -> list[Any]:
+        ram: list[Any] = []
         adr = 0
 
         with open(progfile, "r") as f:
@@ -49,16 +59,16 @@ class BonfireCoreDebugTestbench:
         print("Created ram with size {} words".format(len(ram)))
         return ram
 
-    def check_cmd_result(self, api, check_value, text=""):
+    def check_cmd_result(self, api: DebugAPISim, check_value: int, text: str = "") -> None:
         assert api.cmd_result() == check_value, "{} result: {} expected: {}".format(text, hex(api.cmd_result()), hex(check_value))
         self.log("{} -> {}".format(text or "cmd result", hex(api.cmd_result())))
 
-    def check_gpr(self, api, regno, check_value):
+    def check_gpr(self, api: DebugAPISim, regno: int, check_value: int) -> Generator[Any, None, None]:
         yield api.readGPR(regno=regno)
         assert api.cmd_result() == check_value, "check_gpr failure result: {} expected: {}".format(hex(api.cmd_result()), hex(check_value))
         self.log("verify GPR {} = {}".format(abi_name(regno), hex(api.cmd_result())))
 
-    def set_and_check_dcsr(self, api, breakm=False, step=False):
+    def set_and_check_dcsr(self, api: DebugAPISim, breakm: bool = False, step: bool = False) -> Generator[Any, None, None]:
         dcsr = 0x700 | CSRAdr.dcsr
         v = modbv(0)[32:]
         v[15] = breakm
@@ -69,11 +79,11 @@ class BonfireCoreDebugTestbench:
         assert api.result[15] == breakm and api.result[2] == step, "dcsr write failed"
 
     @block
-    def halt_resume_stimulus(self, dtm_bundle, clock):
+    def halt_resume_stimulus(self, dtm_bundle: AbstractDebugTransportBundle, clock: Any) -> Any:
         """Stimulus for exercising the debug module through the DMI interface."""
 
         @instance
-        def test():
+        def test() -> Generator[Any, None, None]:
             api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock)
 
             self.log("starting debug module smoke/integration test")
@@ -95,7 +105,7 @@ class BonfireCoreDebugTestbench:
             yield api.readReg(regno=0x700 | CSRAdr.dpc)
             self.log("initial dpc = {}".format(hex(api.cmd_result())))
 
-            gpr_save = [0]
+            gpr_save: list[int] = [0]
             self.log("reading architectural GPR state")
             for i in range(1, 32):
                 yield api.readGPR(regno=i)
@@ -157,7 +167,7 @@ class BonfireCoreDebugTestbench:
         return instances()
 
     @block
-    def testbench(self):
+    def testbench(self) -> Any:
         clock = Signal(bool(0))
         reset = ResetSignal(0, active=1, isasync=False)
 
