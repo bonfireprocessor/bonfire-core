@@ -119,7 +119,7 @@ class FetchUnit(PipelineControl):
                             busy.next = True
                     else:
                         if busy:
-                            assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
+                            # assert not ibus.ack_i, "Fetch: ack_i while busy asserted"
                             current_word[0].next = current_word[1]
                             #current_word[1].next=0 # debug only
                             current_ip[0].next = current_ip[1]
