@@ -32,7 +32,7 @@ class DebugAPI:
         yield self.dmi_read(0x11)
         self.halted = self.result[8]
 
-    def wait_resume_ack(self, HarId: int = 0) -> Generator[Any, None, None]:
+    def wait_resume_ack(self, HartId: int = 0) -> Generator[Any, None, None]:
         ack = False
         while not ack:
             yield self.dmi_read(0x11)

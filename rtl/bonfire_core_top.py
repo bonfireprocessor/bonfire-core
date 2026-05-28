@@ -49,6 +49,7 @@ class BonfireCoreTop:
             debugRegisterBundle=self.debugRegs)
 
         if self.config.enableDebugModule:
+            assert debugTransportBundle is not None, "enableDebugModule requires debugTransportBundle"
             i_dmi = self.dmi.DMI_interface(
                 dtm=debugTransportBundle,
                 debugRegs=self.debugRegs,

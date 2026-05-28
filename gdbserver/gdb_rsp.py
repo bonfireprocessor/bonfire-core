@@ -1,8 +1,8 @@
 """
 Bonfire Core simulation GDB server runner
-(c) 2019-20262020 The Bonfire Project
+(c) 2019-2026 The Bonfire Project
 LICENSE: GPLv3, see below.
-This file is dervied work from gdbserver.py:
+This file is derived work from gdbserver.py:
 """
 
 #

@@ -11,7 +11,7 @@ from rtl.instructions import CSRAdr
 
 t_debugHartState = enum('running','halted')
 t_abstractCommandType = enum('access_reg','quick_access')
-t_abstractCommandState  = enum('none','regvaild','taken','failed','exec','wait_retire')
+t_abstractCommandState  = enum('none','regvalid','taken','failed','exec','wait_retire')
 
 debugSpecVersion = 15 # consider setting this to 2
 csr_depc = 0x7b1
@@ -56,7 +56,7 @@ class DebugRegisterBundle:
 
         #Abstract Command access register fields written by DMI
         self.commandType = Signal(t_abstractCommandType.access_reg)
-        self.aarsize = Signal(modbv(0))[2:]
+        self.aarsize = Signal(modbv(0)[3:])
         self.aarpostincrement = Signal(bool(0))
         self.postexec = Signal(bool(0))
         self.transfer = Signal(bool(0))
@@ -137,7 +137,7 @@ class DMI:
 
 
             # Abstract Command exeuction management
-            if debugRegs.abstractCommandState == t_abstractCommandState.regvaild:
+            if debugRegs.abstractCommandState == t_abstractCommandState.regvalid:
                 debugRegs.dataRegs[0].next = debugRegs.abstractCommandResult
             elif debugRegs.abstractCommandState == t_abstractCommandState.taken:
                 debugRegs.abstractCommandNew.next = False
@@ -215,7 +215,6 @@ class DMI:
                         debugRegs.progbuf0.next = dtm.dbi
 
         return instances()
-
 
 
 

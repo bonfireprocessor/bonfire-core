@@ -223,7 +223,7 @@ class DecodeBundle(PipelineControl):
                                         self.debugCSRBundle.ebreakm.next = dr0[15]
                                         self.debugCSRBundle.step.next = dr0[2]
                             else:
-                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvaild
+                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvalid
                                 if debugRegisterBundle.csrAccess:
                                     if debugRegisterBundle.regno[0]:
                                         debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
@@ -233,7 +233,7 @@ class DecodeBundle(PipelineControl):
                                     debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
                         elif debugRegisterBundle.postexec:
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
-                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.regvaild:
+                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.regvalid:
                         if debugRegisterBundle.postexec:
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
                         else:
