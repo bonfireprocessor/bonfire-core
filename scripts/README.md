@@ -8,6 +8,7 @@ for day-to-day development:
 - ensures the RISC-V toolchain is available on `PATH`
 - runs selected pytest test groups (unit / pipeline / core HEX integration)
 - can also run *exactly one* core program (`--hex ...`) with optional ELF / signature / VCD output
+- can start the simulated GDB server (`--gdbserver [--port N]`)
 
 Note: the script always runs core tests with normal pytest output capture. If you want to see the MyHDL/monitor prints, pass `-- -s` to pytest (or use `--hex`, which already runs with `-s`).
 
@@ -28,6 +29,8 @@ Test selection:
   --ut              Run unit + pipeline integration tests (pytest-based)
   --integration     Run core HEX integration tests (pytest-based)
   --all             Run all tests (default when no args are given)
+  --gdbserver       Start the simulated GDB server instead of running pytest
+  --port N          GDB server TCP port (default: first free port in 5500-5550)
 
 Environment / venv:
   --install         Create/update ./.venv and install Python deps (scripts/install.sh)
@@ -36,6 +39,7 @@ Environment / venv:
 
 Single core run (pytest-based):
   --hex PATH        Run exactly one HEX program via tests/test_core.py
+                    With --gdbserver: HEX image to load (default: code/build/debug-tests/endless.hex)
   --elf PATH        Optional ELF path (override)
   --sig PATH        Optional signature output path (override)
   --vcd PATH        Optional VCD output path (MyHDL appends .vcd automatically)
@@ -243,6 +247,188 @@ scripts/bonfire-core --integration -- -s -vv
 
 (Expect additional MyHDL monitor output between the pytest lines.)
 
+### Start the simulated GDB server
+
+The runner can start the Bonfire simulation together with the built-in GDB remote server.
+This is useful when you want to connect a real `gdb` or `gdb-multiarch` session to the simulated core.
+
+Default start:
+
+```bash
+scripts/bonfire-core --gdbserver
+```
+
+This will:
+
+- build `code/build/debug-tests/endless.hex` if needed
+- start the simulation
+- open a TCP listener for GDB remote protocol connections
+- choose the first free port in `5500-5550`
+
+Choose an explicit port:
+
+```bash
+scripts/bonfire-core --gdbserver --port 1234
+```
+
+Use a different HEX image:
+
+```bash
+scripts/bonfire-core --gdbserver --hex code/build/debug-tests/endless.hex --port 1234
+```
+
+You can also start the module directly without the shell wrapper:
+
+```bash
+python -m gdbserver --hex code/build/debug-tests/endless.hex --port 1234
+```
+
+#### Connecting with `gdb-multiarch`
+
+Open a second terminal and start GDB with the matching ELF file:
+
+```bash
+gdb-multiarch code/build/debug-tests/endless.elf
+```
+
+Inside GDB, set the architecture to 32-bit RISC-V and connect to the remote target:
+
+```gdb
+set architecture riscv:rv32
+target remote localhost:5500
+```
+
+A complete example session looks like this:
+
+```text
+gdb-multiarch code/build/debug-tests/endless.elf
+GNU gdb (Debian 16.3-1) 16.3
+Copyright (C) 2024 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+ <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from code/build/debug-tests/endless.elf...
+(gdb) set architecture riscv:rv32
+The target architecture is set to "riscv:rv32".
+(gdb) target remote localhost:5500
+Remote debugging using localhost:5500
+loop () at debug-tests/endless.S:12
+12 sw t2, (t0)
+(gdb) x counter
+0x20 <counter>: 0x000010fe
+(gdb) cont
+Continuing.
+^C
+Program received signal SIGTRAP, Trace/breakpoint trap.
+loop () at debug-tests/endless.S:10
+10 lw t2, (t0)
+(gdb) x counter
+0x20 <counter>: 0x000012c4
+(gdb) disassemble
+Dump of assembler code for function loop:
+=> 0x00000010 <+0>: lw t2,0(t0)
+ 0x00000014 <+4>: addi t2,t2,1
+ 0x00000018 <+8>: sw t2,0(t0)
+ 0x0000001c <+12>: j 0x10 <loop>
+End of assembler dump.
+(gdb) info registers
+ra 0x0 0x0 <_start>
+sp 0x0 0x0 <_start>
+gp 0x0 0x0 <_start>
+tp 0x0 0x0 <_start>
+t0 0x20 32
+t1 0xdeadbeef -559038737
+t2 0x12c4 4804
+fp 0x0 0x0 <_start>
+s1 0x0 0
+a0 0x0 0
+a1 0x0 0
+a2 0x0 0
+a3 0x0 0
+a4 0x0 0
+a5 0x0 0
+a6 0x0 0
+a7 0x0 0
+s2 0x0 0
+s3 0x0 0
+s4 0x0 0
+s5 0x0 0
+s6 0x0 0
+s7 0x0 0
+s8 0x0 0
+s9 0x0 0
+s10 0x0 0
+s11 0x0 0
+t3 0x0 0
+t4 0x0 0
+t5 0x0 0
+t6 0x0 0
+pc 0x10 0x10 <loop>
+(gdb)
+```
+
+#### Typical workflow
+
+1. Start the server:
+
+   ```bash
+   scripts/bonfire-core --gdbserver --port 5500
+   ```
+
+2. In a second terminal, open GDB:
+
+   ```bash
+   gdb-multiarch code/build/debug-tests/endless.elf
+   ```
+
+3. In GDB:
+
+   ```gdb
+   set architecture riscv:rv32
+   target remote localhost:5500
+   ```
+
+4. Inspect state and continue execution:
+
+   ```gdb
+   info registers
+   disassemble
+   cont
+   ```
+
+5. Interrupt execution with `Ctrl-C` inside GDB to get back to the loop body.
+
+#### Useful GDB commands
+
+```gdb
+show architecture
+info registers
+disassemble
+x counter
+x/4wx 0x20
+display/i $pc
+si
+ni
+cont
+```
+
+Notes:
+
+- The `.hex` file is loaded into the simulated RAM.
+- The `.elf` file is used by GDB for symbols and disassembly.
+- For `gdb-multiarch`, `set architecture riscv:rv32` is typically required before `target remote`.
+- `Ctrl-C` in GDB sends a remote break and should stop the simulated core cleanly.
+
 ### Run a single HEX program (single-run mode)
 
 ```bash
@@ -316,6 +502,11 @@ scripts/bonfire-core --integration --vcd /tmp/loadsave.vcd -- -k loadsave -q
 ### Keep current Python environment
 
 - `BONFIRE_CORE_KEEPENV=1` is equivalent to `--keepenv`
+
+## GDB server notes
+
+- `--gdbserver` is a separate mode and cannot be combined with `--ut`, `--integration`, or pytest pass-through args.
+- In `--gdbserver` mode, only `--hex` and `--port` are accepted from the run-specific options.
 
 ## Exit codes
 

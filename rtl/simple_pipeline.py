@@ -41,17 +41,17 @@ class SimpleBackend:
         self.reg_portB = RFReadPort(xlen=config.xlen)
         self.reg_writePort = RFWritePort(xlen=config.xlen)
 
-        self.decode = DecodeBundle(xlen=config.xlen)
+        self.decode = DecodeBundle(config)
         self.execute =  ExecuteBundle(config)
 
         self.config=config 
         
 
     @block
-    def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport ):
+    def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport, debugRegisterBundle=None):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
-        decode_inst = self.decode.decoder(clock,reset)
+        decode_inst = self.decode.decoder(clock,reset,debugRegisterBundle=debugRegisterBundle)
         exec_inst = self.execute.SimpleExecute(self.decode, databus, debugport, clock,reset )
 
         d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
@@ -90,11 +90,19 @@ class SimpleBackend:
             debugport.reg_we_o.next = self.execute.reg_we_o
 
 
-        @always_comb
-        def proc_out():
-            out.jump_o.next = self.execute.jump_o
-            out.jump_dest_o.next = self.execute.jump_dest_o
+        if debugRegisterBundle:
+            @always_comb
+            def proc_out():
+                out.jump_o.next = self.execute.jump_o or debugRegisterBundle.dpc_jump
+                if debugRegisterBundle.dpc_jump:
+                    out.jump_dest_o.next[self.config.xlen:self.config.ip_low] = debugRegisterBundle.dpc
+                else:
+                    out.jump_dest_o.next = self.execute.jump_dest_o
+        else:
+            @always_comb
+            def proc_out():
+                out.jump_o.next = self.execute.jump_o
+                out.jump_dest_o.next = self.execute.jump_dest_o
 
 
         return instances()
-

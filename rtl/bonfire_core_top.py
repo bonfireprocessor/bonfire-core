@@ -11,6 +11,7 @@ from myhdl import *
 from rtl.simple_pipeline import *
 from rtl.fetch import FetchUnit
 from rtl import config 
+from rtl import debugModule
 
 class BonfireCoreTop:
     def __init__(self,config=config.BonfireConfig()):
@@ -19,10 +20,15 @@ class BonfireCoreTop:
         self.backend_fetch_input = FetchInputBundle(config=config)
         self.backend_fetch_output = BackendOutputBundle(config=config)
         self.backend = SimpleBackend(config=config)
+        if config.enableDebugModule:
+            self.dmi = debugModule.DMI(config)
+            self.debugRegs = debugModule.DebugRegisterBundle(config)
+        else:
+            self.debugRegs = None
 
 
     @block
-    def createInstance(self,ibus,dbus,control,clock,reset,debug,config):
+    def createInstance(self,ibus,dbus,control,clock,reset,debug,config=None,debugTransportBundle=None):
         """
         ibus:  DbusBundle for Instruction Bus (read only)
         dbus:  DbusBundle for Data bus
@@ -30,12 +36,24 @@ class BonfireCoreTop:
         clock: CPU Clock
         reset: Reset line
         debug: Optional Simulation Debug Interface 
-        config: Bonfire Configuration object
+        config: Bonfire Configuration object (legacy, optional)
+        debugTransportBundle: Optional Debug Transport interface
         """
 
-        i_fetch = self.fetch.SimpleFetchUnit(self.backend_fetch_input,ibus,clock,reset)
-        i_backend = self.backend.backend(self.backend_fetch_input,self.fetch,
-                    dbus,clock,reset,self.backend_fetch_output,debug)
+        i_fetch = self.fetch.SimpleFetchUnit(
+            self.backend_fetch_input, ibus, clock, reset,
+            debugRegisterBundle=self.debugRegs)
+        i_backend = self.backend.backend(
+            self.backend_fetch_input, self.fetch,
+            dbus, clock, reset, self.backend_fetch_output, debug,
+            debugRegisterBundle=self.debugRegs)
+
+        if self.config.enableDebugModule:
+            assert debugTransportBundle is not None, "enableDebugModule requires debugTransportBundle"
+            i_dmi = self.dmi.DMI_interface(
+                dtm=debugTransportBundle,
+                debugRegs=self.debugRegs,
+                clock=clock)
 
 
         """
