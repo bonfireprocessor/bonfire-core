@@ -30,11 +30,21 @@ static void report_platform(void)
 
 int main(void)
 {
+    uint32_t uart_divisor = bonfire_uart_divisor();
+    uint32_t uart_control = bonfire_uart_control_value(uart_divisor);
+    uint32_t uart_control_readback;
+
     led_out(1u);
-    bonfire_uart_init();
+    bonfire_uart_init(uart_divisor);
+    uart_control_readback = bonfire_uart_read_control();
     led_out(2u);
-    report_platform();
+    if ((uart_control_readback & BONFIRE_UART_CONTROL_VERIFY_MASK) != uart_control) {
+        led_out(BONFIRE_LED_MASK);
+        while (1) {}
+    }
     led_out(3u);
+    report_platform();
+    led_out(4u);
 
 #if BONFIRE_ENABLE_GPIO
     uint32_t i = 0;

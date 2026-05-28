@@ -33,3 +33,4 @@ temp/
 .venv
 
 piplist.txt
+*.bit

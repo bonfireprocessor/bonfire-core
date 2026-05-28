@@ -14,6 +14,8 @@
 #define BONFIRE_UART_STATUS_TX_READY 0x02u
 #define BONFIRE_UART_STATUS_TX_ACTIVE 0x04u
 #define BONFIRE_UART_CONTROL_ENABLE_EXTENDED 0x030000u
+#define BONFIRE_UART_CONTROL_DIVISOR_MASK 0x0000ffffu
+#define BONFIRE_UART_CONTROL_VERIFY_MASK 0x0003ffffu
 
 #if defined(BONFIRE_PLATFORM_ICEPIZERO)
 static inline void wait(long nWait)
@@ -25,21 +27,35 @@ static inline void wait(long nWait)
 }
 #endif
 
-static inline void bonfire_uart_init(void)
+static inline uint32_t bonfire_uart_divisor(void)
 {
-    uint32_t divisor = (BONFIRE_SYSCLK_HZ / BONFIRE_UART_BAUD) - 1u;
+    return (BONFIRE_SYSCLK_HZ / BONFIRE_UART_BAUD) - 1u;
+}
+
+static inline uint32_t bonfire_uart_control_value(uint32_t divisor)
+{
+    return BONFIRE_UART_CONTROL_ENABLE_EXTENDED | (divisor & BONFIRE_UART_CONTROL_DIVISOR_MASK);
+}
+
+static inline void bonfire_uart_init(uint32_t divisor)
+{
     bonfire_write32(BONFIRE_UART0_BASE + BONFIRE_UART_CONTROL,
-                    BONFIRE_UART_CONTROL_ENABLE_EXTENDED | (divisor & 0xffffu));
+                    bonfire_uart_control_value(divisor));
+}
+
+static inline uint32_t bonfire_uart_read_control(void)
+{
+    return bonfire_read32(BONFIRE_UART0_BASE + BONFIRE_UART_CONTROL);
 }
 
 static inline void bonfire_uart_putc(char c)
 {
     while ((bonfire_read32(BONFIRE_UART0_BASE + BONFIRE_UART_STATUS) & BONFIRE_UART_STATUS_TX_READY) == 0u) {}
     bonfire_write32(BONFIRE_UART0_BASE + BONFIRE_UART_TX, (uint32_t)c);
-    #if defined(BONFIRE_PLATFORM_ICEPIZERO)
-       #pragma message "Implementing delay"
-       wait(1000);
-    #endif
+    // #if defined(BONFIRE_PLATFORM_ICEPIZERO)
+    //    #pragma message "Implementing delay"
+    //    wait(1000);
+    // #endif
 }
 
 static inline void bonfire_uart_puts(const char *text)
