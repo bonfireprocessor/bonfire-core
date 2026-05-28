@@ -44,7 +44,6 @@ int main(void)
     }
     led_out(3u);
     report_platform();
-    led_out(4u);
 
 #if BONFIRE_ENABLE_GPIO
     uint32_t i = 0;
