@@ -14,6 +14,7 @@ class BonfireConfig:
         self.num_dscratch = 1 # Number of dscratch registers
         self.numdata = 1 # Number of Debug Data Registers
         self.dm_maxregno=0x101f
+        self.dmi_adr_width=6 # DMI address width, 6 bits allows for 64 debug registers, which is more than the 0x101f max regno
         #ip_low contains lowest bit of valid instruction pointer
         if self.RVC:
             self.ip_low=1
