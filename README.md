@@ -65,6 +65,8 @@ For day-to-day development, the recommended entry point is the universal runner:
 
 - [`scripts/bonfire-core`](scripts/bonfire-core)
 
+It can run pytest-based test groups, single HEX runs, and the simulated GDB server.
+
 Quick test run (unit + integration):
 
 ```bash
@@ -76,6 +78,35 @@ scripts/bonfire-core --all
 To run specific test groups, see the runner documentation:
 
 - [`scripts/README.md`](scripts/README.md)
+
+### Simulated GDB server
+
+Build and start the simulated GDB server via the runner:
+
+```bash
+cd bonfire-core
+scripts/bonfire-core --gdbserver --port 1234
+```
+
+By default it loads `code/build/debug-tests/endless.hex`. If you omit `--port`, the server binds to the first free port in `5500-5550`.
+
+Then connect from a second terminal:
+
+```bash
+riscv64-unknown-elf-gdb code/build/debug-tests/endless.elf
+```
+
+Inside GDB:
+
+```gdb
+target remote 127.0.0.1:1234
+```
+
+Direct module entry point:
+
+```bash
+python -m gdbserver --hex code/build/debug-tests/endless.hex --port 1234
+```
 
 ### Experts: run pytest directly
 

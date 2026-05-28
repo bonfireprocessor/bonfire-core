@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from gdbserver.sim_runner import ServerControl
-from gdbserver.sim_testbench import BonfireCoreGDBServerTestbench
-from gdbserver.synthetic_client import SyntheticGDBClient
+from gdbserver.gdbserver_test import GDBServerTestClient
+from gdbserver.main import ServerControl
+from gdbserver.sim_testbench import GDBServerTestbench
 from rtl import config
 
 
@@ -22,7 +22,7 @@ def _opt_env(name: str) -> str | None:
     return v or None
 
 
-def _read_u32_le(client: SyntheticGDBClient, addr: int) -> int:
+def _read_u32_le(client: GDBServerTestClient, addr: int) -> int:
     payload = client.send_packet(f"m{addr:x},4")
     return int.from_bytes(client.decode_memory_bytes(payload), byteorder="little", signed=False)
 
@@ -37,7 +37,7 @@ def test_gdbserver_protocol(sim_env, repo_root: Path):
 
     conf = config.BonfireConfig()
     control = ServerControl(port=0)
-    gdb_tb = BonfireCoreGDBServerTestbench(conf, hexfile=str(hex_path), ramsize=16384, server_control=control)
+    gdb_tb = GDBServerTestbench(conf, hexfile=str(hex_path), ramsize=16384, server_control=control)
     tb = gdb_tb.testbench()
 
     sim_error: list[BaseException] = []
@@ -60,7 +60,8 @@ def test_gdbserver_protocol(sim_env, repo_root: Path):
     try:
         assert control.ready_event.wait(timeout=5.0), "gdbserver did not become ready in time"
 
-        with SyntheticGDBClient(control.host, control.port, timeout=2.0) as client:
+        assert control.port is not None
+        with GDBServerTestClient(control.host, control.port, timeout=2.0) as client:
             supported = client.send_packet("qSupported:multiprocess+;swbreak+;hwbreak+")
             assert "PacketSize=" in supported
 

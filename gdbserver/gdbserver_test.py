@@ -9,7 +9,7 @@ class GDBResponse:
     payload: str
 
 
-class SyntheticGDBClient:
+class GDBServerTestClient:
     def __init__(self, host: str, port: int, timeout: float = 2.0) -> None:
         self.host = host
         self.port = port
@@ -25,7 +25,7 @@ class SyntheticGDBClient:
             self.sock.close()
             self.sock = None
 
-    def __enter__(self) -> "SyntheticGDBClient":
+    def __enter__(self) -> "GDBServerTestClient":
         self.connect()
         return self
 
@@ -52,7 +52,6 @@ class SyntheticGDBClient:
         return bytes(data)
 
     def _recv_packet(self) -> GDBResponse:
-        sock = self._require_socket()
         start = self._recv_exact(1)
         while start != b"$":
             start = self._recv_exact(1)

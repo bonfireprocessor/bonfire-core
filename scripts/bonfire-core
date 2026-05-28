@@ -6,6 +6,7 @@ set -euo pipefail
 # - Runs pytest-based unit tests and core integration tests
 # - Can manage the local Python venv (via scripts/install.sh)
 # - Can run a single core integration program (--hex/--elf/--sig/--vcd)
+# - Can start the simulated GDB server (--gdbserver [--port N])
 #
 # Any options not recognized by this script are passed through to pytest.
 # Use "--" to force all remaining args to be passed to pytest.
@@ -29,6 +30,8 @@ BONFIRE_ELF_DIR="${BONFIRE_ELF_DIR:-$BONFIRE_ELF_DIR_DEFAULT}"
 BONFIRE_SIG_DIR_DEFAULT="signatures"
 BONFIRE_SIG_DIR="${BONFIRE_SIG_DIR:-$BONFIRE_SIG_DIR_DEFAULT}"
 
+DEFAULT_GDBSERVER_HEX="code/build/debug-tests/endless.hex"
+
 usage() {
   cat <<'USAGE'
 bonfire-core - bonfire-core universal test runner
@@ -40,6 +43,8 @@ Test selection:
   --ut              Run unit + pipeline integration tests (pytest-based)
   --integration     Run core HEX integration tests (pytest-based)
   --all             Run all tests (default when no args are given)
+  --gdbserver       Start the simulated GDB server instead of running pytest
+  --port N          GDB server TCP port (default: first free port in 5500-5550)
 
 Environment / venv:
   --install         Create/update ./\.venv and install Python deps (runs scripts/install.sh)
@@ -48,6 +53,7 @@ Environment / venv:
 
 Single core run (pytest-based):
   --hex PATH        Run exactly one HEX program via tests/test_core.py
+                    With --gdbserver: HEX image to load (default: code/build/debug-tests/endless.hex)
   --elf PATH        Optional ELF path (override)
   --sig PATH        Optional signature output path (override)
   --vcd PATH        Optional VCD output path (MyHDL appends .vcd automatically)
@@ -58,17 +64,12 @@ Other:
 Notes:
 - Any unknown options are passed through to pytest.
 - Use "--" to pass arguments to pytest unmodified.
-
-Examples:
-  scripts/bonfire-core --all -vv
-  scripts/bonfire-core --ut -q
-  scripts/bonfire-core --hex code/build/core-tests/loop.hex --vcd /tmp/loop.vcd
-  scripts/bonfire-core --integration -- -k loadsave -vv
 USAGE
 }
 
 RUN_UT=0
 RUN_INTEGRATION=0
+RUN_GDBSERVER=0
 DO_INSTALL=0
 KEEPENV=0
 
@@ -76,6 +77,7 @@ TB_HEX=""
 TB_ELF=""
 TB_SIG=""
 TB_VCD=""
+GDBSERVER_PORT=""
 
 PYTEST_ARGS=()
 
@@ -117,6 +119,17 @@ while [[ $# -gt 0 ]]; do
       RUN_UT=1
       RUN_INTEGRATION=1
       shift
+      ;;
+
+    --gdbserver)
+      RUN_GDBSERVER=1
+      shift
+      ;;
+
+    --port)
+      GDBSERVER_PORT="${2:-}"
+      [[ -n "$GDBSERVER_PORT" ]] || { echo "ERROR: --port requires a value" >&2; exit 2; }
+      shift 2
       ;;
 
     --hex)
@@ -161,9 +174,24 @@ if [[ "${BONFIRE_CORE_KEEPENV:-}" == "1" ]]; then
   KEEPENV=1
 fi
 
+if [[ $RUN_GDBSERVER -eq 1 ]]; then
+  if [[ $RUN_UT -eq 1 || $RUN_INTEGRATION -eq 1 ]]; then
+    echo "ERROR: --gdbserver cannot be combined with --ut/--integration/--all" >&2
+    exit 2
+  fi
+  if [[ -n "$TB_ELF" || -n "$TB_SIG" || -n "$TB_VCD" ]]; then
+    echo "ERROR: --gdbserver only supports --hex and --port from the run-specific options" >&2
+    exit 2
+  fi
+  if [[ ${#PYTEST_ARGS[@]} -ne 0 ]]; then
+    echo "ERROR: --gdbserver does not accept pytest arguments" >&2
+    exit 2
+  fi
+fi
+
 # If the user did not explicitly choose a test selection mode and provided args,
-# default to --all.
-if [[ $RUN_UT -eq 0 && $RUN_INTEGRATION -eq 0 ]]; then
+# default to --all unless we are in gdbserver mode.
+if [[ $RUN_GDBSERVER -eq 0 && $RUN_UT -eq 0 && $RUN_INTEGRATION -eq 0 ]]; then
   RUN_UT=1
   RUN_INTEGRATION=1
 fi
@@ -213,6 +241,25 @@ if [[ -n "$TB_VCD" ]]; then
   TB_VCD_BASE="$TB_VCD"
   TB_VCD_BASE="${TB_VCD_BASE%.vcd}"
   export BONFIRE_CORE_VCD="$TB_VCD_BASE"
+fi
+
+if [[ $RUN_GDBSERVER -eq 1 ]]; then
+  if [[ -z "$TB_HEX" ]]; then
+    TB_HEX="$DEFAULT_GDBSERVER_HEX"
+    pushd "$CODE_DIR" >/dev/null
+    make -B debug-tests TARGET_PREFIX="$TARGET_PREFIX" KEEP_ELF=1
+    popd >/dev/null
+  elif [[ ! -f "$TB_HEX" ]]; then
+    echo "ERROR: HEX file not found: $TB_HEX" >&2
+    exit 2
+  fi
+
+  GDBSERVER_CMD=(python -m gdbserver --hex "$TB_HEX")
+  if [[ -n "$GDBSERVER_PORT" ]]; then
+    GDBSERVER_CMD+=(--port "$GDBSERVER_PORT")
+  fi
+
+  exec "${GDBSERVER_CMD[@]}"
 fi
 
 # Single-run mode: restrict test_core parametrization to exactly one hex.

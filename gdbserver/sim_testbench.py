@@ -4,14 +4,14 @@ from math import log
 
 from myhdl import *
 
-from gdbserver.sim_runner import ServerControl, tcp_server
+from gdbserver.main import ServerControl, tcp_server
 from rtl import bonfire_core_top, bonfire_interfaces, config
 from rtl.debugModule import AbstractDebugTransportBundle
 from tb.ClkDriver import ClkDriver
 from tb.sim_ram import sim_ram
 
 
-class BonfireCoreGDBServerTestbench:
+class GDBServerTestbench:
     def __init__(
         self,
         config: config.BonfireConfig = config.BonfireConfig(),
@@ -23,6 +23,8 @@ class BonfireCoreGDBServerTestbench:
         self.hexfile = hexfile
         self.ramsize = ramsize
         self.server_control = server_control or ServerControl()
+        if self.server_control.memory_size_bytes is None:
+            self.server_control.memory_size_bytes = ramsize * 4
 
     def create_ram(self, progfile: str, ramsize: int):
         ram = []
