@@ -173,11 +173,12 @@ targets:
       - cmod_s7_top
       generate:
       - soc_top:
-          bram_adr_width: 14
-          hexfile: "../code/build/soc/cmods7/hello.hex"
-          led_active_low: false
-          laned_memory: false
-          extended_soc: true
+          &soc_extended_cmods7_params
+            bram_adr_width: 14
+            hexfile: "../code/build/soc/cmods7/hello.hex"
+            led_active_low: false
+            laned_memory: false
+            extended_soc: true
 
   cmods7_extended_sim:
       flags:  
@@ -198,11 +199,7 @@ targets:
       - cmods7_top_tb
       generate:
       - soc_top:
-          bram_adr_width: 14
-          hexfile: "../code/build/soc/cmods7/hello.hex"
-          led_active_low: false
-          laned_memory: false
-          extended_soc: true
+          *soc_extended_cmods7_params
 
 
   cmods7:
@@ -227,7 +224,7 @@ targets:
         laned_memory: false
     toplevel: bonfire_core_soc_top
 
-  ulx3s:
+  ulx3s: &target_ulx3s
     default_tool: trellis
     flags:  
       extended_soc : false
@@ -249,16 +246,9 @@ targets:
     
 
   ulx3s_extended:
-    default_tool: trellis
+    <<: *target_ulx3s
     flags:  
       extended_soc : true
-    tools:
-        trellis:
-            arch: ecp5
-            output_format: json
-            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
-            nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
-
     filesets: [ulx3s_lpf, scripts, soc_io, ulx3s_top ]
     generate:
     - soc_top:
@@ -267,10 +257,9 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
-    toplevel: ulx3s_top
    
 
-  icepizero:
+  icepizero: &target_icepizero
     default_tool: trellis
     flags:  
       extended_soc : false
@@ -291,16 +280,9 @@ targets:
     toplevel: icepizero_top
 
   icepizero_extended:
-    default_tool: trellis
+    <<: *target_icepizero
     flags:
       extended_soc : true
-    tools:
-        trellis:
-            arch: ecp5
-            output_format: json
-            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
-            nextpnr_options: ['--25k','--package CABGA256','--speed 6' ]
-
     filesets: [icepizero_lpf, scripts, soc_io, icepizero_top ]
     generate:
     - soc_top:
@@ -310,4 +292,3 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
-    toplevel: icepizero_top
