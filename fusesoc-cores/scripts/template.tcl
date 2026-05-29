@@ -61,11 +61,25 @@ proc find_vhdl_files {base dir} {
 set srcdir [file join [pwd] src]
 set srcfiles [find_vhdl_files [pwd] $srcdir]
 
-
 plugin -i ghdl
 echo on
 yosys ghdl --std=08 --ieee=synopsys -frelaxed-rules  -Wno-specs {*}$srcfiles -e $top
 echo off
 
-synth_ecp5 -top $top -json $name.json
+#Additonal Debug Checkpoints, uncomment if needed
+#write_rtlil $name.after_ghdl.il
 
+# synth_ecp5 -top $top -run begin:map_ram
+# write_rtlil $name.after_coarse.il
+# write_verilog -norename -attr2comment $name.after_coarse.v
+
+# synth_ecp5 -top $top -run map_ram:check
+# write_rtlil $name.after_map_cells.il
+# write_verilog -norename -attr2comment $name.after_map_cells.v
+
+# synth_ecp5 -top $top  -run check:
+# write_json $name.json
+# write_verilog -norename -attr2comment $name.post_synth.v
+
+#Comment this out, when you use the sequence above
+synth_ecp5 -top $top -json $name.json

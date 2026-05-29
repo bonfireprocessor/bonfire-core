@@ -39,9 +39,10 @@ int main(void)
     uart_control_readback = bonfire_uart_read_control();
     led_out(2u);
     if ((uart_control_readback & BONFIRE_UART_CONTROL_VERIFY_MASK) != uart_control) {
-        led_out(BONFIRE_LED_MASK);
+        led_out(5u);
         while (1) {}
     }
+    bonfire_uart_wait_tx_ready();
     led_out(3u);
     report_platform();
 

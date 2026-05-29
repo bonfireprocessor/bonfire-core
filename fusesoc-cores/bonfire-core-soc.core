@@ -125,6 +125,7 @@ generate:
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
       hexfile: "../code/build/soc/sim/hello.hex"
+      #hexfile: "../code/build/soc/sim/monitor.hex"
       num_leds: 8
       led_active_low: false
       laned_memory : false
@@ -151,6 +152,7 @@ generate:
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
       hexfile: "../code/build/soc/icepizero/hello.hex"
+      #hexfile: "../code/build/soc/icepizero/monitor.hex"
       num_leds: 5
       led_active_low: false
       laned_memory : false
@@ -163,7 +165,7 @@ generate:
       bram_adr_width: 14
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/cmods7/led.hex"
+      hexfile: "../code/build/soc/cmods7/hello.hex"
       num_leds: 4
       led_active_low: false
       laned_memory : false
