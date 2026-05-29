@@ -4,7 +4,6 @@ Test VHDL conversion of BonfireCoreTop with and without debug support.
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 import warnings
 from pathlib import Path
@@ -14,6 +13,7 @@ from myhdl import ResetSignal, Signal, ToVHDLWarning
 
 from rtl import bonfire_core_top, bonfire_interfaces, config
 from rtl.debugModule import AbstractDebugTransportBundle
+from tests.toolchain import ghdl_command
 
 pytestmark = pytest.mark.filterwarnings("ignore::myhdl.ToVHDLWarning")
 
@@ -55,17 +55,15 @@ def test_core_vhdl_conversion(enable_debug: bool, name: str, repo_root: Path):
     assert "entity" in content.lower(), "VHDL file missing 'entity' keyword"
     assert "architecture" in content.lower(), "VHDL file missing 'architecture' keyword"
 
-    ghdl = shutil.which("ghdl")
-    if ghdl is None:
-        pytest.skip("ghdl not available; skipping VHDL syntax analysis")
-
     vhdl_inputs = sorted(output_dir.glob("pck_myhdl_*.vhd")) + [vhdl_file]
     assert vhdl_inputs, "No VHDL files found for GHDL analysis"
+    invocation = ghdl_command("-a", "--std=08", *[str(path) for path in vhdl_inputs])
 
     result = subprocess.run(
-        [ghdl, "-a", "--std=08", *[str(path) for path in vhdl_inputs]],
+        invocation.command,
         check=False,
         cwd=output_dir,
+        env=invocation.env,
         capture_output=True,
         text=True,
     )
