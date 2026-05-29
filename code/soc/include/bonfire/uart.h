@@ -48,9 +48,14 @@ static inline uint32_t bonfire_uart_read_control(void)
     return bonfire_read32(BONFIRE_UART0_BASE + BONFIRE_UART_CONTROL);
 }
 
-static inline void bonfire_uart_putc(char c)
+static inline void bonfire_uart_wait_tx_ready(void)
 {
     while ((bonfire_read32(BONFIRE_UART0_BASE + BONFIRE_UART_STATUS) & BONFIRE_UART_STATUS_TX_READY) == 0u) {}
+}
+
+static inline void bonfire_uart_putc(char c)
+{
+    bonfire_uart_wait_tx_ready();
     bonfire_write32(BONFIRE_UART0_BASE + BONFIRE_UART_TX, (uint32_t)c);
     // #if defined(BONFIRE_PLATFORM_ICEPIZERO)
     //    #pragma message "Implementing delay"

@@ -24,6 +24,8 @@ Small C programs for the MyHDL SoC live under `soc/apps/`:
   through the LED register.
 - `soc/apps/hello/main.c`: Extended SoC UART/GPIO smoke test used by the VHDL
   Extended SoC simulation.
+- `soc/apps/monitor/main.c`: minimal interactive UART monitor with `I` info
+  and `D [addr]` memory dump commands.
 
 They use the local platform headers in `soc/platforms/` and do not depend on
 the external `bonfire-software` repository.
@@ -41,6 +43,7 @@ Build one SoC program:
 make soc SOC_APP=led SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=wishbone SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=hello SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make soc SOC_APP=monitor SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=led SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 ```
 
