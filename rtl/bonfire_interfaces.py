@@ -4,11 +4,14 @@ Bonfire Core  external Interface definitions
 License: See LICENSE
 """
 
-from __future__ import print_function
+from __future__ import annotations, print_function
+
+from typing import Any
 
 from myhdl import *
 
 from rtl.config import BonfireConfig
+from rtl.type_aliases import BitSignal
 from rtl.util import int_log2
 
 class DbusBundle:
@@ -17,42 +20,42 @@ class DbusBundle:
     Can support pipelined mode, similar to Wishbone B4 pipelined mode
     Signal names are from the master side
     """
-    def __init__(self,config=None,len=32,readOnly=False):
+    def __init__(self, config: BonfireConfig | None = None, len: int = 32, readOnly: bool = False) -> None:
         if isinstance(config,BonfireConfig):
             xlen=config.xlen
         else:
             xlen=len    
 
-        self.xlen=xlen
-        self.readOnly= readOnly
-        self.adrLow = int_log2(xlen // 8) # Lowest used address bit
+        self.xlen: int = xlen
+        self.readOnly: bool = readOnly
+        self.adrLow: int = int_log2(xlen // 8) # Lowest used address bit
         
-        self.en_o = Signal(bool(0))
+        self.en_o: BitSignal = Signal(bool(0))
        
         self.adr_o = Signal(modbv(0)[xlen:])  # Lower log2(xlen/8) bits will always be zero
-        self.stall_i=Signal(bool(0)) # When True stall pipelining, a slave not supporting piplelining can keep stall True all the time
-        self.ack_i=Signal(bool(0)) # True: Data are written or ready to read on the bus, terminates cycle
-        self.error_i = Signal(bool(0)) # Signals a bus error (will be raised in place of ack_i)
+        self.stall_i: BitSignal = Signal(bool(0)) # When True stall pipelining, a slave not supporting piplelining can keep stall True all the time
+        self.ack_i: BitSignal = Signal(bool(0)) # True: Data are written or ready to read on the bus, terminates cycle
+        self.error_i: BitSignal = Signal(bool(0)) # Signals a bus error (will be raised in place of ack_i)
         self.db_rd = Signal(modbv(0)[xlen:])
         if not readOnly:
             self.we_o = Signal(modbv(0)[xlen // 8:]) # Byte wide write enable signals
             self.db_wr = Signal(modbv(0)[xlen:])
     
 class DebugOutputBundle:
-   def __init__(self,config):
-       self.config=config
+   def __init__(self, config: BonfireConfig) -> None:
+       self.config: BonfireConfig = config
        xlen=config.xlen 
 
-       self.valid_o =  Signal(bool(0))
+       self.valid_o: BitSignal =  Signal(bool(0))
        self.result_o = Signal(intbv(0)[xlen:])
        self.rd_adr_o = Signal(intbv(0)[5:])
-       self.reg_we_o = Signal(bool(0))
+       self.reg_we_o: BitSignal = Signal(bool(0))
 
        # branch/jump
        # jump_exec = True and jump = False: current instruction is  a not taken branch, this is not exposed to the regular pipeline output
        # jump_exec = True and jump = True: current instruction is a taken branch. Depending on config.jump_bypass it will be reflected in the next clock cycle
-       self.jump_exec = Signal(bool(0)) # Jump/branch instruction execution begins
-       self.jump = Signal(bool(0)) # jump will take place (internal non-reigistered signal, not the same as jump_o)
+       self.jump_exec: BitSignal = Signal(bool(0)) # Jump/branch instruction execution begins
+       self.jump: BitSignal = Signal(bool(0)) # jump will take place (internal non-reigistered signal, not the same as jump_o)
        
 
 class ControlBundle:
@@ -61,7 +64,7 @@ class ControlBundle:
     E.g Interrupts
     Currently empty...
     """
-    def __init__(self,config):
+    def __init__(self, config: BonfireConfig) -> None:
         pass
 
 
@@ -77,23 +80,25 @@ class Wishbone_master_bundle:
 
 
     """
-    def __init__(self,adrHigh=32,adrLow=2,dataWidth=32,granularity=8, b4_pipelined=False,bte_signals=False,createErrorSignal=False):
-        self.pipelined = b4_pipelined
-        self.adrHigh = adrHigh
-        self.adrLow = adrLow
-        self.dataWidth=dataWidth
-        self.granularity = granularity
-        self.burstSupported = bte_signals
-        self.errorSupported = createErrorSignal
+    def __init__(self, adrHigh: int = 32, adrLow: int = 2, dataWidth: int = 32,
+                 granularity: int = 8, b4_pipelined: bool = False,
+                 bte_signals: bool = False, createErrorSignal: bool = False) -> None:
+        self.pipelined: bool = b4_pipelined
+        self.adrHigh: int = adrHigh
+        self.adrLow: int = adrLow
+        self.dataWidth: int = dataWidth
+        self.granularity: int = granularity
+        self.burstSupported: bool = bte_signals
+        self.errorSupported: bool = createErrorSignal
 
 
-        self.wbm_cyc_o = Signal(bool(0))
-        self.wbm_stb_o = Signal(bool(0))
-        self.wbm_ack_i = Signal(bool(0))
+        self.wbm_cyc_o: BitSignal = Signal(bool(0))
+        self.wbm_stb_o: BitSignal = Signal(bool(0))
+        self.wbm_ack_i: BitSignal = Signal(bool(0))
         if createErrorSignal:
-            self.wbm_err_i = Signal(bool(0))
+            self.wbm_err_i: BitSignal = Signal(bool(0))
 
-        self.wbm_we_o =  Signal(bool(0))
+        self.wbm_we_o: BitSignal =  Signal(bool(0))
         self.wbm_adr_o = Signal(modbv(0)[adrHigh-adrLow:0])
         self.wbm_db_o = Signal(modbv(0)[dataWidth:])
         self.wbm_db_i =  Signal(modbv(0)[dataWidth:])
@@ -101,7 +106,7 @@ class Wishbone_master_bundle:
             assert dataWidth % granularity == 0, "Wishbone bundle: invalid granularity, not a divider of datawidth"
             self.wbm_sel_o = Signal(modbv(0)[dataWidth/granularity:])
         if b4_pipelined:
-            self.wbm_stall_i = Signal(bool(0))
+            self.wbm_stall_i: BitSignal = Signal(bool(0))
 
         if bte_signals:
             self.wbm_cti_o = Signal(modbv(0)[3:])
@@ -110,7 +115,8 @@ class Wishbone_master_bundle:
         
 
 @block
-def DbusToWishbone(dbus,wb,clock,reset):
+def DbusToWishbone(dbus: DbusBundle, wb: Wishbone_master_bundle,
+                   clock: BitSignal, reset: BitSignal) -> Any:
     """
         Converts the internal DBusBundle to a Wishbone master
         Adapts automatically to the configuration of the Wishbone master
@@ -126,15 +132,15 @@ def DbusToWishbone(dbus,wb,clock,reset):
     assert dbus.xlen == wb.dataWidth
     assert wb.adrHigh <= dbus.xlen
 
-    stb_o = Signal(bool(0))
-    cyc_o = Signal(bool(0))
+    stb_o: BitSignal = Signal(bool(0))
+    cyc_o: BitSignal = Signal(bool(0))
     sel_o = Signal(modbv(0)[len(wb.wbm_sel_o):])
-    we_o = Signal(bool(0))
+    we_o: BitSignal = Signal(bool(0))
 
-    stall = Signal(bool(0))
+    stall: BitSignal = Signal(bool(0))
 
-    cyc_r = Signal(bool(0))
-    err = Signal(bool(0))
+    cyc_r: BitSignal = Signal(bool(0))
+    err: BitSignal = Signal(bool(0))
 
     @always_comb
     def cyc_proc():

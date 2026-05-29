@@ -4,14 +4,20 @@ Bonfire interconnect for dbus_bundle
 License: See LICENSE
 """
 
-from __future__ import print_function
+from __future__ import annotations, print_function
+
+from typing import Any
+
 from myhdl import *
 
+from rtl.bonfire_interfaces import DbusBundle
+from rtl.type_aliases import BitSignal
+
 class AdrMask:
-    def __init__(self,upper,lower,value):
-        self.upper = upper
-        self.lower = lower
-        self.mask = value
+    def __init__(self, upper: int, lower: int, value: int) -> None:
+        self.upper: int = upper
+        self.lower: int = lower
+        self.mask: int = value
 
 
 
@@ -19,14 +25,16 @@ class DbusInterConnects:
 
     @staticmethod
     @block
-    def Master3Slaves(master,slave1,slave2,slave3,clock,reset, adrmask1, adrmask2,adrmask3):
+    def Master3Slaves(master: DbusBundle, slave1: DbusBundle, slave2: DbusBundle,
+                      slave3: DbusBundle, clock: BitSignal, reset: BitSignal,
+                      adrmask1: AdrMask, adrmask2: AdrMask, adrmask3: AdrMask) -> Any:
 
         s_en = Signal(modbv(0)[3:])
         s_en_r = Signal(modbv(0)[3:])
         mux_sel = Signal(modbv(0)[3:])
        
-        busy = Signal(bool(0)) # Interconnect busy with an active bus cycle
-        ack = Signal(bool(0))
+        busy: BitSignal = Signal(bool(0)) # Interconnect busy with an active bus cycle
+        ack: BitSignal = Signal(bool(0))
 
         @always_seq(clock.posedge,reset=reset)
         def seq():
@@ -103,4 +111,3 @@ class DbusInterConnects:
             
 
         return instances()
-
