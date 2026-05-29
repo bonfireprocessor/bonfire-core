@@ -1,0 +1,39 @@
+site_name: Bonfire Core
+site_description: Documentation for the Bonfire RISC-V core and SoC project
+site_url: https://bonfirecpu.eu/bonfire-core/
+repo_url: https://github.com/bonfireprocessor/bonfire-core
+repo_name: bonfireprocessor/bonfire-core
+
+theme:
+  name: readthedocs
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Overview: getting-started/overview.md
+      - Prerequisites: getting-started/prerequisites.md
+      - Quick Start: getting-started/quick-start.md
+  - Hardware:
+      - Overview: hardware/overview.md
+      - Core: hardware/core.md
+      - SoC: hardware/soc.md
+      - Interfaces and Memory: hardware/interfaces-and-memory.md
+  - Workflows:
+      - Overview: workflows/overview.md
+      - Universal Runner: workflows/universal-runner.md
+      - Testing: workflows/testing.md
+      - Generation and FuseSoC: workflows/generation-and-fusesoc.md
+      - Debugging and Legacy Flow: workflows/debugging-and-legacy-flow.md
+  - Software:
+      - Overview: software/overview.md
+      - Core Test Programs: software/core-test-programs.md
+      - SoC Applications: software/soc-applications.md
+      - Build Artifacts: software/build-artifacts.md
+      - Compliance: software/compliance.md
+  - Project Notes:
+      - Refactor Status: project-notes/refactor-status.md
+
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
