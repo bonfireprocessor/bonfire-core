@@ -70,10 +70,26 @@ If you want to build FPGA targets, you also need the matching backend tools for 
 The recommended entry point is the universal runner:
 
 ```bash
-scripts/bonfire-core --all
+scripts/bonfire-core --all -v
 ```
 
 That covers the normal pytest-based regression flow.
+
+Example output (shortened to the beginning and end of the run):
+
+```text
+$ scripts/bonfire-core --all -v
+riscv64-unknown-elf-size build/basic_alu.elf
+   text    data     bss     dec     hex filename
+    260       0       0     260     104 build/basic_alu.elf
+riscv64-unknown-elf-size build/simple_loop.elf
+   text    data     bss     dec     hex filename
+     56       0       0      56      38 build/simple_loop.elf
+...
+============================= test session starts ==============================
+...
+============================== 35 passed in 81s ===============================
+```
 
 Useful narrower variants:
 
@@ -137,7 +153,7 @@ make -C code soc SOC_APP=hello SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-el
 Then run the Extended SoC VHDL simulation:
 
 ```bash
-fusesoc --cores-root . run --target=sim_extended ::bonfire-core-soc:0
+fusesoc run --target=sim_extended ::bonfire-core-soc:0
 ```
 
 This uses the FuseSoC generator flow plus GHDL and exercises the generated Extended SoC wrapper around the MyHDL SoC.
@@ -180,19 +196,19 @@ make -C code soc SOC_APP=hello SOC_PLATFORM=cmods7 TARGET_PREFIX=riscv64-unknown
 Example non-extended build:
 
 ```bash
-fusesoc --cores-root . run --target=icepizero ::bonfire-core-soc:0
+fusesoc run --target=icepizero ::bonfire-core-soc:0
 ```
 
 Example extended build:
 
 ```bash
-fusesoc --cores-root . run --target=ulx3s_extended ::bonfire-core-soc:0
+fusesoc run --target=ulx3s_extended ::bonfire-core-soc:0
 ```
 
 Vivado example:
 
 ```bash
-fusesoc --cores-root . run --target=cmods7_extended ::bonfire-core-soc:0
+fusesoc run --target=cmods7_extended ::bonfire-core-soc:0
 ```
 
 The exact output bitstream/artifact location depends on the backend flow and target.
@@ -206,10 +222,10 @@ git clone https://github.com/bonfireprocessor/bonfire-core.git
 cd bonfire-core
 scripts/bonfire-core --install
 make -C code all TARGET_PREFIX=riscv64-unknown-elf KEEP_ELF=1
-scripts/bonfire-core --all
+scripts/bonfire-core --all -v
 pytest -vv tests/test_soc_myhdl.py
 make -C code soc SOC_APP=hello SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
-fusesoc --cores-root . run --target=sim_extended ::bonfire-core-soc:0
+fusesoc run --target=sim_extended ::bonfire-core-soc:0
 ```
 
 ## Related source files
