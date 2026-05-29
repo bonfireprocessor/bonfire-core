@@ -32,5 +32,8 @@ fusesoc_libraries/
 temp/
 .venv
 
+# MkDocs build output
+site/
+
 piplist.txt
 *.bit
