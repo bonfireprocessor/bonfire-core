@@ -83,94 +83,6 @@ generate:
       entity_name: 'bonfire_core_soc_top'
       hexfile: "../code/build/soc/sim/led.hex"
 
-  soc_top_nonlaned:
-    generator: gen_bonfire_core_soc
-    parameters:
-      language: vhdl
-      bram_adr_width: 11
-      laned_memory : false
-      conversion_warnings: 'ignore'
-      entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/sim/led.hex"
-
-  soc_top_ulx3s:
-    generator: gen_bonfire_core_soc
-    parameters:
-      language: vhdl
-      bram_adr_width: 11
-      conversion_warnings: 'ignore'
-      entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/ulx3s/led.hex"
-      num_leds: 8
-      led_active_low: false
-      laned_memory : false
-
-  soc_top_icepizero:
-    generator: gen_bonfire_core_soc
-    parameters:
-      language: vhdl
-      bram_adr_width: 11
-      conversion_warnings: 'ignore'
-      entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/icepizero/led.hex"
-      num_leds: 5
-      led_active_low: false
-      laned_memory : false
-
-  soc_extended_sim:
-    generator: gen_bonfire_core_soc
-    parameters:
-      language: vhdl
-      bram_adr_width: 12
-      conversion_warnings: 'ignore'
-      entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/sim/hello.hex"
-      #hexfile: "../code/build/soc/sim/monitor.hex"
-      num_leds: 8
-      led_active_low: false
-      laned_memory : false
-      extended_soc: true
-
-  soc_extended:
-    generator: gen_bonfire_core_soc
-    parameters:
-      language: vhdl
-      bram_adr_width: 11
-      conversion_warnings: 'ignore'
-      entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/ulx3s/hello.hex"
-      num_leds: 8
-      led_active_low: false
-      laned_memory : false
-      extended_soc: true
-
-  soc_extended_icepizero:
-    generator: gen_bonfire_core_soc
-    parameters:
-      language: vhdl
-      bram_adr_width: 11
-      conversion_warnings: 'ignore'
-      entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/icepizero/hello.hex"
-      #hexfile: "../code/build/soc/icepizero/monitor.hex"
-      num_leds: 5
-      led_active_low: false
-      laned_memory : false
-      extended_soc: true
-
-  soc_extended_cmods7:
-    generator: gen_bonfire_core_soc
-    parameters:
-      language: vhdl
-      bram_adr_width: 14
-      conversion_warnings: 'ignore'
-      entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/cmods7/hello.hex"
-      num_leds: 4
-      led_active_low: false
-      laned_memory : false
-      extended_soc: true
-
   soc_tb:
     generator: gen_bonfire_core_soc
     parameters:
@@ -201,7 +113,15 @@ targets:
   sim_extended:
     default_tool: ghdl
     filesets: [ soc_io ]
-    generate: [ soc_extended_sim ]
+    generate:
+    - soc_top:
+        bram_adr_width: 12
+        hexfile: "../code/build/soc/sim/hello.hex"
+        #hexfile: "../code/build/soc/sim/monitor.hex"
+        num_leds: 8
+        led_active_low: false
+        laned_memory: false
+        extended_soc: true
     flags:
       simulation_target : true
    
@@ -245,7 +165,13 @@ targets:
           board_part: DIGILENTINC.COM:CMOD-S7-25:PART0:1.0
       toplevel:
       - cmod_s7_top
-      generate: [ soc_extended_cmods7 ]
+      generate:
+      - soc_top:
+          bram_adr_width: 14
+          hexfile: "../code/build/soc/cmods7/hello.hex"
+          led_active_low: false
+          laned_memory: false
+          extended_soc: true
 
   cmods7_extended_sim:
       flags:  
@@ -264,7 +190,13 @@ targets:
           xelab_options: [ "--debug typical" ]
       toplevel:
       - cmods7_top_tb
-      generate: [ soc_extended_cmods7 ]
+      generate:
+      - soc_top:
+          bram_adr_width: 14
+          hexfile: "../code/build/soc/cmods7/hello.hex"
+          led_active_low: false
+          laned_memory: false
+          extended_soc: true
 
 
   cmods7:
@@ -284,7 +216,9 @@ targets:
       part: GW1N-LV9LQ144C6/I5
       part_version: C
 
-    generate: [ soc_top_nonlaned ]
+    generate:
+    - soc_top:
+        laned_memory: false
     toplevel: bonfire_core_soc_top
 
   ulx3s:
@@ -299,7 +233,12 @@ targets:
             nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
 
     filesets: [ulx3s_lpf, ulx3s_top, scripts]
-    generate: [ soc_top_ulx3s ]
+    generate:
+    - soc_top:
+        hexfile: "../code/build/soc/ulx3s/led.hex"
+        num_leds: 8
+        led_active_low: false
+        laned_memory: false
     toplevel: ulx3s_top
     
 
@@ -315,7 +254,13 @@ targets:
             nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
 
     filesets: [ulx3s_lpf, scripts, soc_io, ulx3s_top ]
-    generate: [ soc_extended ]
+    generate:
+    - soc_top:
+        hexfile: "../code/build/soc/ulx3s/hello.hex"
+        num_leds: 8
+        led_active_low: false
+        laned_memory: false
+        extended_soc: true
     toplevel: ulx3s_top
    
 
@@ -331,7 +276,12 @@ targets:
             nextpnr_options: ['--25k','--package CABGA256','--speed 6' ]
 
     filesets: [icepizero_lpf,icepizero_top , scripts]
-    generate: [ soc_top_icepizero ]
+    generate:
+    - soc_top:
+        hexfile: "../code/build/soc/icepizero/led.hex"
+        num_leds: 5
+        led_active_low: false
+        laned_memory: false
     toplevel: icepizero_top
 
   icepizero_extended:
@@ -346,5 +296,12 @@ targets:
             nextpnr_options: ['--25k','--package CABGA256','--speed 6' ]
 
     filesets: [icepizero_lpf, scripts, soc_io, icepizero_top ]
-    generate: [ soc_extended_icepizero ]
+    generate:
+    - soc_top:
+        hexfile: "../code/build/soc/icepizero/hello.hex"
+        #hexfile: "../code/build/soc/icepizero/monitor.hex"
+        num_leds: 5
+        led_active_low: false
+        laned_memory: false
+        extended_soc: true
     toplevel: icepizero_top
