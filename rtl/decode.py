@@ -164,8 +164,12 @@ class DecodeBundle(PipelineControl):
 
             @always_comb
             def comb2():
-                temp_instr = debugRegisterBundle.progbuf0 if dm_halt else self.word_i
 
+                temp_instr = self.word_i
+                if dm_halt:
+                    temp_instr =debugRegisterBundle.progbuf0
+                  
+ 
                 ins_word.next = temp_instr
                 opcode.next = temp_instr[7:2]
 

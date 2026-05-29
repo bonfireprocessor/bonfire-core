@@ -61,7 +61,7 @@ class DebugRegisterBundle:
         self.postexec = Signal(bool(0))
         self.transfer = Signal(bool(0))
         self.write = Signal(bool(0))
-        self.regno = Signal(modbv(0,max=32))
+        self.regno = Signal(modbv(0)[5:])
         self.cmderr = Signal(modbv(0)[3:])
         self.csrAccess = Signal(bool(0))
 
@@ -99,7 +99,7 @@ class AbstractDebugTransportBundle:
         xlen = config.xlen
         self.xlen = xlen
 
-        self.adr=Signal(modbv(0,max=0x40))# DMI adrees register
+        self.adr=Signal(modbv(0)[config.dmi_adr_width:])# DMI adrees register
         self.en=Signal(bool(0))
         self.we=Signal(bool(0))
         self.dbi=Signal(modbv(0)[32:])
@@ -123,6 +123,7 @@ class DMI:
 
         """
 
+        csr_mask = (0x7b0>>1) # We support dpc(0x7b0) and dcsr(0x7b1) currently. So comparing bits 15..1 with the base address shifted one bit to the rigt will match both addresses
 
         @always(clock.posedge)
         def seq():
@@ -197,9 +198,8 @@ class DMI:
                                 debugRegs.transfer.next = transfer
                                 debugRegs.write.next = dtm.dbi[16]
                                 debugRegs.regno.next = dtm.dbi[5:0]
-                                # We support dpc(0x7b0) and dcsr(0x7b1) currently. So comparing bits 15..1 with the base address shifted
-                                # one bit to the rigt will match both addresses
-                                csrAccess =  dtm.dbi[16:1] == (0x7b0>>1)
+                               
+                                csrAccess =  dtm.dbi[16:1] == csr_mask 
                                 debugRegs.csrAccess.next = csrAccess
                               
                                 if dtm.dbi[16:5]==0x80 or csrAccess or not transfer: # When Transfer is not set register number do not care
