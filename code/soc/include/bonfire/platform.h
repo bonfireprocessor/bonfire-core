@@ -3,6 +3,8 @@
 
 #if defined(BONFIRE_PLATFORM_SIM)
 #include "../../platforms/sim.h"
+#elif defined(BONFIRE_PLATFORM_FIREANT)
+#include "../../platforms/fireant.h"
 #elif defined(BONFIRE_PLATFORM_ICEPIZERO)
 #include "../../platforms/icepizero.h"
 #elif defined(BONFIRE_PLATFORM_ULX3S)

@@ -46,8 +46,9 @@ CORE_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -g
 SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Og -g -ffreestanding -fno-builtin -Wall -Wextra
 
 SOC_APPS := led wishbone hello monitor
-SOC_PLATFORMS := sim icepizero ulx3s cmods7
+SOC_PLATFORMS := sim fireant icepizero ulx3s cmods7
 SOC_PLATFORM_DEFINES_sim := BONFIRE_PLATFORM_SIM
+SOC_PLATFORM_DEFINES_fireant := BONFIRE_PLATFORM_FIREANT
 SOC_PLATFORM_DEFINES_icepizero := BONFIRE_PLATFORM_ICEPIZERO
 SOC_PLATFORM_DEFINES_ulx3s := BONFIRE_PLATFORM_ULX3S
 SOC_PLATFORM_DEFINES_cmods7 := BONFIRE_PLATFORM_CMODS7

@@ -145,7 +145,13 @@ targets:
     - fireant_sdc
     - fireant_isf
        
-    generate: [ soc_top ]
+    generate:
+    - soc_top:
+        bram_adr_width: 11
+        hexfile: "../code/build/soc/fireant/led.hex"
+        num_leds: 4
+        led_active_low: true
+        laned_memory: true
     toplevel: bonfire_core_soc_top
    
 
