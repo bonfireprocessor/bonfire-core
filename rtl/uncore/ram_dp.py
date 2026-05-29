@@ -4,19 +4,24 @@ Bonfire Dual port RAM
 License: See LICENSE
 """
 
-from __future__ import print_function
+from __future__ import annotations, print_function
+
+from typing import Any
 
 from myhdl import *
 
+from rtl.bonfire_interfaces import DbusBundle
+from rtl.type_aliases import BitSignal
+
 
 class RamPort:
-    def __init__(self,adrWidth=12,dataWidth=32,readOnly=False):
+    def __init__(self, adrWidth: int = 12, dataWidth: int = 32, readOnly: bool = False) -> None:
         assert dataWidth % 8 == 0, "RamPort dataWidth must be multiple of 8"
-        self.readOnly = readOnly
-        self.clock = Signal(bool(0))
+        self.readOnly: bool = readOnly
+        self.clock: BitSignal = Signal(bool(0))
         self.dbout = Signal(modbv(0)[dataWidth:])
         self.adrbus =  Signal(modbv(0)[adrWidth:])
-        self.en = Signal(bool(0))
+        self.en: BitSignal = Signal(bool(0))
 
         if not readOnly:
             wren_length = dataWidth // 8
@@ -26,12 +31,12 @@ class RamPort:
 
 # For backwards compatibilty
 class RamPort32(RamPort):
-    def __init__(self,adrWidth=12,readOnly=False):
+    def __init__(self, adrWidth: int = 12, readOnly: bool = False) -> None:
         super().__init__(adrWidth=adrWidth,readOnly=readOnly)
 
 
 
-def create_ram(ramfile,ramsize,dataWidth=32):
+def create_ram(ramfile: str, ramsize: int, dataWidth: int = 32) -> list[Any]:
     ram = []
     adr = 0
 
@@ -51,7 +56,7 @@ def create_ram(ramfile,ramsize,dataWidth=32):
 
 
 @block
-def port_instance(ram,port):
+def port_instance(ram: list[Any], port: RamPort) -> Any:
     """
 
     Connects a RAM Array to a port.
@@ -86,10 +91,10 @@ def port_instance(ram,port):
 
 
 @block
-def dbusToRamPort(dbus,port,clock,readOnly=False):
+def dbusToRamPort(dbus: DbusBundle, port: RamPort, clock: BitSignal, readOnly: bool = False) -> Any:
 
-    ack_rd = Signal(bool(0))    
-    we = Signal(bool(0))
+    ack_rd: BitSignal = Signal(bool(0))    
+    we: BitSignal = Signal(bool(0))
 
     @always_comb
     def comb_rd():
@@ -127,13 +132,13 @@ def dbusToRamPort(dbus,port,clock,readOnly=False):
 
 class DualportedRam:
 
-    def __init__(self,initFileName, adrwidth=12):
-        self.adrwidth=adrwidth
+    def __init__(self, initFileName: str, adrwidth: int = 12) -> None:
+        self.adrwidth: int = adrwidth
         self.ram = create_ram(initFileName,2**adrwidth)
 
 
     @block
-    def ram_instance(self,porta,portb,clock):
+    def ram_instance(self, porta: RamPort32, portb: RamPort32, clock: BitSignal) -> Any:
         """
         porta: RamPort32 instance, port A
         portb: RamPort32 instance  port B
@@ -146,7 +151,7 @@ class DualportedRam:
 
     # TODO: Check if obsolete !!!!
     @block
-    def ram_instance_dbus(self,db_a,db_b,clock):
+    def ram_instance_dbus(self, db_a: DbusBundle, db_b: DbusBundle, clock: BitSignal) -> Any:
         """
         db_a: dbus instance, port A
         db_b: dbus instance  port B
@@ -166,7 +171,7 @@ class DualportedRam:
 class DualportedRamLaned:
 
 
-    def create_ram(self,ramfile,ramsize):
+    def create_ram(self, ramfile: str, ramsize: int) -> None:
 
         self.ram = [ list() for i in range(4) ]
 
@@ -193,13 +198,14 @@ class DualportedRamLaned:
 
 
 
-    def __init__(self,initFileName, adrwidth=12):
-        self.adrwidth=adrwidth
+    def __init__(self, initFileName: str, adrwidth: int = 12) -> None:
+        self.adrwidth: int = adrwidth
         self.create_ram(initFileName,2**adrwidth)
 
 
     @block
-    def port_map(self,laneport,port,out,low,high,wr_index):
+    def port_map(self, laneport: RamPort, port: RamPort, out: Any, low: int,
+                 high: int, wr_index: int) -> Any:
 
         @always_comb
         def map():
@@ -220,7 +226,7 @@ class DualportedRamLaned:
 
 
     @block
-    def ram_instance(self,porta,portb,clock):
+    def ram_instance(self, porta: RamPort, portb: RamPort, clock: BitSignal) -> Any:
         """
 
         porta: 32 Bit(!) RamPort instance, port A

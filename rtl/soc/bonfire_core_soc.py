@@ -1,34 +1,42 @@
-from __future__ import print_function
+from __future__ import annotations, print_function
+
+from typing import Any, Mapping
 
 from myhdl import *
 
+from rtl.bonfire_interfaces import DbusBundle, Wishbone_master_bundle
+from rtl.config import BonfireConfig
+from rtl.type_aliases import BitSignal
 from rtl.uncore import bonfire_core_ex, ram_dp
 from rtl.uncore.dbus_interconnect import AdrMask
 from rtl import bonfire_interfaces,config
 
 
 class BonfireCoreSoC:
-    def __init__(self,config,hexfile="",soc_config={}):
-        self.config = config
-        self.hexfile = hexfile
-        self.bramMask = AdrMask(32,28,0xc)
-        self.dbusMask = AdrMask(32,28,0x8)
-        self.wbMask = AdrMask(32,28,0x4)
-        self.resetAdr = soc_config.get('resetAdr', 0xc0000000)
-        self.bramAdrWidth = soc_config.get('bramAdrWidth', 11)
-        self.NoReset = soc_config.get('NoReset', False)
-        self.LanedMemory = soc_config.get('LanedMemory', True)
-        self.numLeds = soc_config.get('numLeds', 4)
-        self.ledActiveLow = soc_config.get('ledActiveLow', True)
-        self.UseVHDLMemory = soc_config.get('UseVHDLMemory', False) # not used yet
-        self.exposeWishboneMaster = soc_config.get('exposeWishboneMaster', False)
-        self.conversion=False
-        self.reset_signal = None
+    def __init__(self, config: BonfireConfig, hexfile: str = "", soc_config: Mapping[str, Any] | None = None) -> None:
+        soc_config = soc_config or {}
+
+        self.config: BonfireConfig = config
+        self.hexfile: str = hexfile
+        self.bramMask: AdrMask = AdrMask(32,28,0xc)
+        self.dbusMask: AdrMask = AdrMask(32,28,0x8)
+        self.wbMask: AdrMask = AdrMask(32,28,0x4)
+        self.resetAdr: int = soc_config.get('resetAdr', 0xc0000000)
+        self.bramAdrWidth: int = soc_config.get('bramAdrWidth', 11)
+        self.NoReset: bool = soc_config.get('NoReset', False)
+        self.LanedMemory: bool = soc_config.get('LanedMemory', True)
+        self.numLeds: int = soc_config.get('numLeds', 4)
+        self.ledActiveLow: bool = soc_config.get('ledActiveLow', True)
+        self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
+        self.exposeWishboneMaster: bool = soc_config.get('exposeWishboneMaster', False)
+        self.conversion: bool = False
+        self.reset_signal: BitSignal | None = None
 
 
 
     @block
-    def led_out(self,clock,reset,led,dbus, ledactiveLow=False):
+    def led_out(self, clock: BitSignal, reset: BitSignal, led: Any, dbus: DbusBundle,
+                ledactiveLow: bool = False) -> Any:
         num_leds = len(led)
 
         led_reg = Signal(modbv(0)[num_leds:]);
@@ -63,7 +71,7 @@ class BonfireCoreSoC:
         return instances()
 
     @block
-    def wishbone_dummy(self,clock,reset,wb_bundle):
+    def wishbone_dummy(self, clock: BitSignal, reset: BitSignal, wb_bundle: Wishbone_master_bundle) -> Any:
 
         dummy_reg = Signal(modbv(0xdeadbeef)[32:])
 
@@ -102,7 +110,7 @@ class BonfireCoreSoC:
         return instances()
 
     @block
-    def uart_dummy(self,uart_tx,uart_rx):
+    def uart_dummy(self, uart_tx: BitSignal, uart_rx: BitSignal) -> Any:
 
         @always_comb
         def loopback():
@@ -112,7 +120,8 @@ class BonfireCoreSoC:
         return instances()
 
     @block
-    def reset_logic(self,clock,resetn,o_resetn,i_locked, reset):
+    def reset_logic(self, clock: BitSignal, resetn: BitSignal, o_resetn: BitSignal,
+                    i_locked: BitSignal, reset: BitSignal) -> Any:
         """"
         clock : clock signal
         resetn : in, bool, reset button, active low
@@ -121,10 +130,10 @@ class BonfireCoreSoC:
         reset : out, bool,  Reset to logic
         """
 
-        res1 = Signal(bool(0))
-        res2= Signal(bool(0))
+        res1: BitSignal = Signal(bool(0))
+        res2: BitSignal = Signal(bool(0))
 
-        dummy=Signal(bool(1))
+        dummy: BitSignal = Signal(bool(1))
 
         @always_comb
         def set_out():
@@ -140,7 +149,8 @@ class BonfireCoreSoC:
         return instances()
 
     @block
-    def no_reset_logic(self,clock,resetn,o_resetn,i_locked, reset):
+    def no_reset_logic(self, clock: BitSignal, resetn: BitSignal, o_resetn: BitSignal,
+                       i_locked: BitSignal, reset: BitSignal) -> Any:
         """"
         clock : clock signal
         resetn : in, bool, reset button, active low
@@ -149,7 +159,7 @@ class BonfireCoreSoC:
         reset : out, bool,  Reset to logic
         """
 
-        dummy=Signal(bool(0))
+        dummy: BitSignal = Signal(bool(0))
 
         @always_comb
         def dummy_logic():
@@ -161,7 +171,10 @@ class BonfireCoreSoC:
 
 
     @block
-    def bonfire_core_soc(self,sysclk,resetn,uart0_tx,uart0_rx,led,o_resetn,i_locked,wb_master=None):
+    def bonfire_core_soc(self, sysclk: BitSignal, resetn: BitSignal, uart0_tx: BitSignal,
+                         uart0_rx: BitSignal, led: Any, o_resetn: BitSignal,
+                         i_locked: BitSignal,
+                         wb_master: Wishbone_master_bundle | None = None) -> Any:
         """
         sysclk : cpu clock
         resetn : reset button, active low
@@ -174,12 +187,12 @@ class BonfireCoreSoC:
 
         self.config.reset_address=self.resetAdr
 
-        reset=ResetSignal(0,active=1,isasync=False)
+        reset: BitSignal = ResetSignal(0,active=1,isasync=False)
         self.reset_signal = reset
 
-        dbus = bonfire_interfaces.DbusBundle(config)
+        dbus: DbusBundle = bonfire_interfaces.DbusBundle(config)
         if wb_master is None:
-            wb_master_local = bonfire_interfaces.Wishbone_master_bundle()
+            wb_master_local: Wishbone_master_bundle = bonfire_interfaces.Wishbone_master_bundle()
         else:
             wb_master_local = wb_master
         bram_port_a = ram_dp.RamPort32(adrWidth=self.bramAdrWidth, readOnly=True)
@@ -217,7 +230,8 @@ class BonfireCoreSoC:
 
         return instances()
 
-    def gen_soc(self,hdl,name,path,gentb=False,handleWarnings='default'):
+    def gen_soc(self, hdl: str, name: str, path: str, gentb: bool = False,
+                handleWarnings: str = 'default') -> None:
         from myhdl import ToVHDLWarning
         import warnings
 
@@ -236,14 +250,14 @@ class BonfireCoreSoC:
         else:
 
 
-            sysclk = Signal(bool(0))
-            resetn = Signal(bool(1))
+            sysclk: BitSignal = Signal(bool(0))
+            resetn: BitSignal = Signal(bool(1))
             LED = Signal(modbv(0)[self.numLeds:])
-            uart0_txd = Signal(bool(1))
-            uart0_rxd = Signal(bool(0))
+            uart0_txd: BitSignal = Signal(bool(1))
+            uart0_rxd: BitSignal = Signal(bool(0))
 
-            o_resetn = Signal(bool(1))
-            i_locked = Signal(bool(0))
+            o_resetn: BitSignal = Signal(bool(1))
+            i_locked: BitSignal = Signal(bool(0))
 
             if self.exposeWishboneMaster:
                 print("Exposing Wishbone Master Interface")

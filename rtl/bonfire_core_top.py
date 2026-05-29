@@ -4,7 +4,9 @@ Bonfire Core toplevel
 License: See LICENSE
 """
 
-from __future__ import print_function
+from __future__ import annotations, print_function
+
+from typing import Any
 
 from myhdl import *
 
@@ -12,23 +14,30 @@ from rtl.simple_pipeline import *
 from rtl.fetch import FetchUnit
 from rtl import config 
 from rtl import debugModule
+from rtl.bonfire_interfaces import ControlBundle, DbusBundle, DebugOutputBundle
+from rtl.config import BonfireConfig
+from rtl.debugModule import AbstractDebugTransportBundle, DebugRegisterBundle, DMI
+from rtl.type_aliases import BitSignal
 
 class BonfireCoreTop:
-    def __init__(self,config=config.BonfireConfig()):
-        self.config=config
-        self.fetch = FetchUnit(config=config)
-        self.backend_fetch_input = FetchInputBundle(config=config)
-        self.backend_fetch_output = BackendOutputBundle(config=config)
-        self.backend = SimpleBackend(config=config)
+    def __init__(self, config: BonfireConfig = config.BonfireConfig()) -> None:
+        self.config: BonfireConfig = config
+        self.fetch: FetchUnit = FetchUnit(config=config)
+        self.backend_fetch_input: FetchInputBundle = FetchInputBundle(config=config)
+        self.backend_fetch_output: BackendOutputBundle = BackendOutputBundle(config=config)
+        self.backend: SimpleBackend = SimpleBackend(config=config)
         if config.enableDebugModule:
-            self.dmi = debugModule.DMI(config)
-            self.debugRegs = debugModule.DebugRegisterBundle(config)
+            self.dmi: DMI = debugModule.DMI(config)
+            self.debugRegs: DebugRegisterBundle | None = debugModule.DebugRegisterBundle(config)
         else:
             self.debugRegs = None
 
 
     @block
-    def createInstance(self,ibus,dbus,control,clock,reset,debug,config=None,debugTransportBundle=None):
+    def createInstance(self, ibus: DbusBundle, dbus: DbusBundle, control: ControlBundle,
+                       clock: BitSignal, reset: BitSignal, debug: DebugOutputBundle,
+                       config: BonfireConfig | None = None,
+                       debugTransportBundle: AbstractDebugTransportBundle | None = None) -> Any:
         """
         ibus:  DbusBundle for Instruction Bus (read only)
         dbus:  DbusBundle for Data bus
