@@ -13,6 +13,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
+from rtl.soc.bonfire_core_soc_generator import (
+    BonfireCoreSoCInstanceGenerator,
+    BonfireCoreSoCTestbenchGenerator,
+)
 
 
 CORE_TEMPLATE = """CAPI=2:
@@ -185,13 +189,11 @@ def generate_from_fusesoc(argv):
         print("Gentb {}".format(gentb))
 
         soc = BonfireCoreSoC(conf, hexfile=str(hexfile_path), soc_config=soc_config)
-        soc.gen_soc(
-            hdl,
-            myhdl_entity_name,
-            str(gen_path),
-            gentb=gentb and not extended_soc,
-            handleWarnings=conversion_warnings,
-        )
+        if gentb and not extended_soc:
+            generator = BonfireCoreSoCTestbenchGenerator(soc)
+        else:
+            generator = BonfireCoreSoCInstanceGenerator(soc)
+        generator.convert(hdl, myhdl_entity_name, str(gen_path), handleWarnings=conversion_warnings)
 
         filelist = ["pck_myhdl_011.vhd", "{}.vhd".format(myhdl_entity_name)]
         testbench = ""
@@ -305,7 +307,11 @@ def generate_from_cli(argv):
     conf.jump_bypass = False
 
     soc = BonfireCoreSoC(conf, hexfile=hexfile, soc_config=soc_config)
-    soc.gen_soc(hdl, name, str(gen_path), gentb=gentb, handleWarnings="ignore")
+    if gentb:
+        generator = BonfireCoreSoCTestbenchGenerator(soc)
+    else:
+        generator = BonfireCoreSoCInstanceGenerator(soc)
+    generator.convert(hdl, name, str(gen_path), handleWarnings="ignore")
     if extended_soc:
         render_template(vhdl_template_path, gen_path / "bonfire_core_soc_top.vhd", soc_config)
 

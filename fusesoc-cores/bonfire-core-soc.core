@@ -81,7 +81,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'bonfire_core_soc_top'
-      hexfile: "../code/build/soc/sim/led.hex"
+      #hexfile: "../code/build/soc/sim/led.hex"
 
   soc_tb:
     generator: gen_bonfire_core_soc
@@ -92,7 +92,7 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       entity_name: 'tb_bonfire_core_soc'
-      hexfile: "../code/build/soc/sim/led.hex"
+      #hexfile: "../code/build/soc/sim/led.hex"
 
 
 targets:
@@ -100,8 +100,11 @@ targets:
   sim:
     default_tool: ghdl
     #filesets: [ sim ]
-    generate: [ soc_tb ]
-   
+    generate: 
+      - soc_tb:
+         hexfile: "../code/build/soc/sim/led.hex"
+         expose_wishbone_master: false
+         
     tools:
       ghdl:
         analyze_options: [ --ieee=synopsys,  -frelaxed-rules ]
