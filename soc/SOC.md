@@ -90,7 +90,7 @@ Two RAM implementations exist:
 - `DualportedRamLaned`: four independent 8-bit lanes, default.
 - `DualportedRam`: one 32-bit-wide memory.
 
-`LanedMemory=True` is the default and is usually the better fit for byte-enable
+`lanedMemory=True` is the default and is usually the better fit for byte-enable
 writes.
 
 ## LED Register
@@ -178,7 +178,7 @@ test scenarios.
 | `resetAdr` | `0xc0000000` | CPU reset address |
 | `bramAdrWidth` | `11` | RAM depth as address width in 32-bit words |
 | `NoReset` | `False` | disable normal reset generation |
-| `LanedMemory` | `True` | use byte-laned RAM implementation |
+| `lanedMemory` | `True` | use byte-laned RAM implementation |
 | `numLeds` | `4` | LED output width |
 | `ledActiveLow` | `True` | invert LED output pins |
 | `UseVHDLMemory` | `False` | currently unused |

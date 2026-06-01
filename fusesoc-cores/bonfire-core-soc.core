@@ -80,7 +80,7 @@ generate:
       language: vhdl
       bram_adr_width: 11
       conversion_warnings: 'ignore'
-      entity_name: 'bonfire_core_soc_top'
+      top_entity_name: 'bonfire_core_soc_top'
       #hexfile: "../code/build/soc/sim/led.hex"
 
   soc_tb:
@@ -91,7 +91,7 @@ generate:
       bram_base: 0xC
       bram_adr_width: 11
       conversion_warnings: 'ignore'
-      entity_name: 'tb_bonfire_core_soc'
+      top_entity_name: 'tb_bonfire_core_soc'
       #hexfile: "../code/build/soc/sim/led.hex"
 
 

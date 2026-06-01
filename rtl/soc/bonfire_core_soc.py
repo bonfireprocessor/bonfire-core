@@ -24,7 +24,7 @@ class BonfireCoreSoC:
         self.resetAdr: int = soc_config.get('resetAdr', 0xc0000000)
         self.bramAdrWidth: int = soc_config.get('bramAdrWidth', 11)
         self.NoReset: bool = soc_config.get('NoReset', False)
-        self.LanedMemory: bool = soc_config.get('LanedMemory', True)
+        self.lanedMemory: bool = soc_config.get('lanedMemory', True)
         self.numLeds: int = soc_config.get('numLeds', 4)
         self.ledActiveLow: bool = soc_config.get('ledActiveLow', True)
         self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
@@ -200,7 +200,7 @@ class BonfireCoreSoC:
 
 
 
-        if self.LanedMemory:
+        if self.lanedMemory:
             print("Using Laned Memory")
             ram = ram_dp.DualportedRamLaned(self.hexfile,adrwidth=self.bramAdrWidth)
         else:

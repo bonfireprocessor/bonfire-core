@@ -19,12 +19,12 @@ USE std.textio.all;
 use work.txt_util.all;
 
 
-entity {entity_name} is
+entity {topEntityName} is
     generic (
-        NUM_SPI  : natural := {numSPI};
+        NUM_SPI  : natural := {numSpi};
         NUM_GPIO : natural := {numGpio};
         ENABLE_UART1    : boolean := {enableUart1};
-        ENABLE_SPI      : boolean := {enableSPI};
+        ENABLE_SPI      : boolean := {enableSpi};
         NUM_LEDS       : natural := {numLeds};
         ENABLE_GPIO     : boolean := {enableGpio};
         DEBUG          : boolean := {debug};
@@ -58,12 +58,12 @@ entity {entity_name} is
 
        
     );
-end {entity_name};
+end {topEntityName};
 
 
-architecture rtl of {entity_name} is
+architecture rtl of {topEntityName} is
 
-component {gen_core_name} is
+component {myhdlEntityName} is
     -- sysclk : cpu clock
     -- resetn : reset button, active low
     -- uart0_tx : UART TX Signal -- not used, to be removed
@@ -89,7 +89,7 @@ component {gen_core_name} is
         wb_master_wbm_db_i: in std_logic_vector(31 downto 0);
         wb_master_wbm_sel_o: out std_logic_vector(3 downto 0)
     );
-end component {gen_core_name};
+end component {myhdlEntityName};
 
 constant io_adr_high : integer := 25;
 
@@ -106,7 +106,7 @@ signal reset_sync : std_logic := '0';
 
 begin
 
-U_BONFIRE_CORE: {gen_core_name}
+U_BONFIRE_CORE: {myhdlEntityName}
     port map(
         sysclk => sysclk,
         resetn => resetn,

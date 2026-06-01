@@ -4,6 +4,9 @@ This document describes the current Extended SoC generation flow. It focuses on
 the interaction between the FuseSoC generator in `fusesoc-cores/generators/gen_soc.py`
 and the VHDL template in `fusesoc-cores/templates/soc_top.vhd`.
 
+For a more detailed description of the generator implementation and parameter
+normalization rules, see `soc/GEN_SOC_GENERATOR.md`.
+
 The Extended SoC is not a separate MyHDL implementation. It is a generated VHDL
 wrapper around the MyHDL-generated Bonfire Core SoC. The wrapper exposes the
 MyHDL SoC's Wishbone master and connects it to VHDL peripherals such as UART,
@@ -43,19 +46,21 @@ The generator has two modes controlled by the `extended_soc` parameter.
 
 Without `extended_soc`:
 
-- The MyHDL-generated entity uses `entity_name` directly.
+- The MyHDL-generated entity uses `top_entity_name` directly.
 - No VHDL wrapper is generated.
 - The MyHDL SoC internally uses `wishbone_dummy` unless
   `expose_wishbone_master` is explicitly set.
+- If `top_entity_name` and `myhdl_entity_name` are both set, they must have
+  the same value because there is no wrapper entity.
 
 With `extended_soc: true`:
 
 - The MyHDL-generated entity defaults to `bonfire_core_myhdl_top`.
-- The public top-level entity remains `entity_name`, usually
+- The public top-level entity remains `top_entity_name`, usually
   `bonfire_core_soc_top`.
 - `exposeWishboneMaster` is forced to true in `gen_soc.py`.
-- `fusesoc-cores/templates/soc_top.vhd` is rendered into `<entity_name>.vhd`.
-- `fusesoc-cores/templates/tb_soc.vhd` is rendered into `tb_<entity_name>.vhd`.
+- `fusesoc-cores/templates/soc_top.vhd` is rendered into `<top_entity_name>.vhd`.
+- `fusesoc-cores/templates/tb_soc.vhd` is rendered into `tb_<top_entity_name>.vhd`.
 
 This means the Extended SoC has this hierarchy:
 
@@ -79,21 +84,21 @@ Common parameters:
 | FuseSoC parameter | `soc_config` key | Meaning |
 | --- | --- | --- |
 | `bram_adr_width` | `bramAdrWidth` | BRAM depth as address width in 32-bit words |
-| `laned_memory` | `LanedMemory` | Use byte-laned MyHDL RAM |
+| `laned_memory` | `lanedMemory` | Use byte-laned MyHDL RAM |
 | `num_leds` | `numLeds` | Width of the LED output |
 | `led_active_low` | `ledActiveLow` | LED output polarity |
 | `expose_wishbone_master` | `exposeWishboneMaster` | Expose Wishbone instead of using internal dummy |
-| `entity_name` | `entity_name` | Public generated entity name |
+| `top_entity_name` | `topEntityName` | Public generated entity name |
 
 Extended-wrapper-only parameters:
 
 | FuseSoC parameter | `soc_config` key | Meaning |
 | --- | --- | --- |
-| `myhdl_entity_name` | `gen_core_name` | Name of the MyHDL-generated component |
+| `myhdl_entity_name` | `myhdlEntityName` | Name of the MyHDL-generated component |
 | `num_gpio` | `numGpio` | Number of GPIO bits on the VHDL wrapper |
 | `enable_uart1` | `enableUart1` | Enable UART1 in `bonfire_soc_io` |
-| `enable_spi` | `enableSPI` | Enable SPI in `bonfire_soc_io` |
-| `num_spi` | `numSPI` | Number of SPI ports |
+| `enable_spi` | `enableSpi` | Enable SPI in `bonfire_soc_io` |
+| `num_spi` | `numSpi` | Number of SPI ports |
 
 When `extended_soc` is true, `gen_soc.py` forces:
 
@@ -106,7 +111,7 @@ so the wrapper can connect the generated MyHDL SoC to external VHDL peripherals.
 ## `soc_top.vhd` Template
 
 `fusesoc-cores/templates/soc_top.vhd` is a Python `str.format()` template. Placeholders such as
-`{entity_name}`, `{gen_core_name}`, `{numLeds}`, and `{enableSPI}` are replaced by
+`{topEntityName}`, `{myhdlEntityName}`, `{numLeds}`, and `{enableSpi}` are replaced by
 `gen_soc.py`.
 
 The generated entity exposes board-facing ports:
@@ -120,7 +125,7 @@ The generated entity exposes board-facing ports:
 Internally it instantiates the MyHDL-generated component:
 
 ```vhdl
-U_BONFIRE_CORE: {gen_core_name}
+U_BONFIRE_CORE: {myhdlEntityName}
 ```
 
 The MyHDL component exposes a Wishbone master using flattened MyHDL port names:
