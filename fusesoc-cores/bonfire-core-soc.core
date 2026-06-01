@@ -88,7 +88,6 @@ generate:
     parameters:
       gentb: true
       language: vhdl
-      bram_base: 0xC
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       top_entity_name: 'tb_bonfire_core_soc'

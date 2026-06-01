@@ -62,6 +62,19 @@ def is_testbench_generation(generation_kind):
 
 
 class SoCGenerationConfigBuilder:
+    CONTROL_PARAMETERS = {
+        "language",
+        "generation_kind",
+        "gentb",
+        "extended_soc",
+        "conversion_warnings",
+        "hexfile",
+        "jump_bypass",
+        "top_entity_name",
+        "myhdl_entity_name",
+        "entity_name",
+    }
+
     SOC_PARAMETER_DEFAULTS = {
         "bram_adr_width": 11,
         "laned_memory": True,
@@ -78,7 +91,10 @@ class SoCGenerationConfigBuilder:
         "uart_fifo_depth": 6,
     }
 
+    ALLOWED_PARAMETERS = CONTROL_PARAMETERS | set(SOC_PARAMETER_DEFAULTS)
+
     def build(self, parameters, files_root):
+        self._validate_parameters(parameters)
         hdl = param(parameters, "language", "VHDL")
         generation_kind = self._select_generation_kind(parameters)
         names = self._build_generated_names(parameters, generation_kind)
@@ -94,6 +110,13 @@ class SoCGenerationConfigBuilder:
             hexfile=hexfile,
             conversion_warnings=conversion_warnings,
         )
+
+    def _validate_parameters(self, parameters):
+        unknown = sorted(set(parameters) - self.ALLOWED_PARAMETERS)
+        if unknown:
+            raise ValueError(
+                "Unknown generator parameter(s): {}".format(", ".join(unknown))
+            )
 
     def _select_generation_kind(self, parameters):
         generation_kind = param(parameters, "generation_kind", None)

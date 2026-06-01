@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import print_function
 
-import getopt
+import argparse
 import sys
 from pathlib import Path
 
@@ -11,6 +11,10 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from soc_generator import SoCGenerator
+
+
+def str_to_bool(value):
+    return str(value).lower() not in ("0", "false", "no", "off")
 
 
 def load_generator_input(path):
@@ -53,92 +57,64 @@ def generate_from_fusesoc(argv):
 
 
 def generate_from_cli(argv):
-    try:
-        opts, _ = getopt.getopt(
-            argv[1:],
-            "n",
-            [
-                "hdl=",
-                "name=",
-                "gentb",
-                "laned_memory=",
-                "path=",
-                "bram_adr_width=",
-                "num_leds=",
-                "hexfile=",
-                "expose_wishbone_master",
-                "extended_soc",
-                "vhdl_template_path=",
-            ],
-        )
-    except getopt.GetoptError as err:
-        print(err)
-        sys.exit(2)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--name", default="")
+    parser.add_argument("--hdl", dest="language", default="VHDL")
+    parser.add_argument("--gentb", action="store_true")
+    parser.add_argument("--laned_memory", type=str_to_bool, default=True)
+    parser.add_argument("--path", default="vhdl_gen")
+    parser.add_argument("--bram_adr_width", type=lambda value: int(value, 0), default=11)
+    parser.add_argument("--num_leds", type=lambda value: int(value, 0), default=4)
+    parser.add_argument("--hexfile", default="")
+    parser.add_argument("--expose_wishbone_master", action="store_true")
+    parser.add_argument("--extended_soc", action="store_true")
+    parser.add_argument(
+        "--vhdl_template_path",
+        default=str(REPO_ROOT / "fusesoc-cores" / "templates" / "soc_top.vhd"),
+    )
+    args = parser.parse_args(argv[1:])
 
     parameters = {
-        "language": "VHDL",
-        "laned_memory": True,
-        "bram_adr_width": 11,
-        "num_leds": 4,
+        "language": args.language,
+        "laned_memory": args.laned_memory,
+        "bram_adr_width": args.bram_adr_width,
+        "num_leds": args.num_leds,
         "enable_uart1": True,
         "enable_spi": True,
+        "conversion_warnings": "ignore",
     }
-    gen_path = Path("vhdl_gen")
-    gentb = False
-    extended_soc = False
-    vhdl_template_path = REPO_ROOT / "fusesoc-cores" / "templates" / "soc_top.vhd"
-    name_override = ""
 
-    for option, value in opts:
-        print(option, value)
-        if option in ("-n", "--name"):
-            name_override = value
-        elif option == "--hdl":
-            parameters["language"] = value
-        elif option == "--laned_memory":
-            parameters["laned_memory"] = value not in ("0", "false", "False")
-        elif option == "--bram_adr_width":
-            parameters["bram_adr_width"] = int(value, 0)
-        elif option == "--num_leds":
-            parameters["num_leds"] = int(value, 0)
-        elif option == "--path":
-            gen_path = Path(value)
-        elif option == "--hexfile":
-            parameters["hexfile"] = value
-        elif option == "--gentb":
-            gentb = True
-            parameters["gentb"] = True
-        elif option == "--expose_wishbone_master":
-            parameters["expose_wishbone_master"] = True
-        elif option == "--extended_soc":
-            extended_soc = True
-            parameters["extended_soc"] = True
-            parameters["expose_wishbone_master"] = True
-        elif option == "--vhdl_template_path":
-            vhdl_template_path = Path(value)
+    if args.hexfile:
+        parameters["hexfile"] = args.hexfile
+    if args.gentb:
+        parameters["gentb"] = True
+    if args.expose_wishbone_master:
+        parameters["expose_wishbone_master"] = True
+    if args.extended_soc:
+        parameters["extended_soc"] = True
+        parameters["expose_wishbone_master"] = True
 
-    if extended_soc:
+    if args.extended_soc:
         parameters["top_entity_name"] = "bonfire_core_soc_top"
-        parameters["myhdl_entity_name"] = name_override or "bonfire_core_myhdl_top"
-    elif name_override:
-        parameters["top_entity_name"] = name_override
-    elif gentb:
+        parameters["myhdl_entity_name"] = args.name or "bonfire_core_myhdl_top"
+    elif args.name:
+        parameters["top_entity_name"] = args.name
+    elif args.gentb:
         parameters["top_entity_name"] = "bonfire_core_soc_tb"
     else:
         parameters["top_entity_name"] = "bonfire_core_soc_top"
 
-    if parameters.get("hexfile", ""):
+    if args.hexfile:
         files_root = REPO_ROOT
     else:
         files_root = Path.cwd()
 
-    parameters["conversion_warnings"] = "ignore"
     SoCGenerator().generate(
         parameters,
         files_root,
-        gen_path,
+        Path(args.path),
         write_core=False,
-        wrapper_template_path=vhdl_template_path,
+        wrapper_template_path=Path(args.vhdl_template_path),
         include_extended_testbench=False,
     )
 

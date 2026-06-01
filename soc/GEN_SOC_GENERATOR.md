@@ -173,6 +173,10 @@ case. Defaults are still explicit, because the generator must know which
 parameters belong in `soc_config` and what values to use when a target omits
 them.
 
+The generator validates the FuseSoC `parameters` dictionary against an explicit
+allow-list before conversion starts. Unknown parameters are treated as errors so
+that typos in `.core` files fail early.
+
 ## Entity Name Rules
 
 The generator distinguishes two names:
