@@ -52,10 +52,10 @@ use work.txt_util.all;
 
 entity tb_soc is
     generic (
-        NUM_SPI  : natural := {numSPI};
+        NUM_SPI  : natural := {numSpi};
         NUM_GPIO : natural := {numGpio};
         ENABLE_UART1    : boolean := {enableUart1};
-        ENABLE_SPI      : boolean := {enableSPI};
+        ENABLE_SPI      : boolean := {enableSpi};
         NUM_LEDS       : natural := {numLeds};
         ENABLE_GPIO     : boolean := {enableGpio};
         CLK_FREQ_MHZ  : natural := 25;
@@ -68,12 +68,12 @@ end tb_soc;
 
 architecture tb of tb_soc is
 
-    component {entity_name}
+    component {topEntityName}
     generic (
-        NUM_SPI  : natural := {numSPI};
+        NUM_SPI  : natural := {numSpi};
         NUM_GPIO : natural := {numGpio};
         ENABLE_UART1    : boolean := {enableUart1};
-        ENABLE_SPI      : boolean := {enableSPI};
+        ENABLE_SPI      : boolean := {enableSpi};
         NUM_LEDS       : natural := {numLeds};
         ENABLE_GPIO     : boolean := {enableGpio};
         DEBUG          : boolean := {debug};
@@ -158,7 +158,7 @@ architecture tb of tb_soc is
 
 begin
 
-    dut: {entity_name}
+    dut: {topEntityName}
     generic map (
       NUM_SPI => NUM_SPI,
       NUM_GPIO => NUM_GPIO,

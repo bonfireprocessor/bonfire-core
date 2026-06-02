@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from rtl import config
+from rtl.soc.bonfire_core_soc import BonfireCoreSoC
 from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
 
 from .conftest import run_sim
@@ -42,7 +43,11 @@ def test_myhdl_soc(
     conf = config.BonfireConfig()
     conf.jump_bypass = False
 
-    soc_tb = BonfireCoreSoCTestbench(conf, hexfile=str(hex_path), soc_config={"numLeds": 4}, expose_wishbone=expose_wishbone)
+    soc = BonfireCoreSoC(conf, hexfile=str(hex_path), soc_config={
+        "numLeds": 4,
+        "exposeWishboneMaster": expose_wishbone,
+    })
+    soc_tb = BonfireCoreSoCTestbench(soc)
     tb = soc_tb.testbench()
 
     vcd = _opt_env("BONFIRE_SOC_VCD")

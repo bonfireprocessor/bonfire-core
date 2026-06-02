@@ -99,7 +99,7 @@ Purpose: run the pure MyHDL SoC testbench that was historically available via
 `tb_run.py --new_soc`.
 
 Pytest file:
-- `test_soc_myhdl.py`
+- `test_bonfire_core_soc_tb.py`
 
 The test runs two variants:
 
@@ -111,7 +111,7 @@ The firmware image can be overridden with `BONFIRE_SOC_HEX`.
 
 Run:
 ```bash
-pytest -vv tests/test_soc_myhdl.py
+pytest -vv tests/test_bonfire_core_soc_tb.py
 ```
 
 ## General notes

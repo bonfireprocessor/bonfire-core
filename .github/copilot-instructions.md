@@ -84,7 +84,7 @@ All tests live in [tests/](../tests/) directory:
   - Verify VHDL conversion capability
   - Use wrapper block pattern to eliminate warnings
   - Output to `vhdl_gen/` directory
-  - Example: [tests/test_divider_convert.py](../tests/test_divider_convert.py)
+  - Example: [tests/test_vhdl_conversion.py](../tests/test_vhdl_conversion.py)
 - **Pipeline integration**: `test_integration_pipeline.py`
 - **Core integration**: `test_core.py` (runs [code/](../code/) test programs)
 

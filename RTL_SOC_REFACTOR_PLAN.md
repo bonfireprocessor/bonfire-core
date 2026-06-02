@@ -84,7 +84,7 @@ Run from the project root unless noted otherwise:
 
 ```bash
 make -C code clean all TARGET_PREFIX=riscv64-unknown-elf KEEP_ELF=1
-python -m pytest -s -vv tests/test_soc_myhdl.py
+python -m pytest -s -vv tests/test_bonfire_core_soc_tb.py
 fusesoc list-cores
 fusesoc run --target=sim_extended ::bonfire-core-soc:0
 scripts/bonfire-core --integration -q

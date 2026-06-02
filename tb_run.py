@@ -5,6 +5,7 @@ from tb import  tb_barrel_shifter, tb_alu,tb_decode,tb_regfile,tb_simple_pipelin
 from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
 
 from rtl import config
+from rtl.soc.bonfire_core_soc import BonfireCoreSoC
 
 import getopt, sys, traceback
 
@@ -112,7 +113,8 @@ def core_integration_tests(hex,elf,sig,vcd,verbose):
 def new_soc_test(hex,vcd):
     conf = config.BonfireConfig()
     conf.jump_bypass = False
-    SocTb = BonfireCoreSoCTestbench(conf, hexfile=hex)
+    soc = BonfireCoreSoC(conf, hexfile=hex)
+    SocTb = BonfireCoreSoCTestbench(soc)
     tb=SocTb.testbench()
     test(tb,trace=bool(vcd),filename=vcd,duration=20000)
     

@@ -10,6 +10,7 @@ from rtl.type_aliases import BitSignal
 from rtl.uncore import bonfire_core_ex, ram_dp
 from rtl.uncore.dbus_interconnect import AdrMask
 from rtl import bonfire_interfaces,config
+from util.diagnostics import get_diagnostics
 
 
 class BonfireCoreSoC:
@@ -24,7 +25,7 @@ class BonfireCoreSoC:
         self.resetAdr: int = soc_config.get('resetAdr', 0xc0000000)
         self.bramAdrWidth: int = soc_config.get('bramAdrWidth', 11)
         self.NoReset: bool = soc_config.get('NoReset', False)
-        self.LanedMemory: bool = soc_config.get('LanedMemory', True)
+        self.lanedMemory: bool = soc_config.get('lanedMemory', True)
         self.numLeds: int = soc_config.get('numLeds', 4)
         self.ledActiveLow: bool = soc_config.get('ledActiveLow', True)
         self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
@@ -94,17 +95,18 @@ class BonfireCoreSoC:
             @always_seq(clock.posedge,reset=reset)
             def monitor():
                 if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o and wb_bundle.wbm_ack_i:
-                    print("Wishbone Dummy:")
-                    print("adr_o: 0x{:08x}".format(int(wb_bundle.wbm_adr_o<<2)))
+                    diagnostics = get_diagnostics()
+                    diagnostics.detail("wishbone dummy:")
+                    diagnostics.detail("  adr_o: 0x{:08x}".format(int(wb_bundle.wbm_adr_o<<2)))
                     if wb_bundle.wbm_we_o:
-                        print("Write: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
+                        diagnostics.detail("  write: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
                     else:
-                        print("Read : 0x{:08x}".format(int(wb_bundle.wbm_db_i)))
-                    print("dat_o: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
-                    print("cyc_o: 0x{:x}".format(int(wb_bundle.wbm_cyc_o)))
-                    print("stb_o: 0b{:b}".format(int(wb_bundle.wbm_stb_o)))
-                    print("we_o: 0b{:b}".format(int(wb_bundle.wbm_we_o)))
-                    print("sel_o: 0b{:b}".format(int(wb_bundle.wbm_sel_o)))
+                        diagnostics.detail("  read: 0x{:08x}".format(int(wb_bundle.wbm_db_i)))
+                    diagnostics.detail("  dat_o: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
+                    diagnostics.detail("  cyc_o: 0x{:x}".format(int(wb_bundle.wbm_cyc_o)))
+                    diagnostics.detail("  stb_o: 0b{:b}".format(int(wb_bundle.wbm_stb_o)))
+                    diagnostics.detail("  we_o: 0b{:b}".format(int(wb_bundle.wbm_we_o)))
+                    diagnostics.detail("  sel_o: 0b{:b}".format(int(wb_bundle.wbm_sel_o)))
 
 
         return instances()
@@ -200,11 +202,11 @@ class BonfireCoreSoC:
 
 
 
-        if self.LanedMemory:
-            print("Using Laned Memory")
+        if self.lanedMemory:
+            get_diagnostics().detail("soc: using laned memory")
             ram = ram_dp.DualportedRamLaned(self.hexfile,adrwidth=self.bramAdrWidth)
         else:
-            print("Using non-laned Memory")
+            get_diagnostics().detail("soc: using non-laned memory")
             ram = ram_dp.DualportedRam(self.hexfile,adrwidth=self.bramAdrWidth)
 
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,sysclk)
@@ -229,55 +231,3 @@ class BonfireCoreSoC:
 
 
         return instances()
-
-    def gen_soc(self, hdl: str, name: str, path: str, gentb: bool = False,
-                handleWarnings: str = 'default') -> None:
-        from myhdl import ToVHDLWarning
-        import warnings
-
-        self.conversion=True
-
-        if gentb:
-            from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
-            tb = BonfireCoreSoCTestbench(self.config, hexfile=self.hexfile, soc_config={
-                "bramAdrWidth": self.bramAdrWidth,
-                "LanedMemory": self.LanedMemory,
-                "numLeds": self.numLeds,
-                "ledActiveLow": False,
-                "exposeWishboneMaster": self.exposeWishboneMaster,
-            }, conversion=True)
-            inst = tb.testbench()
-        else:
-
-
-            sysclk: BitSignal = Signal(bool(0))
-            resetn: BitSignal = Signal(bool(1))
-            LED = Signal(modbv(0)[self.numLeds:])
-            uart0_txd: BitSignal = Signal(bool(1))
-            uart0_rxd: BitSignal = Signal(bool(0))
-
-            o_resetn: BitSignal = Signal(bool(1))
-            i_locked: BitSignal = Signal(bool(0))
-
-            if self.exposeWishboneMaster:
-                print("Exposing Wishbone Master Interface")
-                wb_master = bonfire_interfaces.Wishbone_master_bundle()
-            else:
-                wb_master = None
-
-            try:
-                inst = self.bonfire_core_soc(sysclk,resetn,uart0_txd,uart0_rxd,LED,o_resetn,i_locked,wb_master=wb_master)
-            except FileNotFoundError as fnf_error:
-                print(f"File not found: {fnf_error}")
-                import sys
-                sys.exit(1)
-            except Exception as e:
-                print(f"Error initializing bonfire_core_soc: {e}")
-                import sys
-                sys.exit(1)
-
-        with warnings.catch_warnings():
-            warnings.filterwarnings(
-                handleWarnings,
-                category=ToVHDLWarning)
-            inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)

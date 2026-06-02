@@ -6,6 +6,8 @@ License: See LICENSE
 from __future__ import print_function
 from myhdl import *
 
+from util.diagnostics import get_diagnostics
+
 
 
 @block
@@ -29,7 +31,12 @@ def left_shift_comb(d_i,d_o, shift_i, fill_i,c_sh_power_high=5,c_sh_power_low=0)
     """
 
     l=len(d_i)
-    print ("Shifter instance with config {} {}".format(c_sh_power_high,c_sh_power_low))
+    get_diagnostics().detail(
+        "shifter: comb instance high={}, low={}".format(
+            c_sh_power_high,
+            c_sh_power_low,
+        )
+    )
     
     @always_comb
     def comb():
@@ -74,12 +81,20 @@ def left_shift_pipelined(clock,reset,d_i,d_o, shift_i, fill_i,en_i,ready_o, c_pi
         
     """
 
-    print (len(shift_i), c_pipe_stage)
+    get_diagnostics().detail(
+        "shifter: shift bits={}, pipe stage={}".format(len(shift_i), c_pipe_stage)
+    )
     assert(c_pipe_stage<=len(shift_i) and c_pipe_stage>=0)
 
     if c_pipe_stage > 0:
 
-        print ("Shifter implemented with one pipeline stage: {}:{} || {}:{} ".format(c_pipe_stage,0,len(shift_i),c_pipe_stage))
+        get_diagnostics().detail(
+            "shifter: pipelined stage {}:0 || {}:{}".format(
+                c_pipe_stage,
+                len(shift_i),
+                c_pipe_stage,
+            )
+        )
 
         stage_reg = Signal(modbv(0)[len(d_i):])
         stage0_out = Signal(modbv(0)[len(d_i):])
@@ -108,7 +123,7 @@ def left_shift_pipelined(clock,reset,d_i,d_o, shift_i, fill_i,en_i,ready_o, c_pi
 
     else:
 
-      print ("Shifter implemented without pipeline stage "  )
+      get_diagnostics().detail("shifter: combinational implementation")
       shifter_inst=left_shift_comb(d_i,d_o,shift_i,fill_i,len(shift_i))
 
       @always_comb
@@ -180,4 +195,3 @@ def shift_pipelined(clock,reset,d_i,d_o, shift_i, right_i, fill_i,en_i,ready_o, 
     return instances()
         
             
-
