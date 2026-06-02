@@ -4,6 +4,8 @@ import datetime
 import sys
 from string import Formatter
 
+from util.diagnostics import get_diagnostics
+
 
 class VhdlTemplateRenderer:
     def __init__(self, files_root, gen_path, wrapper_template_path=None):
@@ -41,13 +43,13 @@ class VhdlTemplateRenderer:
                 key for key in keys_in_template
                 if key not in render_config
             ]
-            print(
-                "Error: Missing keys in soc_config: {}".format(
+            get_diagnostics().error(
+                "missing keys in soc_config: {}".format(
                     ", ".join(missing_keys or [str(err)])
                 )
             )
             sys.exit(1)
-        print("Generated VHDL file: {}".format(output_path))
+        get_diagnostics().summary("generated VHDL: {}".format(output_path))
 
     def _prepare_template_config(self, soc_config):
         config = dict(soc_config)

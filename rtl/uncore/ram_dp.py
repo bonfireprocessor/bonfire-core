@@ -12,6 +12,7 @@ from myhdl import *
 
 from rtl.bonfire_interfaces import DbusBundle
 from rtl.type_aliases import BitSignal
+from util.diagnostics import get_diagnostics
 
 
 class RamPort:
@@ -46,11 +47,13 @@ def create_ram(ramfile: str, ramsize: int, dataWidth: int = 32) -> list[Any]:
         ram.append(Signal(intbv(i)[dataWidth:]))
         adr += 1
 
-    print("eof at adr:{}".format(hex(adr<<2)))
+    get_diagnostics().detail("ram: eof at {}".format(hex(adr << 2)))
     for i in range(adr,ramsize):
         ram.append(Signal(intbv(0)[dataWidth:]))
 
-    print("Created ram with size {} words, width={}".format(len(ram),dataWidth))
+    get_diagnostics().detail(
+        "ram: created size={} words, width={}".format(len(ram), dataWidth)
+    )
     return ram
 
 
@@ -188,13 +191,15 @@ class DualportedRamLaned:
 
             adr += 1
 
-        print("eof at adr:{}".format(hex(adr<<2)))
+        get_diagnostics().detail("laned ram: eof at {}".format(hex(adr << 2)))
         for i in range(adr,ramsize):
             for k in range(0,4):
                 self.ram[k].append(Signal(intbv(0)[8:]))
 
 
-        print("Created  laned ram with size {} words".format(len(self.ram[0])))
+        get_diagnostics().detail(
+            "laned ram: created size={} words, lanes=4".format(len(self.ram[0]))
+        )
 
 
 

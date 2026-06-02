@@ -10,6 +10,7 @@ from rtl.type_aliases import BitSignal
 from rtl.uncore import bonfire_core_ex, ram_dp
 from rtl.uncore.dbus_interconnect import AdrMask
 from rtl import bonfire_interfaces,config
+from util.diagnostics import get_diagnostics
 
 
 class BonfireCoreSoC:
@@ -94,17 +95,18 @@ class BonfireCoreSoC:
             @always_seq(clock.posedge,reset=reset)
             def monitor():
                 if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o and wb_bundle.wbm_ack_i:
-                    print("Wishbone Dummy:")
-                    print("adr_o: 0x{:08x}".format(int(wb_bundle.wbm_adr_o<<2)))
+                    diagnostics = get_diagnostics()
+                    diagnostics.detail("wishbone dummy:")
+                    diagnostics.detail("  adr_o: 0x{:08x}".format(int(wb_bundle.wbm_adr_o<<2)))
                     if wb_bundle.wbm_we_o:
-                        print("Write: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
+                        diagnostics.detail("  write: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
                     else:
-                        print("Read : 0x{:08x}".format(int(wb_bundle.wbm_db_i)))
-                    print("dat_o: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
-                    print("cyc_o: 0x{:x}".format(int(wb_bundle.wbm_cyc_o)))
-                    print("stb_o: 0b{:b}".format(int(wb_bundle.wbm_stb_o)))
-                    print("we_o: 0b{:b}".format(int(wb_bundle.wbm_we_o)))
-                    print("sel_o: 0b{:b}".format(int(wb_bundle.wbm_sel_o)))
+                        diagnostics.detail("  read: 0x{:08x}".format(int(wb_bundle.wbm_db_i)))
+                    diagnostics.detail("  dat_o: 0x{:08x}".format(int(wb_bundle.wbm_db_o)))
+                    diagnostics.detail("  cyc_o: 0x{:x}".format(int(wb_bundle.wbm_cyc_o)))
+                    diagnostics.detail("  stb_o: 0b{:b}".format(int(wb_bundle.wbm_stb_o)))
+                    diagnostics.detail("  we_o: 0b{:b}".format(int(wb_bundle.wbm_we_o)))
+                    diagnostics.detail("  sel_o: 0b{:b}".format(int(wb_bundle.wbm_sel_o)))
 
 
         return instances()
@@ -201,10 +203,10 @@ class BonfireCoreSoC:
 
 
         if self.lanedMemory:
-            print("Using Laned Memory")
+            get_diagnostics().detail("soc: using laned memory")
             ram = ram_dp.DualportedRamLaned(self.hexfile,adrwidth=self.bramAdrWidth)
         else:
-            print("Using non-laned Memory")
+            get_diagnostics().detail("soc: using non-laned memory")
             ram = ram_dp.DualportedRam(self.hexfile,adrwidth=self.bramAdrWidth)
 
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,sysclk)

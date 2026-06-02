@@ -9,6 +9,7 @@ from rtl.soc.bonfire_core_soc_generator import (
 from generated_core_writer import GeneratedCoreWriter
 from soc_generator_config import SoCGenerationConfigBuilder
 from vhdl_template_renderer import VhdlTemplateRenderer
+from util.diagnostics import get_diagnostics
 
 
 class SoCGenerator:
@@ -21,6 +22,7 @@ class SoCGenerator:
                  include_extended_testbench=True):
         from rtl import config
 
+        diagnostics = get_diagnostics()
         gen_path.mkdir(parents=True, exist_ok=True)
         generation_config = self.config_builder.build(parameters, files_root)
 
@@ -28,8 +30,12 @@ class SoCGenerator:
 
         conf = config.BonfireConfig()
         conf.jump_bypass = parameters.get("jump_bypass", False)
-        print("jump_bypass {}".format(conf.jump_bypass))
-        print("Generation kind {}".format(generation_config.generation_kind))
+        diagnostics.summary("kind: {}".format(generation_config.generation_kind))
+        diagnostics.summary("top entity: {}".format(generation_config.names.top_entity_name))
+        diagnostics.summary("myhdl entity: {}".format(generation_config.names.myhdl_entity_name))
+        if generation_config.hexfile:
+            diagnostics.summary("hexfile: {}".format(generation_config.hexfile))
+        diagnostics.detail("jump_bypass: {}".format(conf.jump_bypass))
 
         soc = BonfireCoreSoC(
             conf,

@@ -6,6 +6,10 @@ from myhdl import Signal, modbv
 
 from rtl import bonfire_interfaces
 from rtl.type_aliases import BitSignal
+from util.diagnostics import diagnostics_context, get_diagnostics
+
+
+CONVERSION_ELABORATION_QUIET_LEVEL = 1
 
 
 class BonfireCoreSoCInstanceGenerator:
@@ -23,7 +27,7 @@ class BonfireCoreSoCInstanceGenerator:
         i_locked: BitSignal = Signal(bool(0))
 
         if self.soc.exposeWishboneMaster:
-            print("Exposing Wishbone Master Interface")
+            get_diagnostics().detail("soc: exposing Wishbone master interface")
             wb_master = bonfire_interfaces.Wishbone_master_bundle()
         else:
             wb_master = None
@@ -40,11 +44,11 @@ class BonfireCoreSoCInstanceGenerator:
                 wb_master=wb_master,
             )
         except FileNotFoundError as fnf_error:
-            print(f"File not found: {fnf_error}")
+            get_diagnostics().error("file not found: {}".format(fnf_error))
             import sys
             sys.exit(1)
         except Exception as e:
-            print(f"Error initializing bonfire_core_soc: {e}")
+            get_diagnostics().error("initializing bonfire_core_soc: {}".format(e))
             import sys
             sys.exit(1)
 
@@ -60,7 +64,10 @@ class BonfireCoreSoCInstanceGenerator:
             warnings.filterwarnings(
                 handleWarnings,
                 category=ToVHDLWarning)
-            inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
+            with diagnostics_context(
+                get_diagnostics().with_quiet_level(CONVERSION_ELABORATION_QUIET_LEVEL)
+            ):
+                inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
 
 
 class BonfireCoreSoCTestbenchGenerator:
@@ -85,4 +92,7 @@ class BonfireCoreSoCTestbenchGenerator:
             warnings.filterwarnings(
                 handleWarnings,
                 category=ToVHDLWarning)
-            inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
+            with diagnostics_context(
+                get_diagnostics().with_quiet_level(CONVERSION_ELABORATION_QUIET_LEVEL)
+            ):
+                inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)

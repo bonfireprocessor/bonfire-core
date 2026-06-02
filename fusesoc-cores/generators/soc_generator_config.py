@@ -3,6 +3,8 @@ from __future__ import print_function
 from dataclasses import dataclass
 from pathlib import Path
 
+from util.diagnostics import get_diagnostics
+
 
 class GenerationKind:
     BASIC_SOC_TOP = "basic_soc_top"
@@ -34,6 +36,7 @@ class SoCGenerationConfig:
     soc_config: dict
     hexfile: str
     conversion_warnings: str
+    diagnostics_quiet: int
 
     @property
     def is_extended(self):
@@ -73,6 +76,7 @@ class SoCGenerationConfigBuilder:
         "top_entity_name",
         "myhdl_entity_name",
         "entity_name",
+        "diagnostics_quiet",
     }
 
     SOC_PARAMETER_DEFAULTS = {
@@ -101,6 +105,7 @@ class SoCGenerationConfigBuilder:
         soc_config = self._build_soc_config(parameters, names, generation_kind)
         hexfile = self._resolve_hexfile(parameters, files_root)
         conversion_warnings = param(parameters, "conversion_warnings", "default")
+        diagnostics_quiet = int(param(parameters, "diagnostics_quiet", 0))
 
         return SoCGenerationConfig(
             hdl=hdl,
@@ -109,6 +114,7 @@ class SoCGenerationConfigBuilder:
             soc_config=soc_config,
             hexfile=hexfile,
             conversion_warnings=conversion_warnings,
+            diagnostics_quiet=diagnostics_quiet,
         )
 
     def _validate_parameters(self, parameters):
@@ -148,7 +154,9 @@ class SoCGenerationConfigBuilder:
         if top_entity_name is None:
             top_entity_name = param(parameters, "entity_name", default_top_entity_name)
             if "entity_name" in parameters:
-                print("Warning: 'entity_name' parameter is deprecated; use 'top_entity_name'")
+                get_diagnostics().warning(
+                    "'entity_name' parameter is deprecated; use 'top_entity_name'"
+                )
         elif "entity_name" in parameters and parameters["entity_name"] != top_entity_name:
             raise ValueError(
                 "'entity_name' and 'top_entity_name' parameters are both set with different values"
@@ -207,7 +215,7 @@ class SoCGenerationConfigBuilder:
             return ""
 
         hexfile_path = Path(files_root, hexfile).resolve()
-        print("Checking existence of hex file: {}".format(hexfile_path))
+        get_diagnostics().detail("checking hexfile: {}".format(hexfile_path))
         if not hexfile_path.is_file():
             raise FileNotFoundError("Hex file '{}' does not exist.".format(hexfile_path))
         return str(hexfile_path)

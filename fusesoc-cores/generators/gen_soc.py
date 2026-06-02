@@ -2,6 +2,7 @@
 from __future__ import print_function
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
@@ -11,6 +12,7 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from soc_generator import SoCGenerator
+from util.diagnostics import Diagnostics, diagnostics_context
 
 
 def str_to_bool(value):
@@ -32,26 +34,29 @@ def generate_from_fusesoc(argv):
     if str(input_path).startswith("-"):
         return False
 
-    print(input_path)
     try:
         generator_input = load_generator_input(input_path)
-        print(generator_input)
     except FileNotFoundError as err:
-        print("Error: {}".format(err))
-        return False
+        Diagnostics().error(err)
+        sys.exit(1)
 
     files_root = Path(generator_input["files_root"])
     parameters = generator_input["parameters"]
     vlnv = generator_input["vlnv"]
     gen_path = Path.cwd()
+    diagnostics = Diagnostics(_resolve_quiet_level(parameters))
 
-    print("Generating into: {}".format(gen_path))
+    with diagnostics_context(diagnostics):
+        diagnostics.summary("input: {}".format(input_path))
+        diagnostics.detail("vlnv: {}".format(vlnv))
+        diagnostics.detail("files root: {}".format(files_root))
+        diagnostics.summary("output: {}".format(gen_path))
 
-    try:
-        SoCGenerator().generate(parameters, files_root, gen_path, vlnv=vlnv)
-    except (FileNotFoundError, ValueError) as err:
-        print("Error: {}".format(err))
-        sys.exit(1)
+        try:
+            SoCGenerator().generate(parameters, files_root, gen_path, vlnv=vlnv)
+        except (FileNotFoundError, ValueError) as err:
+            diagnostics.error(err)
+            sys.exit(1)
 
     return True
 
@@ -68,6 +73,7 @@ def generate_from_cli(argv):
     parser.add_argument("--hexfile", default="")
     parser.add_argument("--expose_wishbone_master", action="store_true")
     parser.add_argument("--extended_soc", action="store_true")
+    parser.add_argument("--diagnostics-quiet", type=int, default=0)
     parser.add_argument(
         "--vhdl_template_path",
         default=str(REPO_ROOT / "fusesoc-cores" / "templates" / "soc_top.vhd"),
@@ -82,6 +88,7 @@ def generate_from_cli(argv):
         "enable_uart1": True,
         "enable_spi": True,
         "conversion_warnings": "ignore",
+        "diagnostics_quiet": args.diagnostics_quiet,
     }
 
     if args.hexfile:
@@ -109,14 +116,24 @@ def generate_from_cli(argv):
     else:
         files_root = Path.cwd()
 
-    SoCGenerator().generate(
-        parameters,
-        files_root,
-        Path(args.path),
-        write_core=False,
-        wrapper_template_path=Path(args.vhdl_template_path),
-        include_extended_testbench=False,
-    )
+    diagnostics = Diagnostics(_resolve_quiet_level(parameters))
+    with diagnostics_context(diagnostics):
+        SoCGenerator().generate(
+            parameters,
+            files_root,
+            Path(args.path),
+            write_core=False,
+            wrapper_template_path=Path(args.vhdl_template_path),
+            include_extended_testbench=False,
+        )
+
+
+def _resolve_quiet_level(parameters):
+    quiet_level = parameters.get("diagnostics_quiet", 0)
+    env_quiet = os.environ.get("BONFIRE_GENERATOR_QUIET")
+    if env_quiet is not None:
+        quiet_level = env_quiet
+    return int(quiet_level)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
 from __future__ import print_function
 
+from util.diagnostics import get_diagnostics
+
 
 CORE_TEMPLATE = """CAPI=2:
 name: {vlnv}
@@ -41,7 +43,7 @@ class GeneratedCoreWriter:
                 testbench=self._testbench_section(testbench_files or []),
             )
         )
-        print("Generated {}".format(core_path.name))
+        get_diagnostics().summary("generated core: {}".format(core_path.name))
 
     def _testbench_section(self, testbench_files):
         if not testbench_files:
