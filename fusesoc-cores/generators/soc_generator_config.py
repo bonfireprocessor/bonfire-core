@@ -202,7 +202,7 @@ class SoCGenerationConfigBuilder:
         }
 
     def _resolve_hexfile(self, parameters, files_root):
-        hexfile = param(parameters, "hexfile", "")
+        hexfile = self._resolve_single_hexfile_value(param(parameters, "hexfile", ""))
         if not hexfile:
             return ""
 
@@ -211,3 +211,20 @@ class SoCGenerationConfigBuilder:
         if not hexfile_path.is_file():
             raise FileNotFoundError("Hex file '{}' does not exist.".format(hexfile_path))
         return str(hexfile_path)
+
+    def _resolve_single_hexfile_value(self, hexfile):
+        if not isinstance(hexfile, list):
+            return hexfile
+
+        selected_hexfiles = [
+            entry
+            for entry in hexfile
+            if entry is not None and entry != ""
+        ]
+        if len(selected_hexfiles) != 1:
+            raise ValueError(
+                "'hexfile' list must resolve to exactly one entry, got {}".format(
+                    len(selected_hexfiles)
+                )
+            )
+        return selected_hexfiles[0]

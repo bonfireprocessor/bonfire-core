@@ -118,8 +118,9 @@ targets:
     generate:
     - soc_top:
         bram_adr_width: 12
-        hexfile: "../code/build/soc/sim/hello.hex"
-        #hexfile: "../code/build/soc/sim/monitor.hex"
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/sim/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/sim/hello.hex)"
         num_leds: 8
         led_active_low: false
         laned_memory: false
@@ -177,7 +178,9 @@ targets:
       - soc_top:
           &soc_extended_cmods7_params
             bram_adr_width: 14
-            hexfile: "../code/build/soc/cmods7/hello.hex"
+            hexfile:
+              - "fw_monitor ? (../code/build/soc/cmods7/monitor.hex)"
+              - "!fw_monitor ? (../code/build/soc/cmods7/hello.hex)"
             led_active_low: false
             laned_memory: false
             extended_soc: true
@@ -254,7 +257,9 @@ targets:
     filesets: [ulx3s_lpf, scripts, soc_io, ulx3s_top ]
     generate:
     - soc_top:
-        hexfile: "../code/build/soc/ulx3s/hello.hex"
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/ulx3s/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/ulx3s/hello.hex)"
         num_leds: 8
         led_active_low: false
         laned_memory: false
@@ -288,8 +293,9 @@ targets:
     filesets: [icepizero_lpf, scripts, soc_io, icepizero_top ]
     generate:
     - soc_top:
-        hexfile: "../code/build/soc/icepizero/hello.hex"
-        #hexfile: "../code/build/soc/icepizero/monitor.hex"
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/icepizero/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/icepizero/hello.hex)"
         num_leds: 5
         led_active_low: false
         laned_memory: false
