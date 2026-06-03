@@ -15,8 +15,9 @@ from myhdl import *
 from rtl import bonfire_core_top, bonfire_interfaces, config
 from rtl.debugModule import AbstractDebugTransportBundle
 from rtl.instructions import CSRAdr
+from rtl.jtag_dtm import JtagDTM
 from tb.ClkDriver import ClkDriver
-from tb.debug_api import DebugAPISim
+from tb.debug_api import DebugAPI, DebugAPISim, JtagDebugAPISim
 from tb.disassemble import abi_name
 from tb.sim_monitor import monitor_instance
 from tb.sim_ram import sim_ram
@@ -31,6 +32,7 @@ class BonfireCoreDebugTestbench:
         sigFile: str = "",
         ramsize: int = 16384,
         verbose: bool = False,
+        debug_transport: str = "dmi",
     ) -> None:
         self.config = config
         self.hexfile = hexfile
@@ -38,6 +40,7 @@ class BonfireCoreDebugTestbench:
         self.sigFile = sigFile
         self.ramsize = ramsize
         self.verbose = verbose
+        self.debug_transport = debug_transport
 
     def log(self, message: str) -> None:
         print("@{}ns [debug-tb] {}".format(now(), message))
@@ -59,16 +62,16 @@ class BonfireCoreDebugTestbench:
         print("Created ram with size {} words".format(len(ram)))
         return ram
 
-    def check_cmd_result(self, api: DebugAPISim, check_value: int, text: str = "") -> None:
+    def check_cmd_result(self, api: DebugAPI, check_value: int, text: str = "") -> None:
         assert api.cmd_result() == check_value, "{} result: {} expected: {}".format(text, hex(api.cmd_result()), hex(check_value))
         self.log("{} -> {}".format(text or "cmd result", hex(api.cmd_result())))
 
-    def check_gpr(self, api: DebugAPISim, regno: int, check_value: int) -> Generator[Any, None, None]:
+    def check_gpr(self, api: DebugAPI, regno: int, check_value: int) -> Generator[Any, None, None]:
         yield api.readGPR(regno=regno)
         assert api.cmd_result() == check_value, "check_gpr failure result: {} expected: {}".format(hex(api.cmd_result()), hex(check_value))
         self.log("verify GPR {} = {}".format(abi_name(regno), hex(api.cmd_result())))
 
-    def set_and_check_dcsr(self, api: DebugAPISim, breakm: bool = False, step: bool = False) -> Generator[Any, None, None]:
+    def set_and_check_dcsr(self, api: DebugAPI, breakm: bool = False, step: bool = False) -> Generator[Any, None, None]:
         dcsr = 0x700 | CSRAdr.dcsr
         v = modbv(0)[32:]
         v[15] = breakm
@@ -78,13 +81,33 @@ class BonfireCoreDebugTestbench:
         self.log("dcsr = {} (ebreakm={}, step={})".format(hex(api.cmd_result()), breakm, step))
         assert api.result[15] == breakm and api.result[2] == step, "dcsr write failed"
 
+    def check_dpc(self, api: DebugAPI, expected: int, text: str) -> Generator[Any, None, None]:
+        yield api.readReg(regno=0x700 | CSRAdr.dpc)
+        actual = api.cmd_result()
+        self.log("{} dpc = {}".format(text, hex(actual)))
+        assert actual == expected, "{} dpc: {} expected: {}".format(text, hex(actual), hex(expected))
+
     @block
-    def halt_resume_stimulus(self, dtm_bundle: AbstractDebugTransportBundle, clock: Any) -> Any:
+    def halt_resume_stimulus(
+        self,
+        dtm_bundle: AbstractDebugTransportBundle,
+        clock: Any,
+        tms: Any = None,
+        tdi: Any = None,
+        tdo: Any = None,
+    ) -> Any:
         """Stimulus for exercising the debug module through the DMI interface."""
 
         @instance
         def test() -> Generator[Any, None, None]:
-            api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock)
+            if self.debug_transport == "jtag":
+                assert tms is not None and tdi is not None and tdo is not None
+                api = JtagDebugAPISim(self.config, clock, tms, tdi, tdo, verbose=self.verbose)
+                yield api.reset_tap()
+                self.log("using JTAG debug transport")
+            else:
+                api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock)
+                self.log("using direct DMI debug transport")
 
             self.log("starting debug module smoke/integration test")
             for _ in range(0, 5):
@@ -96,14 +119,14 @@ class BonfireCoreDebugTestbench:
 
             yield api.halt()
             self.log("halt request acknowledged; hart halted")
+            yield self.check_dpc(api, 0x0C, "first halt")
             yield api.resume()
             self.log("resume request acknowledged; hart running again")
             assert not api.halted, "Core not in running state"
             yield api.halt()
             self.log("second halt successful; entering detailed debug checks")
 
-            yield api.readReg(regno=0x700 | CSRAdr.dpc)
-            self.log("initial dpc = {}".format(hex(api.cmd_result())))
+            yield self.check_dpc(api, 0x0C, "second halt")
 
             gpr_save: list[int] = [0]
             self.log("reading architectural GPR state")
@@ -174,6 +197,10 @@ class BonfireCoreDebugTestbench:
         local_config = self.config
         local_config.enableDebugModule = True
         dtm = AbstractDebugTransportBundle(local_config)
+        tms = Signal(bool(1))
+        tdi = Signal(bool(0))
+        tdo = Signal(bool(0))
+        trst = ResetSignal(0, active=1, isasync=True)
 
         ram = self.create_ram(self.hexfile, self.ramsize)
 
@@ -194,7 +221,12 @@ class BonfireCoreDebugTestbench:
 
         clk_driver = ClkDriver(clock)
         mon_i = monitor_instance(ram, mon_dbus, clock, sigFile=self.sigFile, elfFile=self.elfFile)
-        stim = self.halt_resume_stimulus(dtm, clock)
+        stim = self.halt_resume_stimulus(dtm, clock, tms=tms, tdi=tdi, tdo=tdo)
+        jtag_dtm = None
+        if self.debug_transport == "jtag":
+            jtag_dtm = JtagDTM(local_config).createInstance(clock, trst, tms, tdi, tdo, dtm)
+        elif self.debug_transport != "dmi":
+            raise ValueError("Unsupported debug_transport: {}".format(self.debug_transport))
 
         core = bonfire_core_top.BonfireCoreTop(local_config)
         dut = core.createInstance(ibus, dbus, control, clock, reset, debug, debugTransportBundle=dtm)

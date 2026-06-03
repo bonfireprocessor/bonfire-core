@@ -10,6 +10,10 @@ from typing import Any
 
 from myhdl import *
 
+from rtl.config import BonfireConfig
+from rtl.jtag_dtm import DMI_OP_READ, DMI_OP_WRITE, JTAG_INSTR_DMI, JTAG_IR_WIDTH
+from rtl.type_aliases import BitSignal
+
 
 class DebugAPI:
     def __init__(self) -> None:
@@ -190,3 +194,102 @@ class DebugAPISim(DebugAPI):
         self.dtm_bundle.dbi.next = data
         yield self.clock.posedge
         self.dtm_bundle.en.next = False
+
+
+def _bits_lsb_first(value: int, width: int) -> list[int]:
+    return [(value >> bit) & 1 for bit in range(width)]
+
+
+class JtagDebugAPISim(DebugAPI):
+    def __init__(
+        self,
+        config: BonfireConfig,
+        clock: Any,
+        tms: BitSignal,
+        tdi: BitSignal,
+        tdo: BitSignal,
+        verbose: bool = False,
+    ) -> None:
+        self.config = config
+        self.clock = clock
+        self.tms = tms
+        self.tdi = tdi
+        self.tdo = tdo
+        self.verbose = verbose
+        self.last_tdo = 0
+        self.last_scan = 0
+        self.dmi_width = config.dmi_adr_width + 34
+        DebugAPI.__init__(self)
+
+    def log(self, message: str) -> None:
+        if self.verbose:
+            print("@{}ns [jtag-debug-api] {}".format(now(), message))
+
+    def yield_clock(self) -> Generator[Any, None, None]:
+        yield self.clock.posedge
+
+    def jtag_cycle(self, tms: int, tdi: int = 0) -> Generator[Any, None, None]:
+        self.tms.next = bool(tms)
+        self.tdi.next = bool(tdi)
+        yield delay(1)
+        self.last_tdo = int(self.tdo)
+        yield self.clock.posedge
+        yield delay(0)
+
+    def reset_tap(self) -> Generator[Any, None, None]:
+        self.log("reset TAP")
+        for _ in range(6):
+            yield self.jtag_cycle(1)
+        yield self.jtag_cycle(0)
+
+    def set_ir(self, instruction: int) -> Generator[Any, None, None]:
+        self.log("set IR {}".format(hex(instruction)))
+        yield self.jtag_cycle(1)
+        yield self.jtag_cycle(1)
+        yield self.jtag_cycle(0)
+        yield self.jtag_cycle(0)
+        bits = _bits_lsb_first(instruction, JTAG_IR_WIDTH)
+        for index, bit in enumerate(bits):
+            yield self.jtag_cycle(1 if index == len(bits) - 1 else 0, bit)
+        yield self.jtag_cycle(1)
+        yield self.jtag_cycle(0)
+
+    def scan_dr(self, value: int, width: int) -> Generator[Any, None, None]:
+        result = 0
+        yield self.jtag_cycle(1)
+        yield self.jtag_cycle(0)
+        yield self.jtag_cycle(0)
+        bits = _bits_lsb_first(value, width)
+        for index, bit in enumerate(bits):
+            yield self.jtag_cycle(1 if index == len(bits) - 1 else 0, bit)
+            result |= self.last_tdo << index
+        yield self.jtag_cycle(1)
+        yield self.jtag_cycle(0)
+        self.last_scan = result
+
+    def idle(self, cycles: int = 1) -> Generator[Any, None, None]:
+        for _ in range(cycles):
+            yield self.jtag_cycle(0)
+
+    def dmi_read(self, adr: int) -> Generator[Any, None, None]:
+        yield self.set_ir(JTAG_INSTR_DMI)
+        request = (adr << 34) | DMI_OP_READ
+        self.log("DMI read request adr={}".format(hex(adr)))
+        yield self.scan_dr(request, self.dmi_width)
+        yield self.idle(2)
+        yield self.scan_dr(0, self.dmi_width)
+        response = modbv(self.last_scan)[self.dmi_width:]
+        op = response[2:0]
+        assert op == 0, "JTAG DMI read failed with op {}".format(op)
+        self.result._val = response[34:2]
+        self.log("DMI read response adr={} data={}".format(hex(adr), hex(self.cmd_result())))
+
+    def dmi_write(self, adr: int, data: int) -> Generator[Any, None, None]:
+        yield self.set_ir(JTAG_INSTR_DMI)
+        request = (adr << 34) | (data << 2) | DMI_OP_WRITE
+        self.log("DMI write adr={} data={}".format(hex(adr), hex(data)))
+        yield self.scan_dr(request, self.dmi_width)
+        response = modbv(self.last_scan)[self.dmi_width:]
+        op = response[2:0]
+        assert op == 0, "JTAG DMI write failed with op {}".format(op)
+        yield self.idle(2)
