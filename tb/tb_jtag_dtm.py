@@ -20,6 +20,7 @@ from rtl.jtag_dtm import (
     JTAG_INSTR_IDCODE,
     JTAG_IR_WIDTH,
     JtagDTM,
+    t_tapState,
 )
 
 
@@ -93,6 +94,45 @@ class JtagBFM:
             yield self.cycle(0)
 
 
+TAP_STATE_PATHS = (
+    (t_tapState.test_logic_reset, (1, 1, 1)),
+    (t_tapState.run_test_idle, ()),
+    (t_tapState.select_dr_scan, (1,)),
+    (t_tapState.capture_dr, (1, 0)),
+    (t_tapState.shift_dr, (1, 0, 0)),
+    (t_tapState.exit1_dr, (1, 0, 0, 1)),
+    (t_tapState.pause_dr, (1, 0, 0, 1, 0)),
+    (t_tapState.exit2_dr, (1, 0, 0, 1, 0, 1)),
+    (t_tapState.update_dr, (1, 0, 0, 1, 1)),
+    (t_tapState.select_ir_scan, (1, 1)),
+    (t_tapState.capture_ir, (1, 1, 0)),
+    (t_tapState.shift_ir, (1, 1, 0, 0)),
+    (t_tapState.exit1_ir, (1, 1, 0, 0, 1)),
+    (t_tapState.pause_ir, (1, 1, 0, 0, 1, 0)),
+    (t_tapState.exit2_ir, (1, 1, 0, 0, 1, 0, 1)),
+    (t_tapState.update_ir, (1, 1, 0, 0, 1, 1)),
+)
+
+TAP_TRANSITIONS = (
+    (t_tapState.test_logic_reset, t_tapState.run_test_idle, t_tapState.test_logic_reset),
+    (t_tapState.run_test_idle, t_tapState.run_test_idle, t_tapState.select_dr_scan),
+    (t_tapState.select_dr_scan, t_tapState.capture_dr, t_tapState.select_ir_scan),
+    (t_tapState.capture_dr, t_tapState.shift_dr, t_tapState.exit1_dr),
+    (t_tapState.shift_dr, t_tapState.shift_dr, t_tapState.exit1_dr),
+    (t_tapState.exit1_dr, t_tapState.pause_dr, t_tapState.update_dr),
+    (t_tapState.pause_dr, t_tapState.pause_dr, t_tapState.exit2_dr),
+    (t_tapState.exit2_dr, t_tapState.shift_dr, t_tapState.update_dr),
+    (t_tapState.update_dr, t_tapState.run_test_idle, t_tapState.select_dr_scan),
+    (t_tapState.select_ir_scan, t_tapState.capture_ir, t_tapState.test_logic_reset),
+    (t_tapState.capture_ir, t_tapState.shift_ir, t_tapState.exit1_ir),
+    (t_tapState.shift_ir, t_tapState.shift_ir, t_tapState.exit1_ir),
+    (t_tapState.exit1_ir, t_tapState.pause_ir, t_tapState.update_ir),
+    (t_tapState.pause_ir, t_tapState.pause_ir, t_tapState.exit2_ir),
+    (t_tapState.exit2_ir, t_tapState.shift_ir, t_tapState.update_ir),
+    (t_tapState.update_ir, t_tapState.run_test_idle, t_tapState.select_dr_scan),
+)
+
+
 @block
 def jtag_dtm_testbench(verbose: bool = True):
     conf = BonfireConfig()
@@ -102,10 +142,11 @@ def jtag_dtm_testbench(verbose: bool = True):
     tdi = Signal(bool(0))
     tdo = Signal(bool(0))
     dtm = AbstractDebugTransportBundle(conf)
+    tap_state = Signal(t_tapState.test_logic_reset)
     last_scan = Signal(modbv(0)[conf.dmi_adr_width + 34:])
     regs = [Signal(modbv(0)[32:]) for _ in range(2**conf.dmi_adr_width)]
 
-    dut = JtagDTM(conf).createInstance(tck, trst, tms, tdi, tdo, dtm)
+    dut = JtagDTM(conf).createInstance(tck, trst, tms, tdi, tdo, dtm, tap_state_o=tap_state)
 
     @always_seq(tck.posedge, reset=None)
     def dmi_model():
@@ -125,6 +166,37 @@ def jtag_dtm_testbench(verbose: bool = True):
         bfm = JtagBFM(tck, tms, tdi, tdo, last_scan, verbose=verbose)
         dmi_width = conf.dmi_adr_width + 34
 
+        def check_state(expected: Any, context: str) -> None:
+            assert tap_state == expected, "{}: got {} expected {}".format(context, tap_state, expected)
+            if verbose:
+                print("@{}ns [tap-state] {} -> {}".format(now(), context, tap_state))
+
+        def go_to_run_test_idle() -> Generator[Any, None, None]:
+            yield bfm.reset()
+            check_state(t_tapState.run_test_idle, "reset path to Run-Test/Idle")
+
+        def go_to_state(target: Any) -> Generator[Any, None, None]:
+            yield go_to_run_test_idle()
+            for state, path in TAP_STATE_PATHS:
+                if state == target:
+                    for tms_bit in path:
+                        yield bfm.cycle(tms_bit)
+                    check_state(target, "drive path to {}".format(target))
+                    return
+            raise AssertionError("No TAP path defined for {}".format(target))
+
+        def test_tap_state_machine() -> Generator[Any, None, None]:
+            print("@{}ns [jtag-tb] starting complete TAP state machine transition test".format(now()))
+            for current_state, expected_tms0, expected_tms1 in TAP_TRANSITIONS:
+                yield go_to_state(current_state)
+                yield bfm.cycle(0)
+                check_state(expected_tms0, "{} with TMS=0".format(current_state))
+
+                yield go_to_state(current_state)
+                yield bfm.cycle(1)
+                check_state(expected_tms1, "{} with TMS=1".format(current_state))
+            print("@{}ns [jtag-tb] completed TAP state machine transition test".format(now()))
+
         regs[0x11].next = 0xA5A55A5A
         print("@{}ns [jtag-tb] starting JTAG DTM testbench".format(now()))
         print("@{}ns [jtag-tb] dmi_width={} abits={}".format(now(), dmi_width, conf.dmi_adr_width))
@@ -134,6 +206,10 @@ def jtag_dtm_testbench(verbose: bool = True):
         yield delay(15)
         trst.next = False
         print("@{}ns [jtag-tb] deassert TRST".format(now()))
+        yield bfm.reset()
+        check_state(t_tapState.run_test_idle, "initial TAP reset")
+
+        yield test_tap_state_machine()
         yield bfm.reset()
 
         yield bfm.set_ir(JTAG_INSTR_IDCODE)

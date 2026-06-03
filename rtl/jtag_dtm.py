@@ -66,6 +66,7 @@ class JtagDTM:
         tdi: BitSignal,
         tdo: BitSignal,
         dtm: AbstractDebugTransportBundle,
+        tap_state_o: Any = None,
     ) -> Any:
         """Create a JTAG DTM instance.
 
@@ -98,6 +99,11 @@ class JtagDTM:
                     tdo.next = dr_shift[0]
             else:
                 tdo.next = False
+
+        if tap_state_o is not None:
+            @always_comb
+            def tap_state_observe():
+                tap_state_o.next = tap_state
 
         @always_seq(tck.posedge, reset=trst)
         def tap_state_transition():

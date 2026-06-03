@@ -28,6 +28,7 @@ jtag_dtm_testbench.dtm_dbi[31:0]
 jtag_dtm_testbench.dtm_adr[5:0]
 @28
 jtag_dtm_testbench.JtagDTM0_createInstance0.tap_state
+jtag_dtm_testbench.tap_state
 @22
 jtag_dtm_testbench.JtagDTM0_createInstance0.instruction[4:0]
 @23
