@@ -14,6 +14,7 @@ from myhdl import ResetSignal, Signal, ToVHDLWarning, always_comb, block, instan
 from rtl import bonfire_core_top, bonfire_interfaces, config
 from rtl.debugModule import AbstractDebugTransportBundle
 from rtl.divider import DividerBundle
+from rtl.jtag_dtm import JtagDTM
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
 from rtl.soc.bonfire_core_soc_generator import (
     BonfireCoreSoCInstanceGenerator,
@@ -133,6 +134,24 @@ def test_divider_vhdl_conversion(repo_root: Path):
 
     inst = divider_wrapper(clk, rst, ce_i, op1_i, op2_i, signed_i, rem_i, ce_o, result_o)
     inst.convert(hdl="VHDL", path=str(output_dir), name=name)
+
+    _assert_vhdl_file(output_dir, name)
+
+
+def test_jtag_dtm_vhdl_conversion(repo_root: Path):
+    name = "jtag_dtm"
+    output_dir = _conversion_output_dir(repo_root, name)
+
+    conf = config.BonfireConfig()
+    tck = Signal(bool(0))
+    trst = ResetSignal(0, active=1, isasync=True)
+    tms = Signal(bool(0))
+    tdi = Signal(bool(0))
+    tdo = Signal(bool(0))
+    dtm = AbstractDebugTransportBundle(conf)
+
+    dut = JtagDTM(conf).createInstance(tck, trst, tms, tdi, tdo, dtm)
+    dut.convert(hdl="VHDL", path=str(output_dir), name=name)
 
     _assert_vhdl_file(output_dir, name)
 

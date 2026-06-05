@@ -195,7 +195,7 @@ class DecodeBundle(PipelineControl):
                     debugRegisterBundle.dpc_jump.next = False
 
                 if not downstream_busy and not debugRegisterBundle.reqAck:
-                    if debugRegisterBundle.haltreq and self.en_i:
+                    if debugRegisterBundle.haltreq and self.en_i and not self.kill_i:
                         debugRegisterBundle.reqAck.next = True
                         debugRegisterBundle.dpc.next = self.current_ip_i[conf.xlen:conf.ip_low]
                         dm_halt.next = True

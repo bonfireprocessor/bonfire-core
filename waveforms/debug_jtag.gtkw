@@ -1,0 +1,43 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Fri Jun  5 11:08:59 2026
+[*]
+[dumpfile] "waveforms/debug_jtag.vcd"
+[dumpfile_mtime] "Fri Jun  5 11:07:51 2026"
+[dumpfile_size] 6011128
+[savefile] "waveforms/debug_jtag.gtkw"
+[timestart] 0
+[size] 1984 1052
+[pos] -1 -1
+*-15.611788 12758 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] testbench.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.RegisterFile0.
+[sst_width] 452
+[signals_width] 333
+[sst_expanded] 1
+[sst_vpaned_height] 316
+@28
+testbench.BonfireCoreDebugTestbench1_halt_resume_stimulus0.clock
+testbench.BonfireCoreDebugTestbench1_halt_resume_stimulus0.tdi
+testbench.BonfireCoreDebugTestbench1_halt_resume_stimulus0.tdo
+testbench.BonfireCoreDebugTestbench1_halt_resume_stimulus0.tms
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_haltreq
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_resumereq
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_resumeack
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_en
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_we
+@22
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_adr[5:0]
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_dbi[31:0]
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_dbo[31:0]
+@28
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_csrAccess
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_abstractCommandNew
+@22
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_abstractCommandResult[31:0]
+@28
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.dm_halt
+[pattern_trace] 1
+[pattern_trace] 0
