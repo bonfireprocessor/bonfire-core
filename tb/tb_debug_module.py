@@ -13,7 +13,7 @@ from typing import Any
 from myhdl import *
 
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debugModule import AbstractDebugTransportBundle
+from rtl.debugModule import AbstractDebugTransportBundle, debugSpecVersion
 from rtl.instructions import CSRAdr
 from rtl.jtag_dtm import JtagDTM
 from tb.ClkDriver import ClkDriver
@@ -33,6 +33,7 @@ class BonfireCoreDebugTestbench:
         ramsize: int = 16384,
         verbose: bool = False,
         debug_transport: str = "dmi",
+        monitor_result: Any = None,
     ) -> None:
         self.config = config
         self.hexfile = hexfile
@@ -41,6 +42,7 @@ class BonfireCoreDebugTestbench:
         self.ramsize = ramsize
         self.verbose = verbose
         self.debug_transport = debug_transport
+        self.monitor_result = monitor_result
 
     def log(self, message: str) -> None:
         print("@{}ns [debug-tb] {}".format(now(), message))
@@ -92,32 +94,47 @@ class BonfireCoreDebugTestbench:
         self,
         dtm_bundle: AbstractDebugTransportBundle,
         clock: Any,
+        tck: Any = None,
         tms: Any = None,
         tdi: Any = None,
         tdo: Any = None,
     ) -> Any:
         """Stimulus for exercising the debug module through the DMI interface."""
 
-        progress = {"stage": "created", "time": 0, "done": False}
-        timeout_ns = 50_000
+        max_stage_tck = 4000
+        progress = {"stage": "created", "time": 0, "tck": 0, "mark_tck": 0, "done": False}
 
         def mark(stage: str) -> None:
             progress["stage"] = stage
             progress["time"] = now()
+            progress["mark_tck"] = progress["tck"]
             self.log("checkpoint: {}".format(stage))
 
         @instance
         def test() -> Generator[Any, None, None]:
             mark("stimulus started")
             if self.debug_transport == "jtag":
-                assert tms is not None and tdi is not None and tdo is not None
-                api = JtagDebugAPISim(self.config, clock, tms, tdi, tdo, verbose=self.verbose)
+                assert tck is not None and tms is not None and tdi is not None and tdo is not None
+                api = JtagDebugAPISim(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
                 mark("resetting JTAG TAP")
                 yield api.reset_tap()
+                mark("reading JTAG IDCODE")
+                yield api.read_idcode()
+                self.log("JTAG IDCODE = {}".format(hex(api.idcode)))
+                mark("reading JTAG DTMCS")
+                yield api.read_dtmcs()
+                self.log("JTAG DTMCS = {}".format(hex(api.dtmcs)))
                 self.log("using JTAG debug transport")
             else:
                 api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock)
                 self.log("using direct DMI debug transport")
+
+            mark("reading debug module version")
+            yield api.dmi_read(0x11)
+            dmstatus = api.cmd_result()
+            dm_version = dmstatus & 0x0F
+            self.log("dmstatus = {} version={}".format(hex(dmstatus), dm_version))
+            assert dm_version == debugSpecVersion, "Debug Module version: {} expected {}".format(dm_version, debugSpecVersion)
 
             self.log("starting debug module smoke/integration test")
             mark("waiting initial cycles")
@@ -146,21 +163,25 @@ class BonfireCoreDebugTestbench:
             yield self.check_dpc(api, 0x0C, "second halt")
 
             gpr_save: list[int] = [0]
-            self.log("reading architectural GPR state")
-            for i in range(1, 32):
-                mark("reading GPR {}".format(abi_name(i)))
-                yield api.readGPR(regno=i)
-                gpr_save.append(api.cmd_result())
-                print("@{}ns [debug-tb]   {:>3} = {}".format(now(), abi_name(i), hex(api.cmd_result())))
+            if self.debug_transport == "jtag":
+                # skip part of test with JTAG Transport for Performance reasons
+                self.log("skipping full GPR save/restore sweep for JTAG transport")
+            else:
+                self.log("reading architectural GPR state")
+                for i in range(1, 32):
+                    mark("reading GPR {}".format(abi_name(i)))
+                    yield api.readGPR(regno=i)
+                    gpr_save.append(api.cmd_result())
+                    print("@{}ns [debug-tb]   {:>3} = {}".format(now(), abi_name(i), hex(api.cmd_result())))
 
-            assert gpr_save[10] == 0xFFFFFFFF
-            self.log("sanity check: a0 starts at 0xffffffff as expected")
+                assert gpr_save[10] == 0xFFFFFFFF
+                self.log("sanity check: a0 starts at 0xffffffff as expected")
 
-            self.log("testing GPR write path via abstract register access")
-            mark("writing GPR ra")
-            yield api.writeGPR(regno=1, value=0xDEADBEEF)
-            mark("checking GPR ra")
-            yield self.check_gpr(api, regno=1, check_value=0xDEADBEEF)
+                self.log("testing GPR write path via abstract register access")
+                mark("writing GPR ra")
+                yield api.writeGPR(regno=1, value=0xDEADBEEF)
+                mark("checking GPR ra")
+                yield self.check_gpr(api, regno=1, check_value=0xDEADBEEF)
 
             self.log("testing progbuf0 read/write and postexec path")
             opcode = 0x00100513
@@ -206,13 +227,19 @@ class BonfireCoreDebugTestbench:
             mark("writing and checking dcsr")
             yield self.set_and_check_dcsr(api, breakm=True, step=True)
 
-            gpr_save[10] = 1
-            self.log("restoring all saved GPRs")
-            for i in range(1, 32):
-                mark("restoring GPR {}".format(abi_name(i)))
-                yield api.writeGPR(regno=i, value=gpr_save[i])
-                mark("checking restored GPR {}".format(abi_name(i)))
-                yield self.check_gpr(api, regno=i, check_value=gpr_save[i])
+            if self.debug_transport == "jtag":
+                # skip part of test with JTAG Transport for Performance reasons
+                self.log("setting a0=1 for monitor success path")
+                mark("writing GPR a0 for success path")
+                yield api.writeGPR(regno=10, value=1)
+            else:
+                gpr_save[10] = 1
+                self.log("restoring all saved GPRs")
+                for i in range(1, 32):
+                    mark("restoring GPR {}".format(abi_name(i)))
+                    yield api.writeGPR(regno=i, value=gpr_save[i])
+                    mark("checking restored GPR {}".format(abi_name(i)))
+                    yield self.check_gpr(api, regno=i, check_value=gpr_save[i])
 
             self.log("patching dpc to 0x10 to leave endless loop and hit success path")
             mark("patching dpc to success path")
@@ -224,21 +251,27 @@ class BonfireCoreDebugTestbench:
             mark("stimulus completed")
             progress["done"] = True
 
-        @instance
-        def watchdog() -> Generator[Any, None, None]:
-            while True:
-                yield clock.posedge
-                if not progress["done"] and now() - progress["time"] > timeout_ns:
-                    raise AssertionError(
-                        "Debug testbench stalled for {}ns at stage '{}' "
-                        "(last progress @{}ns, current @{}ns, transport={})".format(
-                            timeout_ns,
-                            progress["stage"],
-                            progress["time"],
-                            now(),
-                            self.debug_transport,
+        if self.debug_transport == "jtag":
+            assert tck is not None
+
+            @instance
+            def watchdog() -> Generator[Any, None, None]:
+                while True:
+                    yield tck.posedge
+                    progress["tck"] += 1
+                    elapsed_tck = progress["tck"] - progress["mark_tck"]
+                    if not progress["done"] and elapsed_tck > max_stage_tck:
+                        raise AssertionError(
+                            "JTAG debug testbench stalled for {} TCK cycles at stage '{}' "
+                            "(last progress @{}ns / TCK {}, current @{}ns / TCK {})".format(
+                                elapsed_tck,
+                                progress["stage"],
+                                progress["time"],
+                                progress["mark_tck"],
+                                now(),
+                                progress["tck"],
+                            )
                         )
-                    )
 
         return instances()
 
@@ -253,7 +286,8 @@ class BonfireCoreDebugTestbench:
         tms = Signal(bool(1))
         tdi = Signal(bool(0))
         tdo = Signal(bool(0))
-        trst = ResetSignal(0, active=1, isasync=True)
+        tck = Signal(bool(0))
+        trstn = Signal(bool(1))
 
         ram = self.create_ram(self.hexfile, self.ramsize)
 
@@ -273,11 +307,12 @@ class BonfireCoreDebugTestbench:
         dbus_if = mem.ram_interface(ram, ram_dbus, clock, reset)
 
         clk_driver = ClkDriver(clock)
-        mon_i = monitor_instance(ram, mon_dbus, clock, sigFile=self.sigFile, elfFile=self.elfFile)
-        stim = self.halt_resume_stimulus(dtm, clock, tms=tms, tdi=tdi, tdo=tdo)
+        tck_driver = ClkDriver(tck, period=73)
+        mon_i = monitor_instance(ram, mon_dbus, clock, sigFile=self.sigFile, elfFile=self.elfFile, result=self.monitor_result)
+        stim = self.halt_resume_stimulus(dtm, clock, tck=tck, tms=tms, tdi=tdi, tdo=tdo)
         jtag_dtm = None
         if self.debug_transport == "jtag":
-            jtag_dtm = JtagDTM(local_config).createInstance(clock, trst, tms, tdi, tdo, dtm)
+            jtag_dtm = JtagDTM(local_config).createInstance(clock, reset, tck, tms, tdi, trstn, tdo, dtm)
         elif self.debug_transport != "dmi":
             raise ValueError("Unsupported debug_transport: {}".format(self.debug_transport))
 

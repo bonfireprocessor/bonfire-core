@@ -1,6 +1,6 @@
 """
 Bonfire Core simulation monitor
-(c) 2019,2020 The Bonfire Project
+(c) 2019-2026 The Bonfire Project
 License: See LICENSE
 """
 from __future__ import print_function
@@ -47,7 +47,7 @@ def dump_signature(memArray,elf,sig):
         sf.close()
 
 @block
-def monitor_instance(memArray,bus,clock,base_adr=0x10000000,registered_ack=False,elfFile="",sigFile=""):
+def monitor_instance(memArray,bus,clock,base_adr=0x10000000,registered_ack=False,elfFile="",sigFile="",result=None):
 
     @always(clock.posedge)
     def monitor_proc():
@@ -59,6 +59,11 @@ def monitor_instance(memArray,bus,clock,base_adr=0x10000000,registered_ack=False
             if bus.we_o:   
                 print("Monitor write: @{} {}: {} ({})".format(now(),bus.adr_o,bus.db_wr,int(bus.db_wr.signed())))
                 if bus.adr_o==base_adr:
+                    if result is not None:
+                        result["seen"] = True
+                        result["time"] = now()
+                        result["address"] = int(bus.adr_o)
+                        result["value"] = int(bus.db_wr)
                     if elfFile and sigFile:
                         dump_signature(memArray,elfFile,sigFile)
                     raise StopSimulation
