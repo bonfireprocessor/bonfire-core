@@ -143,14 +143,16 @@ def test_jtag_dtm_vhdl_conversion(repo_root: Path):
     output_dir = _conversion_output_dir(repo_root, name)
 
     conf = config.BonfireConfig()
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
     tck = Signal(bool(0))
-    trst = ResetSignal(0, active=1, isasync=True)
+    trstn = Signal(bool(1))
     tms = Signal(bool(0))
     tdi = Signal(bool(0))
     tdo = Signal(bool(0))
     dtm = AbstractDebugTransportBundle(conf)
 
-    dut = JtagDTM(conf).createInstance(tck, trst, tms, tdi, tdo, dtm)
+    dut = JtagDTM(conf).createInstance(clock, reset, tck, tms, tdi, trstn, tdo, dtm)
     dut.convert(hdl="VHDL", path=str(output_dir), name=name)
 
     _assert_vhdl_file(output_dir, name)
