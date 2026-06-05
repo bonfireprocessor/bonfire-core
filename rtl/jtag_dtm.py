@@ -27,6 +27,8 @@ JTAG_IDCODE = 0x10E31913
 
 DTM_VERSION = 1
 DTM_IDLE = 1
+DTM_DMI_STATUS_OK = 0
+DTMCS_DMIRESET_BIT = 16
 
 DMI_OP_NOP = 0
 DMI_OP_READ = 1
@@ -91,6 +93,7 @@ class JtagDTM:
         dmi_request_active = Signal(bool(0))
         dmi_read_pending = Signal(bool(0))
         dmi_read_capture = Signal(bool(0))
+        dmistat = Signal(modbv(DTM_DMI_STATUS_OK)[2:])
 
         tck_meta = Signal(bool(0))
         tck_sync = Signal(bool(0))
@@ -240,6 +243,7 @@ class JtagDTM:
                 dmi_request_active.next = False
                 dmi_read_pending.next = False
                 dmi_read_capture.next = False
+                dmistat.next = DTM_DMI_STATUS_OK
             elif dmi_request_active:
                 dtm.en.next = False
                 dmi_request_active.next = False
@@ -271,7 +275,8 @@ class JtagDTM:
                         dtmcs = modbv(0)[32:]
                         dtmcs[3:0] = DTM_VERSION
                         dtmcs[9:4] = abits
-                        dtmcs[12:10] = DTM_IDLE
+                        dtmcs[12:10] = dmistat
+                        dtmcs[15:12] = DTM_IDLE
                         dr_shift.next = dtmcs
                     elif instruction == JTAG_INSTR_DMI:
                         dr_shift.next = dmi_response
@@ -286,6 +291,10 @@ class JtagDTM:
                         dr_shift.next[dr_width - 1] = tdi_sync
                         dr_shift.next[dr_width - 1:0] = dr_shift[dr_width:1]
                 elif tap_state == t_tapState.update_dr:
+                    if instruction == JTAG_INSTR_DTMCS:
+                        if dr_shift[DTMCS_DMIRESET_BIT]:
+                            dmistat.next = DTM_DMI_STATUS_OK
+
                     if instruction == JTAG_INSTR_DMI:
                         op = dr_shift[2:0]
                         dtm.adr.next = dr_shift[dmi_width:34]

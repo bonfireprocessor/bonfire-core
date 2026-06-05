@@ -15,6 +15,7 @@ from rtl.debugModule import AbstractDebugTransportBundle
 from rtl.type_aliases import BitSignal
 from tb.ClkDriver import ClkDriver
 from rtl.jtag_dtm import (
+    DTM_IDLE,
     DMI_OP_READ,
     DMI_OP_WRITE,
     JTAG_IDCODE,
@@ -236,9 +237,18 @@ def jtag_dtm_testbench(verbose: bool = True):
         yield bfm.set_ir(JTAG_INSTR_DTMCS)
         yield bfm.scan_dr(0, 32)
         dtmcs = modbv(int(bfm.last_scan))[32:]
-        print("@{}ns [jtag-tb] DTMCS read {} version={} abits={} idle={}".format(now(), hex(int(dtmcs)), int(dtmcs[3:0]), int(dtmcs[9:4]), int(dtmcs[12:10])))
+        print("@{}ns [jtag-tb] DTMCS read {} version={} abits={} dmistat={} idle={}".format(now(), hex(int(dtmcs)), int(dtmcs[3:0]), int(dtmcs[9:4]), int(dtmcs[12:10]), int(dtmcs[15:12])))
         assert dtmcs[3:0] == 1
         assert dtmcs[9:4] == conf.dmi_adr_width
+        assert dtmcs[12:10] == 0
+        assert dtmcs[15:12] == DTM_IDLE
+
+        print("@{}ns [jtag-tb] DTMCS dmireset write".format(now()))
+        yield bfm.scan_dr(1 << 16, 32)
+        yield bfm.scan_dr(0, 32)
+        dtmcs = modbv(int(bfm.last_scan))[32:]
+        print("@{}ns [jtag-tb] DTMCS after dmireset {} dmistat={}".format(now(), hex(int(dtmcs)), int(dtmcs[12:10])))
+        assert dtmcs[12:10] == 0
 
         yield bfm.set_ir(JTAG_INSTR_DMI)
         write_scan = (0x10 << 34) | (0x12345678 << 2) | DMI_OP_WRITE

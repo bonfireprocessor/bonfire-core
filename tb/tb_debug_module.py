@@ -121,6 +121,9 @@ class BonfireCoreDebugTestbench:
                 mark("reading JTAG IDCODE")
                 yield api.read_idcode()
                 self.log("JTAG IDCODE = {}".format(hex(api.idcode)))
+                mark("reading JTAG DTMCS")
+                yield api.read_dtmcs()
+                self.log("JTAG DTMCS = {}".format(hex(api.dtmcs)))
                 self.log("using JTAG debug transport")
             else:
                 api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock)
