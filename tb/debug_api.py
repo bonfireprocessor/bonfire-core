@@ -12,10 +12,13 @@ from myhdl import *
 
 from rtl.config import BonfireConfig
 from rtl.jtag_dtm import (
+    DTM_IDLE,
+    DTM_VERSION,
     DMI_OP_READ,
     DMI_OP_WRITE,
     JTAG_IDCODE,
     JTAG_INSTR_DMI,
+    JTAG_INSTR_DTMCS,
     JTAG_INSTR_IDCODE,
     JTAG_IR_WIDTH,
 )
@@ -227,6 +230,7 @@ class JtagDebugAPISim(DebugAPI):
         self.verbose = verbose
         self.last_tdo = 0
         self.last_scan = 0
+        self.dtmcs = 0
         self.idcode = 0
         self.tck_low_aligned = False
         self.dmi_width = config.dmi_adr_width + 34
@@ -272,6 +276,18 @@ class JtagDebugAPISim(DebugAPI):
         assert self.idcode == JTAG_IDCODE, "JTAG IDCODE mismatch: got {} expected {}".format(hex(self.idcode), hex(JTAG_IDCODE))
         self.log("JTAG IDCODE {}".format(hex(self.idcode)))
         return self.idcode
+
+    def read_dtmcs(self) -> Generator[Any, None, int]:
+        yield self.set_ir(JTAG_INSTR_DTMCS)
+        yield self.scan_dr(0, 32)
+        self.dtmcs = self.last_scan
+        dtmcs = modbv(self.dtmcs)[32:]
+        assert dtmcs[3:0] == DTM_VERSION, "DTMCS version: {} expected {}".format(int(dtmcs[3:0]), DTM_VERSION)
+        assert dtmcs[9:4] == self.config.dmi_adr_width, "DTMCS abits: {} expected {}".format(int(dtmcs[9:4]), self.config.dmi_adr_width)
+        assert dtmcs[12:10] == 0, "DTMCS dmistat: {} expected 0".format(int(dtmcs[12:10]))
+        assert dtmcs[15:12] == DTM_IDLE, "DTMCS idle: {} expected {}".format(int(dtmcs[15:12]), DTM_IDLE)
+        self.log("DTMCS {}".format(hex(self.dtmcs)))
+        return self.dtmcs
 
     def set_ir(self, instruction: int) -> Generator[Any, None, None]:
         self.log("set IR {}".format(hex(instruction)))
