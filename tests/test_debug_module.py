@@ -8,7 +8,7 @@ import pytest
 from rtl import config
 from tb.tb_debug_module import BonfireCoreDebugTestbench
 
-from .conftest import SimFailure, assert_monitor_pass, run_sim
+from .conftest import SimFailure, run_sim
 
 
 def _opt_env(name: str) -> str | None:
@@ -16,23 +16,8 @@ def _opt_env(name: str) -> str | None:
     return v or None
 
 
-def _output_tail(stdout: str, max_lines: int = 80) -> str:
-    lines = stdout.splitlines()
-    tail = lines[-max_lines:]
-    prefix = ""
-    if len(lines) > max_lines:
-        prefix = f"... output truncated to last {max_lines} of {len(lines)} lines ...\n"
-    return prefix + "\n".join(tail)
-
-
-def _fail_with_output(message: str, stdout: str) -> None:
-    pytest.fail(f"{message}\n\nCaptured simulation output:\n{_output_tail(stdout)}", pytrace=False)
-
-
 def _run_debug_module_test(
     sim_env,
-    capsys: pytest.CaptureFixture[str],
-    request: pytest.FixtureRequest,
     repo_root: Path,
     debug_transport: str,
     vcd_env: str,
@@ -49,12 +34,14 @@ def _run_debug_module_test(
     vcd = _opt_env(vcd_env)
 
     conf = config.BonfireConfig()
+    monitor_result = {"seen": False, "time": None, "address": None, "value": None}
     debug_tb = BonfireCoreDebugTestbench(
         conf,
         hexfile=str(hex_path),
         ramsize=16384,
         verbose=verbose,
         debug_transport=debug_transport,
+        monitor_result=monitor_result,
     )
     tb = debug_tb.testbench()
 
@@ -71,30 +58,17 @@ def _run_debug_module_test(
     try:
         run_sim(tb, trace=trace, filename=filename, duration=duration, waveforms_dir=sim_env["waveforms_dir"])
     except SimFailure as e:
-        out = capsys.readouterr().out
-        if request.config.getoption("capture") == "no":
-            print(out, end="")
-        _fail_with_output(f"MyHDL simulation assertion failed: {e}", out)
+        pytest.fail(f"MyHDL simulation assertion failed: {e}", pytrace=False)
 
-    out = capsys.readouterr().out
-    if request.config.getoption("capture") == "no":
-        print(out, end="")
-
-    if "[debug-tb]" not in out:
-        _fail_with_output("Debug testbench did not print any [debug-tb] markers", out)
-    if "halt" not in out.lower():
-        _fail_with_output("Debug testbench did not reach a halt-related checkpoint", out)
-    try:
-        assert_monitor_pass(out)
-    except AssertionError as e:
-        _fail_with_output(str(e), out)
+    if not monitor_result["seen"]:
+        pytest.fail("No monitor base write (0x10000000) observed", pytrace=False)
+    if monitor_result["value"] != 1:
+        pytest.fail("Monitor base indicates failure: 0x{:08x}".format(monitor_result["value"]), pytrace=False)
 
 
-def test_debug_module(sim_env, capsys: pytest.CaptureFixture[str], request: pytest.FixtureRequest, repo_root: Path):
+def test_debug_module(sim_env, repo_root: Path):
     _run_debug_module_test(
         sim_env,
-        capsys,
-        request,
         repo_root,
         debug_transport="dmi",
         vcd_env="BONFIRE_DEBUG_VCD",
@@ -102,13 +76,11 @@ def test_debug_module(sim_env, capsys: pytest.CaptureFixture[str], request: pyte
     )
 
 
-def test_debug_module_jtag(sim_env, capsys: pytest.CaptureFixture[str], request: pytest.FixtureRequest, repo_root: Path):
+def test_debug_module_jtag(sim_env, repo_root: Path):
     _run_debug_module_test(
         sim_env,
-        capsys,
-        request,
         repo_root,
         debug_transport="jtag",
         vcd_env="BONFIRE_DEBUG_JTAG_VCD",
-        duration=500_000,
+        duration=15_000_000,
     )

@@ -1,5 +1,7 @@
 """
 JTAG DTM testbench helpers.
+(c) 2026 The Bonfire Project
+License: See LICENSE
 """
 from __future__ import annotations
 
@@ -11,6 +13,7 @@ from myhdl import *
 from rtl.config import BonfireConfig
 from rtl.debugModule import AbstractDebugTransportBundle
 from rtl.type_aliases import BitSignal
+from tb.ClkDriver import ClkDriver
 from rtl.jtag_dtm import (
     DMI_OP_READ,
     DMI_OP_WRITE,
@@ -29,7 +32,15 @@ def _bits_lsb_first(value: int, width: int) -> list[int]:
 
 
 class JtagBFM:
-    def __init__(self, tck: BitSignal, tms: BitSignal, tdi: BitSignal, tdo: BitSignal, last_scan: Any, verbose: bool = True) -> None:
+    def __init__(
+        self,
+        tck: BitSignal,
+        tms: BitSignal,
+        tdi: BitSignal,
+        tdo: BitSignal,
+        last_scan: Any,
+        verbose: bool = True,
+    ) -> None:
         self.tck = tck
         self.tms = tms
         self.tdi = tdi
@@ -45,12 +56,12 @@ class JtagBFM:
     def cycle(self, tms: int, tdi: int = 0) -> Generator[Any, None, None]:
         self.tms.next = bool(tms)
         self.tdi.next = bool(tdi)
-        yield delay(1)
+        yield delay(20)
         self.last_tdo = int(self.tdo)
         self.tck.next = True
-        yield delay(5)
+        yield delay(50)
         self.tck.next = False
-        yield delay(5)
+        yield delay(50)
 
     def reset(self) -> Generator[Any, None, None]:
         self.log("reset TAP with TMS high for 6 TCK cycles")
@@ -136,8 +147,10 @@ TAP_TRANSITIONS = (
 @block
 def jtag_dtm_testbench(verbose: bool = True):
     conf = BonfireConfig()
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
     tck = Signal(bool(0))
-    trst = ResetSignal(0, active=1, isasync=True)
+    trstn = Signal(bool(1))
     tms = Signal(bool(1))
     tdi = Signal(bool(0))
     tdo = Signal(bool(0))
@@ -146,9 +159,10 @@ def jtag_dtm_testbench(verbose: bool = True):
     last_scan = Signal(modbv(0)[conf.dmi_adr_width + 34:])
     regs = [Signal(modbv(0)[32:]) for _ in range(2**conf.dmi_adr_width)]
 
-    dut = JtagDTM(conf).createInstance(tck, trst, tms, tdi, tdo, dtm, tap_state_o=tap_state)
+    clk_driver = ClkDriver(clock, period=10)
+    dut = JtagDTM(conf).createInstance(clock, reset, tck, tms, tdi, trstn, tdo, dtm, tap_state_o=tap_state)
 
-    @always_seq(tck.posedge, reset=None)
+    @always_seq(clock.posedge, reset=None)
     def dmi_model():
         dtm.dbo.next = 0
         if dtm.en:
@@ -201,11 +215,12 @@ def jtag_dtm_testbench(verbose: bool = True):
         print("@{}ns [jtag-tb] starting JTAG DTM testbench".format(now()))
         print("@{}ns [jtag-tb] dmi_width={} abits={}".format(now(), dmi_width, conf.dmi_adr_width))
 
-        trst.next = True
-        print("@{}ns [jtag-tb] assert TRST".format(now()))
-        yield delay(15)
-        trst.next = False
-        print("@{}ns [jtag-tb] deassert TRST".format(now()))
+        trstn.next = False
+        print("@{}ns [jtag-tb] assert TRST#".format(now()))
+        yield delay(50)
+        trstn.next = True
+        print("@{}ns [jtag-tb] deassert TRST#".format(now()))
+        yield delay(50)
         yield bfm.reset()
         check_state(t_tapState.run_test_idle, "initial TAP reset")
 

@@ -1,6 +1,6 @@
 """
 RISC-V Debug Api
-(c) 2023 The Bonfire Project
+(c) 2023-2026 The Bonfire Project
 License: See LICENSE
 """
 from __future__ import annotations, print_function
@@ -11,7 +11,14 @@ from typing import Any
 from myhdl import *
 
 from rtl.config import BonfireConfig
-from rtl.jtag_dtm import DMI_OP_READ, DMI_OP_WRITE, JTAG_INSTR_DMI, JTAG_IR_WIDTH
+from rtl.jtag_dtm import (
+    DMI_OP_READ,
+    DMI_OP_WRITE,
+    JTAG_IDCODE,
+    JTAG_INSTR_DMI,
+    JTAG_INSTR_IDCODE,
+    JTAG_IR_WIDTH,
+)
 from rtl.type_aliases import BitSignal
 
 
@@ -204,7 +211,8 @@ class JtagDebugAPISim(DebugAPI):
     def __init__(
         self,
         config: BonfireConfig,
-        clock: Any,
+        clock: BitSignal,
+        tck: BitSignal,
         tms: BitSignal,
         tdi: BitSignal,
         tdo: BitSignal,
@@ -212,12 +220,15 @@ class JtagDebugAPISim(DebugAPI):
     ) -> None:
         self.config = config
         self.clock = clock
+        self.tck = tck
         self.tms = tms
         self.tdi = tdi
         self.tdo = tdo
         self.verbose = verbose
         self.last_tdo = 0
         self.last_scan = 0
+        self.idcode = 0
+        self.tck_low_aligned = False
         self.dmi_width = config.dmi_adr_width + 34
         DebugAPI.__init__(self)
 
@@ -228,20 +239,39 @@ class JtagDebugAPISim(DebugAPI):
     def yield_clock(self) -> Generator[Any, None, None]:
         yield self.clock.posedge
 
+    def wait_sysclk(self, cycles: int) -> Generator[Any, None, None]:
+        for _ in range(cycles):
+            yield self.clock.posedge
+            yield delay(0)
+
+    def align_tck_low(self) -> Generator[Any, None, None]:
+        if not self.tck_low_aligned:
+            yield self.tck.negedge
+            self.tck_low_aligned = True
+
     def jtag_cycle(self, tms: int, tdi: int = 0) -> Generator[Any, None, None]:
+        yield self.align_tck_low()
         self.tms.next = bool(tms)
         self.tdi.next = bool(tdi)
         yield delay(0)
         self.last_tdo = int(self.tdo)
-        yield self.clock.posedge
-        yield self.clock.negedge
-        yield delay(0)
+        yield self.tck.posedge
+        yield self.tck.negedge
+        yield self.wait_sysclk(3)
 
     def reset_tap(self) -> Generator[Any, None, None]:
         self.log("reset TAP")
         for _ in range(6):
             yield self.jtag_cycle(1)
         yield self.jtag_cycle(0)
+
+    def read_idcode(self) -> Generator[Any, None, int]:
+        yield self.set_ir(JTAG_INSTR_IDCODE)
+        yield self.scan_dr(0, 32)
+        self.idcode = self.last_scan
+        assert self.idcode == JTAG_IDCODE, "JTAG IDCODE mismatch: got {} expected {}".format(hex(self.idcode), hex(JTAG_IDCODE))
+        self.log("JTAG IDCODE {}".format(hex(self.idcode)))
+        return self.idcode
 
     def set_ir(self, instruction: int) -> Generator[Any, None, None]:
         self.log("set IR {}".format(hex(instruction)))

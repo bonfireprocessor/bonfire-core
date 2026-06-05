@@ -1,3 +1,8 @@
+"""
+JTAG DTM pytest tests.
+(c) 2026 The Bonfire Project
+License: See LICENSE
+"""
 from __future__ import annotations
 
 import os
@@ -21,4 +26,4 @@ def test_jtag_dtm(sim_env):
         trace = False
 
     tb = jtag_dtm_testbench()
-    run_sim(tb, trace=trace, filename=filename, duration=10_000, waveforms_dir=sim_env["waveforms_dir"])
+    run_sim(tb, trace=trace, filename=filename, duration=250_000, waveforms_dir=sim_env["waveforms_dir"])
