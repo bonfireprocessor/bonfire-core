@@ -98,11 +98,21 @@ class BonfireCoreDebugTestbench:
     ) -> Any:
         """Stimulus for exercising the debug module through the DMI interface."""
 
+        progress = {"stage": "created", "time": 0, "done": False}
+        timeout_ns = 50_000
+
+        def mark(stage: str) -> None:
+            progress["stage"] = stage
+            progress["time"] = now()
+            self.log("checkpoint: {}".format(stage))
+
         @instance
         def test() -> Generator[Any, None, None]:
+            mark("stimulus started")
             if self.debug_transport == "jtag":
                 assert tms is not None and tdi is not None and tdo is not None
                 api = JtagDebugAPISim(self.config, clock, tms, tdi, tdo, verbose=self.verbose)
+                mark("resetting JTAG TAP")
                 yield api.reset_tap()
                 self.log("using JTAG debug transport")
             else:
@@ -110,27 +120,35 @@ class BonfireCoreDebugTestbench:
                 self.log("using direct DMI debug transport")
 
             self.log("starting debug module smoke/integration test")
+            mark("waiting initial cycles")
             for _ in range(0, 5):
                 yield clock.posedge
 
+            mark("checking initial hart state")
             yield api.check_halted()
             assert not api.halted, "Core not in running state"
             self.log("initial hart state: running")
 
+            mark("requesting first halt")
             yield api.halt()
             self.log("halt request acknowledged; hart halted")
+            mark("checking first halt dpc")
             yield self.check_dpc(api, 0x0C, "first halt")
+            mark("requesting resume")
             yield api.resume()
             self.log("resume request acknowledged; hart running again")
             assert not api.halted, "Core not in running state"
+            mark("requesting second halt")
             yield api.halt()
             self.log("second halt successful; entering detailed debug checks")
 
+            mark("checking second halt dpc")
             yield self.check_dpc(api, 0x0C, "second halt")
 
             gpr_save: list[int] = [0]
             self.log("reading architectural GPR state")
             for i in range(1, 32):
+                mark("reading GPR {}".format(abi_name(i)))
                 yield api.readGPR(regno=i)
                 gpr_save.append(api.cmd_result())
                 print("@{}ns [debug-tb]   {:>3} = {}".format(now(), abi_name(i), hex(api.cmd_result())))
@@ -139,53 +157,88 @@ class BonfireCoreDebugTestbench:
             self.log("sanity check: a0 starts at 0xffffffff as expected")
 
             self.log("testing GPR write path via abstract register access")
+            mark("writing GPR ra")
             yield api.writeGPR(regno=1, value=0xDEADBEEF)
+            mark("checking GPR ra")
             yield self.check_gpr(api, regno=1, check_value=0xDEADBEEF)
 
             self.log("testing progbuf0 read/write and postexec path")
             opcode = 0x00100513
+            mark("writing progbuf0")
             yield api.dmi_write(0x20, opcode)
+            mark("reading progbuf0")
             yield api.dmi_read(0x20)
             assert api.cmd_result() == opcode
             self.log("progbuf0 programmed with opcode {}".format(hex(opcode)))
+            mark("executing progbuf0")
             yield api.readReg(transfer=False, postexec=True)
             self.log("progbuf execution completed")
+            mark("checking progbuf result")
             yield self.check_gpr(api, regno=10, check_value=1)
 
             self.log("testing memory read through progbuf")
+            mark("reading memory through progbuf")
             yield api.readMemory(memadr=0x4)
             self.log("memory[0x4] initial value = {}".format(hex(api.cmd_result())))
             mem_save = api.cmd_result()
 
             self.log("testing memory write through progbuf")
+            mark("writing memory through progbuf")
             yield api.writeMemory(memadr=0x4, memvalue=0xDEADBEEF)
+            mark("reading memory after write")
             yield api.readMemory(memadr=0x4)
             self.log("memory[0x4] after write = {}".format(hex(api.cmd_result())))
             self.check_cmd_result(api, 0xDEADBEEF, "memory write check")
 
             self.log("restoring previous memory value at 0x4")
+            mark("restoring memory")
             yield api.writeMemory(memadr=0x4, memvalue=mem_save)
+            mark("checking restored memory")
             yield api.readMemory(memadr=0x4)
             self.check_cmd_result(api, mem_save, "memory restore check")
 
             self.log("reading and modifying dcsr")
             dcsr = 0x700 | CSRAdr.dcsr
+            mark("reading dcsr")
             yield api.readReg(regno=dcsr)
             dcsr_default = api.cmd_result()
             self.log("default dcsr = {}".format(hex(dcsr_default)))
+            mark("writing and checking dcsr")
             yield self.set_and_check_dcsr(api, breakm=True, step=True)
 
             gpr_save[10] = 1
             self.log("restoring all saved GPRs")
             for i in range(1, 32):
+                mark("restoring GPR {}".format(abi_name(i)))
                 yield api.writeGPR(regno=i, value=gpr_save[i])
+                mark("checking restored GPR {}".format(abi_name(i)))
                 yield self.check_gpr(api, regno=i, check_value=gpr_save[i])
 
             self.log("patching dpc to 0x10 to leave endless loop and hit success path")
+            mark("patching dpc to success path")
             yield api.writeReg(regno=0x700 | CSRAdr.dpc, value=0x10)
+            mark("clearing dcsr step and resuming")
             yield self.set_and_check_dcsr(api, breakm=True)
             yield api.resume()
             self.log("final resume issued; program should now reach monitor success write")
+            mark("stimulus completed")
+            progress["done"] = True
+
+        @instance
+        def watchdog() -> Generator[Any, None, None]:
+            while True:
+                yield clock.posedge
+                if not progress["done"] and now() - progress["time"] > timeout_ns:
+                    raise AssertionError(
+                        "Debug testbench stalled for {}ns at stage '{}' "
+                        "(last progress @{}ns, current @{}ns, transport={})".format(
+                            timeout_ns,
+                            progress["stage"],
+                            progress["time"],
+                            now(),
+                            self.debug_transport,
+                        )
+                    )
 
         return instances()
 

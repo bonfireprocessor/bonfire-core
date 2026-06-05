@@ -231,9 +231,10 @@ class JtagDebugAPISim(DebugAPI):
     def jtag_cycle(self, tms: int, tdi: int = 0) -> Generator[Any, None, None]:
         self.tms.next = bool(tms)
         self.tdi.next = bool(tdi)
-        yield delay(1)
+        yield delay(0)
         self.last_tdo = int(self.tdo)
         yield self.clock.posedge
+        yield self.clock.negedge
         yield delay(0)
 
     def reset_tap(self) -> Generator[Any, None, None]:

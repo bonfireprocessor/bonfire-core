@@ -88,17 +88,20 @@ class JtagDTM:
         dmi_read_pending = Signal(bool(0))
         dmi_read_capture = Signal(bool(0))
 
-        @always_comb
+        @always(tck.negedge, trst.posedge)
         def tdo_select():
-            if tap_state == t_tapState.shift_ir:
-                tdo.next = ir_shift[0]
-            elif tap_state == t_tapState.shift_dr:
-                if instruction == JTAG_INSTR_BYPASS:
-                    tdo.next = bypass
-                else:
-                    tdo.next = dr_shift[0]
-            else:
+            if trst:
                 tdo.next = False
+            else:
+                if tap_state == t_tapState.shift_ir:
+                    tdo.next = ir_shift[0]
+                elif tap_state == t_tapState.shift_dr:
+                    if instruction == JTAG_INSTR_BYPASS:
+                        tdo.next = bypass
+                    else:
+                        tdo.next = dr_shift[0]
+                else:
+                    tdo.next = False
 
         if tap_state_o is not None:
             @always_comb
