@@ -8,6 +8,7 @@ from myhdl import *
 from rtl.instructions import Opcodes as op
 from rtl.instructions import ArithmeticFunct3  as f3
 from rtl.instructions import SystemFunct3
+from rtl.instructions import PrivFunct12
 from rtl.util import signed_resize
 from rtl.debugModule import *
 
@@ -123,6 +124,7 @@ class DecodeBundle(PipelineControl):
         dm_regno = Signal(modbv(0)[5:])
         dm_data0 = Signal(modbv(0)[32:])
         dm_exec = Signal(bool(0))
+        dm_break = Signal(bool(0))
 
         ins_word = Signal(modbv(0)[32:])
 
@@ -160,6 +162,24 @@ class DecodeBundle(PipelineControl):
             assert debugRegisterBundle is not None, "enableDebugModule requires a debugRegisterBundle"
 
             dcsr_map = Signal(modbv(0)[32:])
+            progbuf=Signal(modbv(0)[conf.xlen:])
+            progbuf_pointer=Signal(modbv(0)[1:]) # only 1 bit needed to select between progbuf0 and progbuf1
+
+
+            if self.config.progbuf_size==2:
+                @always_comb
+                def progbuf_mux():
+                    if progbuf_pointer:
+                        progbuf.next = debugRegisterBundle.progbuf1
+                    else:
+                        progbuf.next = debugRegisterBundle.progbuf0
+
+            else:
+                @always_comb
+                def progbuf_mux():
+                    progbuf.next = debugRegisterBundle.progbuf0            
+
+
             dcsr_map_i = self.debugCSRBundle.dcsr_map(dcsr_map)
 
             @always_comb
@@ -167,7 +187,7 @@ class DecodeBundle(PipelineControl):
 
                 temp_instr = self.word_i
                 if dm_halt:
-                    temp_instr =debugRegisterBundle.progbuf0
+                    temp_instr = progbuf
                   
  
                 ins_word.next = temp_instr
@@ -242,16 +262,21 @@ class DecodeBundle(PipelineControl):
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
                         else:
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
-                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec:
+                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec or debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec2:
                         debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.wait_retire
                     elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.wait_retire:
                         if not (self.valid_o or self.stall_i):
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+                            if self.config.progbuf_size==2 and progbuf_pointer==0 and not dm_break: # Execute progbuf1 after progbuf0, in case there is no ebreak in progbuf0. 
+                                progbuf_pointer.next = 1
+                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec2
+                            else:
+                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+                                progbuf_pointer.next = 0
 
             @always_comb
             def dm_state():
                 dm_kill.next = debugRegisterBundle.dpc_jump
-                dm_exec.next = debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec
+                dm_exec.next = debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec or debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec2
 
                 if dm_halt:
                     debugRegisterBundle.hartState.next = t_debugHartState.halted
@@ -306,6 +331,7 @@ class DecodeBundle(PipelineControl):
             elif not downstream_busy:
                 if self.en_i or dm_exec:
                     inv=False
+                    dm_break_seen = False
 
                     self.debug_word_o.next = ins_word
                     self.debug_current_ip_o.next = self.current_ip_i
@@ -392,7 +418,10 @@ class DecodeBundle(PipelineControl):
                     elif opcode==op.RV32_SYSTEM:
                         self.priv_funct_12.next = ins_word[32:20]
                         if ins_word[15:12]==SystemFunct3.RV32_F3_PRIV:
-                            self.sys_cmd.next = True
+                            if dm_exec and ins_word[32:20]==PrivFunct12.RV32_F12_EBREAK:
+                                 dm_break_seen = True    
+                            else:     
+                                self.sys_cmd.next = True
                         else:
                             self.csr_cmd.next = True
                             if ins_word[14]: # Immediate
@@ -400,7 +429,8 @@ class DecodeBundle(PipelineControl):
                                 rs1_imm_value.next = ins_word[20:15]
                     else:
                         inv=True
-                    self.valid_o.next = not inv
+                    self.valid_o.next = not inv and not dm_break_seen
+                    dm_break.next = dm_break_seen
                     self.invalid_opcode.next= inv
                 else:
                     self.valid_o.next=False

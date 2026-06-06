@@ -126,7 +126,7 @@ class BonfireCoreDebugTestbench:
                 self.log("JTAG DTMCS = {}".format(hex(api.dtmcs)))
                 self.log("using JTAG debug transport")
             else:
-                api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock)
+                api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
                 self.log("using direct DMI debug transport")
 
             mark("reading debug module version")
@@ -184,9 +184,9 @@ class BonfireCoreDebugTestbench:
                 yield self.check_gpr(api, regno=1, check_value=0xDEADBEEF)
 
             self.log("testing progbuf0 read/write and postexec path")
-            opcode = 0x00100513
+            opcode = 0x00100513  # addi a0, zero, 1
             mark("writing progbuf0")
-            yield api.dmi_write(0x20, opcode)
+            yield api.writeProgbuf0(opcode)
             mark("reading progbuf0")
             yield api.dmi_read(0x20)
             assert api.cmd_result() == opcode
@@ -196,6 +196,17 @@ class BonfireCoreDebugTestbench:
             self.log("progbuf execution completed")
             mark("checking progbuf result")
             yield self.check_gpr(api, regno=10, check_value=1)
+
+            if self.config.progbuf_size == 2:
+                self.log("testing two-instruction progbuf execution")
+                mark("writing two progbuf instructions")
+                yield api.dmi_write(0x20, 0x01100513)  # addi a0, zero, 0x11
+                yield api.dmi_write(0x21, 0x02200593)  # addi a1, zero, 0x22
+                mark("executing two progbuf instructions")
+                yield api.readReg(transfer=False, postexec=True)
+                mark("checking two progbuf instruction results")
+                yield self.check_gpr(api, regno=10, check_value=0x11)
+                yield self.check_gpr(api, regno=11, check_value=0x22)
 
             self.log("testing memory read through progbuf")
             mark("reading memory through progbuf")

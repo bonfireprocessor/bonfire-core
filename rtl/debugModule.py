@@ -11,7 +11,9 @@ from rtl.instructions import CSRAdr
 
 t_debugHartState = enum('running','halted')
 t_abstractCommandType = enum('access_reg','quick_access')
-t_abstractCommandState  = enum('none','regvalid','taken','failed','exec','wait_retire')
+# exec,exec2 serve as progbuf pc: exec excutes progbuf0 and exec2 executes progbuf1 when progbuf_size is 2. 
+# When progbuf_size is 1, exec2 will not be used and progbuf0 will be executed in exec state.
+t_abstractCommandState  = enum('none','regvalid','taken','failed','exec','exec2','wait_retire')
 
 debugSpecVersion = 2 # RISC-V Debug Spec 0.13
 csr_depc = 0x7b1
@@ -46,6 +48,8 @@ class DebugRegisterBundle:
         xlen = config.xlen
         self.xlen = xlen
 
+        assert self.config.progbuf_size in range(1,3), "progbuf_size must be 1 or 2"
+
         self.hartState=Signal(t_debugHartState.running)
 
         # Signals from DMI to debug core, written by DMI
@@ -68,6 +72,7 @@ class DebugRegisterBundle:
         #written by DMI
         self.dataRegs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
         self.progbuf0 = Signal(modbv(0)[xlen:])
+        self.progbuf1 =  Signal(modbv(0)[xlen:]) # will not be used when progbuf_size==1
 
 
 
@@ -164,10 +169,12 @@ class DMI:
                         dtm.dbo.next[16:12] = self.config.numdata
                     elif dtm.adr==0x20: #progbuf0
                         dtm.dbo.next = debugRegs.progbuf0
+                    elif self.config.progbuf_size==2 and  dtm.adr==0x21: #progbuf1
+                        dtm.dbo.next = debugRegs.progbuf1    
                     elif (dtm.adr>=0x04) and (dtm.adr<=0x04+self.config.numdata-1): # data0 to data 0x11
                         dtm.dbo.next = debugRegs.dataRegs[dtm.adr-0x04]
                     elif dtm.adr==0x16: #abstractcs
-                        dtm.dbo.next[29:24] = 1 #progbufsize
+                        dtm.dbo.next[29:24] = self.config.progbuf_size # progbufsize
                         dtm.dbo.next[12] = debugRegs.abstractCommandState != t_abstractCommandState.none # busy
                         dtm.dbo.next[11:8] = debugRegs.cmderr # cmderr
                         dtm.dbo.next[4:] = self.config.numdata # datacount
@@ -214,6 +221,8 @@ class DMI:
                                 debugRegs.cmderr.next = 2 # not supported
                     elif dtm.adr==0x20: #progbuf0
                         debugRegs.progbuf0.next = dtm.dbi
+                    elif self.config.progbuf_size==2 and dtm.adr==0x21:
+                        debugRegs.progbuf1.next = dtm.dbi    
 
         return instances()
 
