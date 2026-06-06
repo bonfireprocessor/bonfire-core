@@ -4,5 +4,5 @@ OpenOCD remote_bitbang simulation server.
 License: See LICENSE
 """
 
-from .main import main, serve_openocd_bitbang
-
+from .main import OpenOCDBitbangControl, main, serve_openocd_bitbang
+from .sim_testbench import OpenOCDBitbangTestbench

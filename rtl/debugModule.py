@@ -13,9 +13,9 @@ t_debugHartState = enum('running','halted')
 t_abstractCommandType = enum('access_reg','quick_access')
 t_abstractCommandState  = enum('none','regvalid','taken','failed','exec','wait_retire')
 
-debugSpecVersion = 15 # consider setting this to 2
+debugSpecVersion = 2 # RISC-V Debug Spec 0.13
 csr_depc = 0x7b1
-xdedebugver = 15 # consider setting this to 4
+xdedebugver = 4 # RISC-V Debug Spec 0.13
 
 class DebugCSRBundle():
     def __init__(self,config):
@@ -154,6 +154,7 @@ class DMI:
                         dtm.dbo.next[10] = debugRegs.hartState==t_debugHartState.running #anyrunning
                         dtm.dbo.next[9] = debugRegs.hartState==t_debugHartState.halted #allhalted
                         dtm.dbo.next[8] = debugRegs.hartState==t_debugHartState.halted #anyhalted
+                        dtm.dbo.next[7] = True  # authenticated
                         dtm.dbo.next[4:] = debugSpecVersion # version
                     elif dtm.adr==0x10: #dmcontrol
                         dtm.dbo.next[1] = debugRegs.hartReset # ndmreset
@@ -202,7 +203,7 @@ class DMI:
                                 csrAccess =  dtm.dbi[16:1] == csr_mask 
                                 debugRegs.csrAccess.next = csrAccess
                               
-                                if dtm.dbi[16:5]==0x80 or csrAccess or not transfer: # When Transfer is not set register number do not care
+                                if dtm.dbi[23:20]==2 and (dtm.dbi[16:5]==0x80 or csrAccess or not transfer): # Only support 32Bit transfers. When Transfer is not set, register number do not care
                                     debugRegs.abstractCommandNew.next = True
                                 else:
                                     debugRegs.cmderr.next = 2 # not supported
@@ -215,7 +216,6 @@ class DMI:
                         debugRegs.progbuf0.next = dtm.dbi
 
         return instances()
-
 
 
 

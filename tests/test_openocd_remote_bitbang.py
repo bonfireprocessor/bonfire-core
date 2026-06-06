@@ -218,6 +218,25 @@ shutdown
 """.format(host=host, port=port, idcode=JTAG_IDCODE)
 
 
+def _openocd_core_target_config(host: str, port: int) -> str:
+    return """
+gdb_port disabled
+tcl_port disabled
+telnet_port disabled
+
+adapter driver remote_bitbang
+remote_bitbang host {host}
+remote_bitbang port {port}
+transport select jtag
+
+jtag newtap bonfire cpu -irlen 5 -expected-id 0x{idcode:08x}
+target create bonfire.cpu riscv -chain-position bonfire.cpu
+
+init
+shutdown
+""".format(host=host, port=port, idcode=JTAG_IDCODE)
+
+
 def _vcd_path_from_env(sim_env, name: str) -> Path | None:
     vcd = os.environ.get(name, "").strip()
     if not vcd:
@@ -258,3 +277,36 @@ def test_openocd_remote_bitbang_scan_chain_reads_idcode(sim_env, tmp_path: Path)
     print("[openocd stderr]\n{}".format(completed.stderr), end="")
     assert completed.returncode == 0, "openocd failed\nstdout:\n{}\nstderr:\n{}".format(completed.stdout, completed.stderr)
     assert "0x{:08x}".format(JTAG_IDCODE) in completed.stderr.lower()
+
+
+def test_openocd_remote_bitbang_core_target_smoke(tmp_path: Path):
+    """Run OpenOCD with a RISC-V target against the full Bonfire core simulation."""
+
+    if shutil.which("openocd") is None:
+        pytest.skip("openocd not installed")
+
+    port = _free_tcp_port()
+    config_path = tmp_path / "bonfire_remote_bitbang_core.cfg"
+    config_path.write_text(_openocd_core_target_config("127.0.0.1", port), encoding="utf-8")
+    print("\n[test] OpenOCD core config written to {}".format(config_path))
+    print("[test] starting remote_bitbang core server subprocess on port {}".format(port))
+
+    with _remote_bitbang_server_process(port, observe_jtag=True):
+        print("[test] running OpenOCD RISC-V target smoke")
+        completed = subprocess.run(
+            ["openocd", "-f", str(config_path)],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+        )
+
+    print("[openocd stdout]\n{}".format(completed.stdout), end="")
+    print("[openocd stderr]\n{}".format(completed.stderr), end="")
+    stderr = completed.stderr.lower()
+    assert "0x{:08x}".format(JTAG_IDCODE) in stderr
+    assert "auto0.tap" not in stderr
+    assert "ir capture error" not in stderr
+    assert "debug module version" not in stderr
+    if completed.returncode != 0:
+        assert "not authenticated" in stderr, "openocd failed\nstdout:\n{}\nstderr:\n{}".format(completed.stdout, completed.stderr)

@@ -39,6 +39,8 @@ def remote_bitbang_server(
     """Serve OpenOCD's remote_bitbang protocol against simulated JTAG pins."""
 
     server_socket.setblocking(False)
+    quit_event = client_quit_event if client_quit_event is not None else Event()
+    quit_event_enabled = client_quit_event is not None
 
     def log(message: str) -> None:
         if verbose:
@@ -97,8 +99,8 @@ def remote_bitbang_server(
                 log("quit")
                 client.close()
                 client = None
-                if client_quit_event is not None:
-                    client_quit_event.set()
+                if quit_event_enabled:
+                    quit_event.set()
             else:
                 log("ignoring unsupported command {!r}".format(command))
                 yield wait_sysclk(1)
