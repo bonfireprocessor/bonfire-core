@@ -46,7 +46,8 @@ jobs:
             gcc-riscv64-unknown-elf \
             bc \
             bsdextrautils \
-            ghdl
+            ghdl \
+            openocd
           # Copy downloaded .deb files to user cache for next run
           mkdir -p ~/.cache/apt/archives
           sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
