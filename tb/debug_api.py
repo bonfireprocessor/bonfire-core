@@ -24,9 +24,12 @@ from rtl.jtag_dtm import (
 )
 from rtl.type_aliases import BitSignal
 
+EBREAK_INSN = 0x00100073
+
 
 class DebugAPI:
-    def __init__(self) -> None:
+    def __init__(self, config: BonfireConfig | None = None) -> None:
+        self.config = config or BonfireConfig()
         self.halted: bool = False
         self.result: Any = modbv(0)[32:]
         self.cmderr: int = 0
@@ -79,6 +82,11 @@ class DebugAPI:
     def dmi_write(self, adr: int, data: int) -> Generator[Any, None, None]:
         self.__not_implemented()
         yield None
+
+    def writeProgbuf0(self, instruction: int) -> Generator[Any, None, None]:
+        yield self.dmi_write(0x20, instruction)
+        if self.config.progbuf_size == 2:
+            yield self.dmi_write(0x21, EBREAK_INSN)
 
     def readReg(
         self,
@@ -161,7 +169,7 @@ class DebugAPI:
         self.dmi_write(0x10, c)
 
     def readMemory(self, HartId: int = 0, memadr: int = 0, readbyte: bool = False) -> Generator[Any, None, None]:
-        yield self.dmi_write(0x20, (0x00044403 if readbyte else 0x00042403))
+        yield self.writeProgbuf0(0x00044403 if readbyte else 0x00042403)
         yield self.writeGPR(regno=8, value=memadr, postexec=True, transfer=True)
         yield self.readGPR(regno=8, transfer=True)
 
@@ -172,16 +180,16 @@ class DebugAPI:
         memvalue: int = 0,
         writeByte: bool = False,
     ) -> Generator[Any, None, None]:
-        yield self.dmi_write(0x20, 0x00940023 if writeByte else 0x00942023)
+        yield self.writeProgbuf0(0x00940023 if writeByte else 0x00942023)
         yield self.writeGPR(regno=8, value=memadr, transfer=True)
         yield self.writeGPR(regno=9, value=memvalue, postexec=True, transfer=True)
 
 
 class DebugAPISim(DebugAPI):
-    def __init__(self, dtm_bundle: Any, clock: Any) -> None:
+    def __init__(self, dtm_bundle: Any, clock: Any, config: BonfireConfig | None = None) -> None:
         self.dtm_bundle = dtm_bundle
         self.clock = clock
-        DebugAPI.__init__(self)
+        DebugAPI.__init__(self, config=config)
 
     def yield_clock(self) -> Generator[Any, None, None]:
         yield self.clock.posedge
@@ -221,7 +229,6 @@ class JtagDebugAPISim(DebugAPI):
         tdo: BitSignal,
         verbose: bool = False,
     ) -> None:
-        self.config = config
         self.clock = clock
         self.tck = tck
         self.tms = tms
@@ -234,7 +241,7 @@ class JtagDebugAPISim(DebugAPI):
         self.idcode = 0
         self.tck_low_aligned = False
         self.dmi_width = config.dmi_adr_width + 34
-        DebugAPI.__init__(self)
+        DebugAPI.__init__(self, config=config)
 
     def log(self, message: str) -> None:
         if self.verbose:

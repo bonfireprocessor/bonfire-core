@@ -21,6 +21,7 @@ from rtl.jtag_dtm import (
     JTAG_IDCODE,
     JTAG_INSTR_DMI,
     JTAG_INSTR_DTMCS,
+    JTAG_INSTR_BYPASS,
     JTAG_INSTR_IDCODE,
     JTAG_IR_WIDTH,
     JtagDTM,
@@ -99,6 +100,23 @@ class JtagBFM:
         self.last_scan.next = result
         yield delay(0)
         self.log("DR scan complete: tdo={}".format(hex(result)))
+
+    def scan_ir(self, value: int, width: int = JTAG_IR_WIDTH) -> Generator[Any, None, None]:
+        result = 0
+        self.log("IR scan start: width={} tdi={}".format(width, hex(value)))
+        yield self.cycle(1)
+        yield self.cycle(1)
+        yield self.cycle(0)
+        yield self.cycle(0)
+        bits = _bits_lsb_first(value, width)
+        for index, bit in enumerate(bits):
+            yield self.cycle(1 if index == len(bits) - 1 else 0, bit)
+            result |= self.last_tdo << index
+        yield self.cycle(1)
+        yield self.cycle(0)
+        self.last_scan.next = result
+        yield delay(0)
+        self.log("IR scan complete: tdo={}".format(hex(result)))
 
     def idle(self, cycles: int = 1) -> Generator[Any, None, None]:
         self.log("idle for {} TCK cycles".format(cycles))
@@ -234,6 +252,11 @@ def jtag_dtm_testbench(verbose: bool = True):
         print("@{}ns [jtag-tb] IDCODE read {}".format(now(), hex(idcode)))
         assert idcode == JTAG_IDCODE, "IDCODE mismatch: got {} expected {}".format(hex(idcode), hex(JTAG_IDCODE))
 
+        yield bfm.scan_ir(JTAG_INSTR_IDCODE)
+        ir_capture = int(bfm.last_scan) & 0x3
+        print("@{}ns [jtag-tb] IR capture low bits {}".format(now(), bin(ir_capture)))
+        assert ir_capture == 0x1, "IR capture mismatch: got {} expected 0b1".format(bin(ir_capture))
+
         yield bfm.set_ir(JTAG_INSTR_DTMCS)
         yield bfm.scan_dr(0, 32)
         dtmcs = modbv(int(bfm.last_scan))[32:]
@@ -249,6 +272,13 @@ def jtag_dtm_testbench(verbose: bool = True):
         dtmcs = modbv(int(bfm.last_scan))[32:]
         print("@{}ns [jtag-tb] DTMCS after dmireset {} dmistat={}".format(now(), hex(int(dtmcs)), int(dtmcs[12:10])))
         assert dtmcs[12:10] == 0
+
+        print("@{}ns [jtag-tb] BYPASS shift test".format(now()))
+        yield bfm.set_ir(JTAG_INSTR_BYPASS)
+        yield bfm.scan_dr(0b101101, 6)
+        bypass_result = int(bfm.last_scan) & 0x3F
+        print("@{}ns [jtag-tb] BYPASS scan result {}".format(now(), bin(bypass_result)))
+        assert bypass_result == 0b011010, "BYPASS mismatch: got {} expected {}".format(bin(bypass_result), bin(0b011010))
 
         yield bfm.set_ir(JTAG_INSTR_DMI)
         write_scan = (0x10 << 34) | (0x12345678 << 2) | DMI_OP_WRITE

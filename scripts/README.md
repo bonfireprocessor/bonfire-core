@@ -9,6 +9,7 @@ for day-to-day development:
 - runs selected pytest test groups (unit / pipeline / core HEX integration)
 - can also run *exactly one* core program (`--hex ...`) with optional ELF / signature / VCD output
 - can start the simulated GDB server (`--gdbserver [--port N]`)
+- can start the OpenOCD remote_bitbang JTAG/Core simulation server (`--openocd-bitbang [--port N]`)
 
 Note: the script always runs core tests with normal pytest output capture. If you want to see the MyHDL/monitor prints, pass `-- -s` to pytest (or use `--hex`, which already runs with `-s`).
 
@@ -30,7 +31,10 @@ Test selection:
   --integration     Run core HEX integration tests (pytest-based)
   --all             Run all tests (default when no args are given)
   --gdbserver       Start the simulated GDB server instead of running pytest
-  --port N          GDB server TCP port (default: first free port in 5500-5550)
+  --openocd-bitbang Start the OpenOCD remote_bitbang JTAG/Core simulation server
+  --port N          Server TCP port (GDB default: first free port in 5500-5550,
+                    OpenOCD bitbang default: 3335)
+  --debug-trace     With --openocd-bitbang: print Debug Module/progbuf trace
 
 Environment / venv:
   --install         Create/update ./.venv and install Python deps (scripts/install.sh)
@@ -39,7 +43,8 @@ Environment / venv:
 
 Single core run (pytest-based):
   --hex PATH        Run exactly one HEX program via tests/test_core.py
-                    With --gdbserver: HEX image to load (default: code/build/debug-tests/endless.hex)
+                    With --gdbserver/--openocd-bitbang: HEX image to load
+                    (default: code/build/debug-tests/endless.hex)
   --elf PATH        Optional ELF path (override)
   --sig PATH        Optional signature output path (override)
   --vcd PATH        Optional VCD output path (MyHDL appends .vcd automatically)
@@ -51,6 +56,70 @@ Notes:
 - Any unknown options are passed through to pytest.
 - Use "--" to pass arguments to pytest unmodified.
 ```
+
+### OpenOCD remote_bitbang JTAG/Core server
+
+Start the simulated Bonfire core with a JTAG remote-bitbang server:
+
+```bash
+scripts/bonfire-core --openocd-bitbang --port 3335
+```
+
+This uses `code/build/debug-tests/endless.hex` by default, just like the direct
+GDB server mode. A different program can be selected explicitly:
+
+```bash
+scripts/bonfire-core --openocd-bitbang --hex code/build/debug-tests/endless.hex --port 3335
+```
+
+For debugging OpenOCD/GDB interactions with abstract commands and progbuf
+execution, enable the Debug Module trace:
+
+```bash
+scripts/bonfire-core --openocd-bitbang --port 3335 --debug-trace
+```
+
+The trace logs DMI register accesses, writes to `progbuf0`/`progbuf1`,
+abstract command writes, state transitions, and dumps the last trace window if
+the simulated core hits an invalid opcode assertion.
+
+The server runs until interrupted with Ctrl-C. In another terminal, OpenOCD
+connects through its `remote_bitbang` adapter and creates a RISC-V target:
+
+```tcl
+adapter driver remote_bitbang
+remote_bitbang host localhost
+remote_bitbang port 3335
+transport select jtag
+
+jtag newtap bonfire cpu -irlen 5 -expected-id 0x10e31913
+target create bonfire.cpu riscv -chain-position bonfire.cpu
+
+init
+```
+
+Run it with:
+
+```bash
+openocd -f bonfire_remote_bitbang.cfg
+```
+
+OpenOCD normally opens its GDB server on port `3333`. In a third terminal, start
+GDB with the matching ELF and connect to OpenOCD:
+
+```bash
+gdb-multiarch code/build/debug-tests/endless.elf
+```
+
+```gdb
+set architecture riscv:rv32
+target remote localhost:3333
+```
+
+Current limitation: the transport path is now the real path
+`GDB -> OpenOCD -> remote_bitbang -> JTAG DTM -> DebugModule -> Core`, but
+OpenOCD may still fail target examination until the remaining RISC-V Debug
+Module compatibility gaps are implemented.
 
 ## Common workflows
 
@@ -507,6 +576,7 @@ scripts/bonfire-core --integration --vcd /tmp/loadsave.vcd -- -k loadsave -q
 
 - `--gdbserver` is a separate mode and cannot be combined with `--ut`, `--integration`, or pytest pass-through args.
 - In `--gdbserver` mode, only `--hex` and `--port` are accepted from the run-specific options.
+- `--openocd-bitbang` is a separate mode and accepts `--hex`, `--port`, and `--vcd`.
 
 ## Exit codes
 

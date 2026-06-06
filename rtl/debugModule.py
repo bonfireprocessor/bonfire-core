@@ -11,11 +11,13 @@ from rtl.instructions import CSRAdr
 
 t_debugHartState = enum('running','halted')
 t_abstractCommandType = enum('access_reg','quick_access')
-t_abstractCommandState  = enum('none','regvalid','taken','failed','exec','wait_retire')
+# exec,exec2 serve as progbuf pc: exec excutes progbuf0 and exec2 executes progbuf1 when progbuf_size is 2. 
+# When progbuf_size is 1, exec2 will not be used and progbuf0 will be executed in exec state.
+t_abstractCommandState  = enum('none','regvalid','taken','failed','exec','exec2','wait_retire')
 
-debugSpecVersion = 15 # consider setting this to 2
+debugSpecVersion = 2 # RISC-V Debug Spec 0.13
 csr_depc = 0x7b1
-xdedebugver = 15 # consider setting this to 4
+xdedebugver = 4 # RISC-V Debug Spec 0.13
 
 class DebugCSRBundle():
     def __init__(self,config):
@@ -46,6 +48,8 @@ class DebugRegisterBundle:
         xlen = config.xlen
         self.xlen = xlen
 
+        assert self.config.progbuf_size in range(1,3), "progbuf_size must be 1 or 2"
+
         self.hartState=Signal(t_debugHartState.running)
 
         # Signals from DMI to debug core, written by DMI
@@ -68,6 +72,12 @@ class DebugRegisterBundle:
         #written by DMI
         self.dataRegs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
         self.progbuf0 = Signal(modbv(0)[xlen:])
+        self.progbuf1 =  Signal(modbv(0)[xlen:]) # will not be used when progbuf_size==1
+        # abstractauto controls whether accesses to dataN/progbufN also launch
+        # the currently configured abstract command. OpenOCD uses this for
+        # repeated memory reads through data0 without rewriting command.
+        self.abstractAutoData = Signal(modbv(0)[config.numdata:])
+        self.abstractAutoProgbuf = Signal(modbv(0)[config.progbuf_size:])
 
 
 
@@ -154,6 +164,7 @@ class DMI:
                         dtm.dbo.next[10] = debugRegs.hartState==t_debugHartState.running #anyrunning
                         dtm.dbo.next[9] = debugRegs.hartState==t_debugHartState.halted #allhalted
                         dtm.dbo.next[8] = debugRegs.hartState==t_debugHartState.halted #anyhalted
+                        dtm.dbo.next[7] = True  # authenticated
                         dtm.dbo.next[4:] = debugSpecVersion # version
                     elif dtm.adr==0x10: #dmcontrol
                         dtm.dbo.next[1] = debugRegs.hartReset # ndmreset
@@ -161,12 +172,46 @@ class DMI:
                     elif dtm.adr==0x12: # hartinfo
                         dtm.dbo.next[24:20] = self.config.num_dscratch
                         dtm.dbo.next[16:12] = self.config.numdata
+                    elif dtm.adr==0x18: #abstractauto
+                        dtm.dbo.next[16+self.config.progbuf_size:16] = debugRegs.abstractAutoProgbuf
+                        dtm.dbo.next[self.config.numdata:] = debugRegs.abstractAutoData
                     elif dtm.adr==0x20: #progbuf0
                         dtm.dbo.next = debugRegs.progbuf0
+                        # autoexecprogbuf0: complete the register access and
+                        # request the last abstract command again.
+                        if debugRegs.abstractAutoProgbuf[0] and debugRegs.cmderr == 0:
+                            if debugRegs.abstractCommandState != t_abstractCommandState.none:
+                                debugRegs.cmderr.next = 1 # busy
+                            elif debugRegs.hartState==t_debugHartState.running:
+                                debugRegs.cmderr.next = 4
+                            else:
+                                debugRegs.abstractCommandNew.next = True
+                    elif self.config.progbuf_size==2 and  dtm.adr==0x21: #progbuf1
+                        dtm.dbo.next = debugRegs.progbuf1    
+                        # autoexecprogbuf1 mirrors progbuf0 handling for a
+                        # two-entry program buffer.
+                        if debugRegs.abstractAutoProgbuf[1] and debugRegs.cmderr == 0:
+                            if debugRegs.abstractCommandState != t_abstractCommandState.none:
+                                debugRegs.cmderr.next = 1 # busy
+                            elif debugRegs.hartState==t_debugHartState.running:
+                                debugRegs.cmderr.next = 4
+                            else:
+                                debugRegs.abstractCommandNew.next = True
                     elif (dtm.adr>=0x04) and (dtm.adr<=0x04+self.config.numdata-1): # data0 to data 0x11
-                        dtm.dbo.next = debugRegs.dataRegs[dtm.adr-0x04]
+                        data_index = dtm.adr-0x04
+                        dtm.dbo.next = debugRegs.dataRegs[data_index]
+                        # autoexecdataN returns the current dataN value for this
+                        # DMI read and schedules the next abstract command. This
+                        # is why repeated data0 reads can stream memory words.
+                        if debugRegs.abstractAutoData[data_index] and debugRegs.cmderr == 0:
+                            if debugRegs.abstractCommandState != t_abstractCommandState.none:
+                                debugRegs.cmderr.next = 1 # busy
+                            elif debugRegs.hartState==t_debugHartState.running:
+                                debugRegs.cmderr.next = 4
+                            else:
+                                debugRegs.abstractCommandNew.next = True
                     elif dtm.adr==0x16: #abstractcs
-                        dtm.dbo.next[29:24] = 1 #progbufsize
+                        dtm.dbo.next[29:24] = self.config.progbuf_size # progbufsize
                         dtm.dbo.next[12] = debugRegs.abstractCommandState != t_abstractCommandState.none # busy
                         dtm.dbo.next[11:8] = debugRegs.cmderr # cmderr
                         dtm.dbo.next[4:] = self.config.numdata # datacount
@@ -180,9 +225,24 @@ class DMI:
 
                         debugRegs.hartReset.next = dtm.dbi[1] # ndmreset
                     elif (dtm.adr>=0x04) and (dtm.adr<=0x04+self.config.numdata-1): # data0 to data 0x11
-                        debugRegs.dataRegs[dtm.adr-0x04].next = dtm.dbi    
+                        data_index = dtm.adr-0x04
+                        debugRegs.dataRegs[data_index].next = dtm.dbi
+                        # Writes to dataN can also be autoexec triggers. The
+                        # written value is visible to the command started here.
+                        if debugRegs.abstractAutoData[data_index] and debugRegs.cmderr == 0:
+                            if debugRegs.abstractCommandState != t_abstractCommandState.none:
+                                debugRegs.cmderr.next = 1 # busy
+                            elif debugRegs.hartState==t_debugHartState.running:
+                                debugRegs.cmderr.next = 4
+                            else:
+                                debugRegs.abstractCommandNew.next = True
                     elif dtm.adr==0x16: #abstractcs
                         debugRegs.cmderr.next = debugRegs.cmderr & ~dtm.dbi[11:8]  # clear cmderr bits with writing 1 to them
+                    elif dtm.adr==0x18: #abstractauto
+                        # abstractauto[15:0] selects dataN autoexec triggers.
+                        # abstractauto[31:16] selects progbufN autoexec triggers.
+                        debugRegs.abstractAutoData.next = dtm.dbi[self.config.numdata:]
+                        debugRegs.abstractAutoProgbuf.next = dtm.dbi[16+self.config.progbuf_size:16]
                     elif dtm.adr==0x17: # abstract command
                         if debugRegs.cmderr == 0: # dont start any new command as long cmderr is not cleared
                             if debugRegs.abstractCommandState != t_abstractCommandState.none:
@@ -202,7 +262,7 @@ class DMI:
                                 csrAccess =  dtm.dbi[16:1] == csr_mask 
                                 debugRegs.csrAccess.next = csrAccess
                               
-                                if dtm.dbi[16:5]==0x80 or csrAccess or not transfer: # When Transfer is not set register number do not care
+                                if dtm.dbi[23:20]==2 and (dtm.dbi[16:5]==0x80 or csrAccess or not transfer): # Only support 32Bit transfers. When Transfer is not set, register number do not care
                                     debugRegs.abstractCommandNew.next = True
                                 else:
                                     debugRegs.cmderr.next = 2 # not supported
@@ -213,11 +273,28 @@ class DMI:
                                 debugRegs.cmderr.next = 2 # not supported
                     elif dtm.adr==0x20: #progbuf0
                         debugRegs.progbuf0.next = dtm.dbi
+                        # Allow tools to update progbuf0 and immediately run the
+                        # previously configured abstract command.
+                        if debugRegs.abstractAutoProgbuf[0] and debugRegs.cmderr == 0:
+                            if debugRegs.abstractCommandState != t_abstractCommandState.none:
+                                debugRegs.cmderr.next = 1 # busy
+                            elif debugRegs.hartState==t_debugHartState.running:
+                                debugRegs.cmderr.next = 4
+                            else:
+                                debugRegs.abstractCommandNew.next = True
+                    elif self.config.progbuf_size==2 and dtm.adr==0x21:
+                        debugRegs.progbuf1.next = dtm.dbi
+                        # Same autoexec behavior for the optional second
+                        # progbuf entry.
+                        if debugRegs.abstractAutoProgbuf[1] and debugRegs.cmderr == 0:
+                            if debugRegs.abstractCommandState != t_abstractCommandState.none:
+                                debugRegs.cmderr.next = 1 # busy
+                            elif debugRegs.hartState==t_debugHartState.running:
+                                debugRegs.cmderr.next = 4
+                            else:
+                                debugRegs.abstractCommandNew.next = True
 
         return instances()
-
-
-
 
 
 

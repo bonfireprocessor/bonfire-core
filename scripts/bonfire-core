@@ -7,6 +7,7 @@ set -euo pipefail
 # - Can manage the local Python venv (via scripts/install.sh)
 # - Can run a single core integration program (--hex/--elf/--sig/--vcd)
 # - Can start the simulated GDB server (--gdbserver [--port N])
+# - Can start the OpenOCD remote_bitbang JTAG/Core simulation server (--openocd-bitbang [--port N])
 #
 # Any options not recognized by this script are passed through to pytest.
 # Use "--" to force all remaining args to be passed to pytest.
@@ -44,7 +45,10 @@ Test selection:
   --integration     Run core HEX integration tests (pytest-based)
   --all             Run all tests (default when no args are given)
   --gdbserver       Start the simulated GDB server instead of running pytest
-  --port N          GDB server TCP port (default: first free port in 5500-5550)
+  --openocd-bitbang Start the OpenOCD remote_bitbang JTAG/Core simulation server
+  --port N          Server TCP port (GDB default: first free port in 5500-5550,
+                    OpenOCD bitbang default: 3335)
+  --debug-trace     With --openocd-bitbang: print Debug Module/progbuf trace
 
 Environment / venv:
   --install         Create/update ./\.venv and install Python deps (runs scripts/install.sh)
@@ -53,7 +57,8 @@ Environment / venv:
 
 Single core run (pytest-based):
   --hex PATH        Run exactly one HEX program via tests/test_core.py
-                    With --gdbserver: HEX image to load (default: code/build/debug-tests/endless.hex)
+                    With --gdbserver/--openocd-bitbang: HEX image to load
+                    (default: code/build/debug-tests/endless.hex)
   --elf PATH        Optional ELF path (override)
   --sig PATH        Optional signature output path (override)
   --vcd PATH        Optional VCD output path (MyHDL appends .vcd automatically)
@@ -70,6 +75,8 @@ USAGE
 RUN_UT=0
 RUN_INTEGRATION=0
 RUN_GDBSERVER=0
+RUN_OPENOCD_BITBANG=0
+OPENOCD_DEBUG_TRACE=0
 DO_INSTALL=0
 KEEPENV=0
 
@@ -126,6 +133,16 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
 
+    --openocd-bitbang)
+      RUN_OPENOCD_BITBANG=1
+      shift
+      ;;
+
+    --debug-trace)
+      OPENOCD_DEBUG_TRACE=1
+      shift
+      ;;
+
     --port)
       GDBSERVER_PORT="${2:-}"
       [[ -n "$GDBSERVER_PORT" ]] || { echo "ERROR: --port requires a value" >&2; exit 2; }
@@ -174,24 +191,37 @@ if [[ "${BONFIRE_CORE_KEEPENV:-}" == "1" ]]; then
   KEEPENV=1
 fi
 
-if [[ $RUN_GDBSERVER -eq 1 ]]; then
-  if [[ $RUN_UT -eq 1 || $RUN_INTEGRATION -eq 1 ]]; then
-    echo "ERROR: --gdbserver cannot be combined with --ut/--integration/--all" >&2
+if [[ $RUN_GDBSERVER -eq 1 || $RUN_OPENOCD_BITBANG -eq 1 ]]; then
+  if [[ $RUN_GDBSERVER -eq 1 && $RUN_OPENOCD_BITBANG -eq 1 ]]; then
+    echo "ERROR: --gdbserver cannot be combined with --openocd-bitbang" >&2
     exit 2
   fi
-  if [[ -n "$TB_ELF" || -n "$TB_SIG" || -n "$TB_VCD" ]]; then
+  if [[ $RUN_UT -eq 1 || $RUN_INTEGRATION -eq 1 ]]; then
+    echo "ERROR: server modes cannot be combined with --ut/--integration/--all" >&2
+    exit 2
+  fi
+  if [[ $RUN_GDBSERVER -eq 1 && -n "$TB_ELF$TB_SIG$TB_VCD" ]]; then
     echo "ERROR: --gdbserver only supports --hex and --port from the run-specific options" >&2
     exit 2
   fi
+  if [[ $RUN_OPENOCD_BITBANG -eq 1 && -n "$TB_ELF$TB_SIG" ]]; then
+    echo "ERROR: --openocd-bitbang only supports --hex, --port, and --vcd from the run-specific options" >&2
+    exit 2
+  fi
   if [[ ${#PYTEST_ARGS[@]} -ne 0 ]]; then
-    echo "ERROR: --gdbserver does not accept pytest arguments" >&2
+    echo "ERROR: server modes do not accept pytest arguments" >&2
     exit 2
   fi
 fi
 
+if [[ $OPENOCD_DEBUG_TRACE -eq 1 && $RUN_OPENOCD_BITBANG -eq 0 ]]; then
+  echo "ERROR: --debug-trace requires --openocd-bitbang" >&2
+  exit 2
+fi
+
 # If the user did not explicitly choose a test selection mode and provided args,
-# default to --all unless we are in gdbserver mode.
-if [[ $RUN_GDBSERVER -eq 0 && $RUN_UT -eq 0 && $RUN_INTEGRATION -eq 0 ]]; then
+# default to --all unless we are in a server mode.
+if [[ $RUN_GDBSERVER -eq 0 && $RUN_OPENOCD_BITBANG -eq 0 && $RUN_UT -eq 0 && $RUN_INTEGRATION -eq 0 ]]; then
   RUN_UT=1
   RUN_INTEGRATION=1
 fi
@@ -260,6 +290,31 @@ if [[ $RUN_GDBSERVER -eq 1 ]]; then
   fi
 
   exec "${GDBSERVER_CMD[@]}"
+fi
+
+if [[ $RUN_OPENOCD_BITBANG -eq 1 ]]; then
+  if [[ -z "$TB_HEX" ]]; then
+    TB_HEX="$DEFAULT_GDBSERVER_HEX"
+    pushd "$CODE_DIR" >/dev/null
+    make -B debug-tests TARGET_PREFIX="$TARGET_PREFIX" KEEP_ELF=1
+    popd >/dev/null
+  elif [[ ! -f "$TB_HEX" ]]; then
+    echo "ERROR: HEX file not found: $TB_HEX" >&2
+    exit 2
+  fi
+
+  OPENOCD_BITBANG_CMD=(python -m openocd_bitbang --hex "$TB_HEX")
+  if [[ -n "$GDBSERVER_PORT" ]]; then
+    OPENOCD_BITBANG_CMD+=(--port "$GDBSERVER_PORT")
+  fi
+  if [[ -n "$TB_VCD" ]]; then
+    OPENOCD_BITBANG_CMD+=(--vcd "$TB_VCD_BASE")
+  fi
+  if [[ $OPENOCD_DEBUG_TRACE -eq 1 ]]; then
+    OPENOCD_BITBANG_CMD+=(--debug-trace)
+  fi
+
+  exec "${OPENOCD_BITBANG_CMD[@]}"
 fi
 
 # Single-run mode: restrict test_core parametrization to exactly one hex.

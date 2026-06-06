@@ -287,6 +287,9 @@ class JtagDTM:
                 elif tap_state == t_tapState.shift_dr:
                     if instruction == JTAG_INSTR_BYPASS:
                         bypass.next = tdi_sync
+                    elif instruction == JTAG_INSTR_IDCODE or instruction == JTAG_INSTR_DTMCS:
+                        dr_shift.next[31] = tdi_sync
+                        dr_shift.next[31:0] = dr_shift[32:1]
                     else:
                         dr_shift.next[dr_width - 1] = tdi_sync
                         dr_shift.next[dr_width - 1:0] = dr_shift[dr_width:1]
