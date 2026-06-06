@@ -44,6 +44,7 @@ def serve_openocd_bitbang(
     verbose: bool = False,
     vcd: Path | None = None,
     observe_jtag: bool = False,
+    debug_trace: bool = False,
     exit_on_client_quit: bool = False,
 ) -> int:
     control = OpenOCDBitbangControl(host=host, port=port)
@@ -60,6 +61,7 @@ def serve_openocd_bitbang(
         stop_event=control.stop_event,
         verbose=verbose,
         observe_jtag=observe_jtag,
+        debug_trace=debug_trace,
         exit_on_client_quit=exit_on_client_quit,
     ).testbench()
     sim_error: list[BaseException] = []
@@ -109,6 +111,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--ramsize", type=int, default=16384, help="RAM size in 32-bit words")
     parser.add_argument("--verbose", action="store_true", help="Print remote_bitbang protocol activity")
     parser.add_argument("--observe-jtag", action="store_true", help="Print decoded TAP state and scan activity")
+    parser.add_argument("--debug-trace", action="store_true", help="Print Debug Module and progbuf execution trace")
     parser.add_argument("--exit-on-client-quit", action="store_true", help="Exit after the remote_bitbang client sends Q")
     parser.add_argument("--vcd", type=Path, default=None, help="Optional VCD output filename base")
     return parser.parse_args()
@@ -129,10 +132,10 @@ def main() -> int:
         verbose=args.verbose,
         vcd=args.vcd,
         observe_jtag=args.observe_jtag,
+        debug_trace=args.debug_trace,
         exit_on_client_quit=args.exit_on_client_quit,
     )
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

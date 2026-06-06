@@ -20,6 +20,14 @@ commands=[ \
     {"opcode":0x00461693,"source":"slli	a3,a2,0x4", \
         "t": lambda d,rs1,rs2: d.op2_o==4 and abi_name(rs1)=="a2" and d.alu_cmd and \
             d.funct3_onehot_o==2**1 and abi_name(d.rd_adr_o)=="a3" }, \
+    {"opcode":0x0000000f,"source":"fence", \
+         "t": lambda d,rs1,rs2: not d.alu_cmd and not d.branch_cmd and not d.jump_cmd and \
+            not d.jumpr_cmd and not d.load_cmd and not d.store_cmd and not d.csr_cmd and \
+            not d.sys_cmd and not d.invalid_opcode }, \
+    {"opcode":0x0000100f,"source":"fence.i", \
+         "t": lambda d,rs1,rs2: not d.alu_cmd and not d.branch_cmd and not d.jump_cmd and \
+            not d.jumpr_cmd and not d.load_cmd and not d.store_cmd and not d.csr_cmd and \
+            not d.sys_cmd and not d.invalid_opcode }, \
     {"opcode":0xfec588e3,"source":"beq	a1,a2,0 <_start>", "current_ip": 16, \
          "t": lambda d,rs1,rs2: abi_name(rs1)=="a1" and abi_name(rs2)=="a2" and d.branch_cmd and \
             d.funct3_onehot_o==2**0 and d.jump_dest_o == 0 }

@@ -34,6 +34,7 @@ Test selection:
   --openocd-bitbang Start the OpenOCD remote_bitbang JTAG/Core simulation server
   --port N          Server TCP port (GDB default: first free port in 5500-5550,
                     OpenOCD bitbang default: 3335)
+  --debug-trace     With --openocd-bitbang: print Debug Module/progbuf trace
 
 Environment / venv:
   --install         Create/update ./.venv and install Python deps (scripts/install.sh)
@@ -70,6 +71,17 @@ GDB server mode. A different program can be selected explicitly:
 ```bash
 scripts/bonfire-core --openocd-bitbang --hex code/build/debug-tests/endless.hex --port 3335
 ```
+
+For debugging OpenOCD/GDB interactions with abstract commands and progbuf
+execution, enable the Debug Module trace:
+
+```bash
+scripts/bonfire-core --openocd-bitbang --port 3335 --debug-trace
+```
+
+The trace logs DMI register accesses, writes to `progbuf0`/`progbuf1`,
+abstract command writes, state transitions, and dumps the last trace window if
+the simulated core hits an invalid opcode assertion.
 
 The server runs until interrupted with Ctrl-C. In another terminal, OpenOCD
 connects through its `remote_bitbang` adapter and creates a RISC-V target:
