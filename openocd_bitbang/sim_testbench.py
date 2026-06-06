@@ -14,7 +14,7 @@ from myhdl import *
 
 from openocd_bitbang.remote_bitbang import remote_bitbang_server
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debugModule import AbstractDebugTransportBundle, t_abstractCommandState
+from rtl.debugModule import AbstractDebugTransportBundle, t_abstractCommandState, t_debugHartState
 from rtl.jtag_dtm import JtagDTM, t_tapState
 from tb.ClkDriver import ClkDriver
 from tb.sim_ram import sim_ram
@@ -148,7 +148,7 @@ class OpenOCDBitbangTestbench:
         return instances()
 
     @block
-    def debug_trace_monitor(self, clock: Any, dtm: Any, core: Any) -> Any:
+    def debug_trace_monitor(self, clock: Any, dtm: Any, dbus: Any, core: Any) -> Any:
         debug_regs = core.debugRegs
         assert debug_regs is not None
 
@@ -203,6 +203,32 @@ class OpenOCDBitbangTestbench:
                 int(debug_regs.progbuf1),
             )
 
+        def instruction_summary(instr: int) -> str:
+            opcode = instr & 0x7F
+            funct3 = (instr >> 12) & 0x7
+            rd = (instr >> 7) & 0x1F
+            rs1 = (instr >> 15) & 0x1F
+            imm_i = (instr >> 20) & 0xFFF
+            if imm_i & 0x800:
+                imm_i -= 0x1000
+
+            if opcode == 0x03:
+                names = {
+                    0x0: "lb",
+                    0x1: "lh",
+                    0x2: "lw",
+                    0x4: "lbu",
+                    0x5: "lhu",
+                }
+                return "{} x{}, {}(x{})".format(names.get(funct3, "load?"), rd, imm_i, rs1)
+            if opcode == 0x73 and instr == 0x00100073:
+                return "ebreak"
+            if opcode == 0x0F and instr == 0x0000000F:
+                return "fence"
+            if opcode == 0x0F and instr == 0x0000100F:
+                return "fence.i"
+            return "unknown"
+
         @instance
         def monitor() -> Any:
             last_state = debug_regs.abstractCommandState.val
@@ -246,6 +272,25 @@ class OpenOCDBitbangTestbench:
                         if not (int(dtm.adr) == 0x11 and int(dtm.dbo) == 0):
                             append_trace("DMI read adr=0x{:02x} data=0x{:08x}".format(int(dtm.adr), int(dtm.dbo)))
 
+                if (dbus.ack_i or dbus.error_i) and debug_regs.hartState == t_debugHartState.halted:
+                    if int(dbus.we_o) == 0:
+                        append_trace(
+                            "DBUS read adr=0x{:08x} data=0x{:08x} error={}".format(
+                                int(dbus.adr_o),
+                                int(dbus.db_rd),
+                                int(dbus.error_i),
+                            )
+                        )
+                    else:
+                        append_trace(
+                            "DBUS write adr=0x{:08x} we=0x{:x} data=0x{:08x} error={}".format(
+                                int(dbus.adr_o),
+                                int(dbus.we_o),
+                                int(dbus.db_wr),
+                                int(dbus.error_i),
+                            )
+                        )
+
                 if state != last_state:
                     append_trace("abstract state {} -> {}".format(last_state, state))
 
@@ -258,17 +303,21 @@ class OpenOCDBitbangTestbench:
                             append_trace("Command Start: {}".format(command_summary()))
 
                     if last_state == t_abstractCommandState.exec and state == t_abstractCommandState.wait_retire:
+                        instr = int(debug_regs.progbuf0)
                         append_trace(
-                            "Progbuf Exec slot=0 pc=0x{:08x} instr=0x{:08x}".format(
+                            "Progbuf Exec slot=0 pc=0x{:08x} instr=0x{:08x} {}".format(
                                 int(decode.debug_current_ip_o),
-                                int(debug_regs.progbuf0),
+                                instr,
+                                instruction_summary(instr),
                             )
                         )
                     elif last_state == t_abstractCommandState.exec2 and state == t_abstractCommandState.wait_retire:
+                        instr = int(debug_regs.progbuf1)
                         append_trace(
-                            "Progbuf Exec slot=1 pc=0x{:08x} instr=0x{:08x}".format(
+                            "Progbuf Exec slot=1 pc=0x{:08x} instr=0x{:08x} {}".format(
                                 int(decode.debug_current_ip_o),
-                                int(debug_regs.progbuf1),
+                                instr,
+                                instruction_summary(instr),
                             )
                         )
 
@@ -356,7 +405,7 @@ class OpenOCDBitbangTestbench:
 
         core = bonfire_core_top.BonfireCoreTop(local_config)
         dut = core.createInstance(ibus, dbus, control, clock, reset, debug, debugTransportBundle=dtm)
-        debug_trace_i = self.debug_trace_monitor(clock, dtm, core)
+        debug_trace_i = self.debug_trace_monitor(clock, dtm, dbus, core)
 
         if self.ready_event is not None:
             self.ready_event.set()

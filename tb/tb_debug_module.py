@@ -89,6 +89,44 @@ class BonfireCoreDebugTestbench:
         self.log("{} dpc = {}".format(text, hex(actual)))
         assert actual == expected, "{} dpc: {} expected: {}".format(text, hex(actual), hex(expected))
 
+    def wait_abstract_idle(self, api: DebugAPI, text: str) -> Generator[Any, None, None]:
+        yield api.dmi_read(0x16)
+        while api.result[12]:
+            yield api.dmi_read(0x16)
+
+        cmderr = api.result[11:8]
+        assert cmderr == 0, "{} cmderr: {}".format(text, cmderr)
+
+    def check_abstractauto_memory_read(
+        self,
+        api: DebugAPI,
+        expected0: int,
+        expected4: int,
+    ) -> Generator[Any, None, None]:
+        self.log("testing abstractauto data0 memory read sequence")
+
+        yield api.dmi_write(0x20, 0x00042483)  # lw s1, 0(s0)
+        yield api.dmi_write(0x21, 0x00440413)  # addi s0, s0, 4
+        yield api.writeGPR(regno=8, value=0, transfer=True)
+
+        yield api.readGPR(regno=9, postexec=True, transfer=True)
+        yield api.dmi_write(0x18, 0x00000001)  # abstractauto.autoexecdata0
+
+        yield api.dmi_read(0x04)  # Returns stale data0, starts command for address 0.
+        yield self.wait_abstract_idle(api, "abstractauto prime")
+
+        yield api.dmi_read(0x04)  # Returns memory[0], starts command for address 4.
+        actual0 = api.cmd_result()
+        yield self.wait_abstract_idle(api, "abstractauto memory[0]")
+
+        yield api.dmi_write(0x18, 0x00000000)
+        yield api.dmi_read(0x04)
+        actual4 = api.cmd_result()
+
+        assert actual0 == expected0, "abstractauto memory[0]: {} expected {}".format(hex(actual0), hex(expected0))
+        assert actual4 == expected4, "abstractauto memory[4]: {} expected {}".format(hex(actual4), hex(expected4))
+        self.log("abstractauto memory sequence read {} then {}".format(hex(actual0), hex(actual4)))
+
     @block
     def halt_resume_stimulus(
         self,
@@ -210,9 +248,19 @@ class BonfireCoreDebugTestbench:
 
             self.log("testing memory read through progbuf")
             mark("reading memory through progbuf")
+            yield api.readMemory(memadr=0x0)
+            mem0_save = api.cmd_result()
+            self.log("memory[0x0] initial value = {}".format(hex(mem0_save)))
             yield api.readMemory(memadr=0x4)
             self.log("memory[0x4] initial value = {}".format(hex(api.cmd_result())))
             mem_save = api.cmd_result()
+
+            if self.debug_transport == "jtag":
+                # skip part of test with JTAG Transport for Performance reasons
+                self.log("skipping abstractauto memory sequence for JTAG transport")
+            else:
+                mark("testing abstractauto memory sequence")
+                yield self.check_abstractauto_memory_read(api, mem0_save, mem_save)
 
             self.log("testing memory write through progbuf")
             mark("writing memory through progbuf")
