@@ -9,6 +9,7 @@ for day-to-day development:
 - runs selected pytest test groups (unit / pipeline / core HEX integration)
 - can also run *exactly one* core program (`--hex ...`) with optional ELF / signature / VCD output
 - can start the simulated GDB server (`--gdbserver [--port N]`)
+- can start the OpenOCD remote_bitbang JTAG simulation server (`--openocd-bitbang [--port N]`)
 
 Note: the script always runs core tests with normal pytest output capture. If you want to see the MyHDL/monitor prints, pass `-- -s` to pytest (or use `--hex`, which already runs with `-s`).
 
@@ -30,7 +31,9 @@ Test selection:
   --integration     Run core HEX integration tests (pytest-based)
   --all             Run all tests (default when no args are given)
   --gdbserver       Start the simulated GDB server instead of running pytest
-  --port N          GDB server TCP port (default: first free port in 5500-5550)
+  --openocd-bitbang Start the OpenOCD remote_bitbang JTAG simulation server
+  --port N          Server TCP port (GDB default: first free port in 5500-5550,
+                    OpenOCD bitbang default: 3335)
 
 Environment / venv:
   --install         Create/update ./.venv and install Python deps (scripts/install.sh)
@@ -51,6 +54,39 @@ Notes:
 - Any unknown options are passed through to pytest.
 - Use "--" to pass arguments to pytest unmodified.
 ```
+
+### OpenOCD remote_bitbang JTAG server
+
+Start the simulated JTAG remote-bitbang server:
+
+```bash
+scripts/bonfire-core --openocd-bitbang --port 3335
+```
+
+The server runs until interrupted with Ctrl-C. In another terminal, OpenOCD can
+connect through its `remote_bitbang` adapter. Minimal IDCODE / scan-chain config:
+
+```tcl
+adapter driver remote_bitbang
+remote_bitbang host localhost
+remote_bitbang port 3335
+transport select jtag
+
+jtag newtap bonfire cpu -irlen 5 -expected-id 0x10e31913
+
+init
+scan_chain
+shutdown
+```
+
+Run it with:
+
+```bash
+openocd -f bonfire_remote_bitbang.cfg
+```
+
+This first prototype exposes the JTAG DTM enough for OpenOCD to read the TAP
+IDCODE. It does not yet run a full Bonfire core debug session through OpenOCD.
 
 ## Common workflows
 
