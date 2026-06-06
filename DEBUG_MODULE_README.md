@@ -2,10 +2,10 @@
 
 This document describes the current debug stack in **bonfire-core**:
 
-- RISC-V Debug Module implementation (`/tmp/workspace/bonfireprocessor/bonfire-core/rtl/debugModule.py`)
-- JTAG Debug Transport Module (DTM) (`/tmp/workspace/bonfireprocessor/bonfire-core/rtl/jtag_dtm.py`)
-- OpenOCD remote_bitbang simulation server (`/tmp/workspace/bonfireprocessor/bonfire-core/openocd_bitbang`)
-- Integration of the debug path into the Bonfire core (`/tmp/workspace/bonfireprocessor/bonfire-core/rtl/bonfire_core_top.py` + decode/fetch/backend path)
+- RISC-V Debug Module implementation (`rtl/debugModule.py`)
+- JTAG Debug Transport Module (DTM) (`rtl/jtag_dtm.py`)
+- OpenOCD remote_bitbang simulation server (`openocd_bitbang`)
+- Integration of the debug path into the Bonfire core (`rtl/bonfire_core_top.py` + decode/fetch/backend path)
 
 ---
 
@@ -235,19 +235,19 @@ In `BonfireCoreTop`:
 
 ## 9. Relevant Source Files
 
-- `/tmp/workspace/bonfireprocessor/bonfire-core/rtl/debugModule.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/rtl/jtag_dtm.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/rtl/decode.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/rtl/fetch.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/rtl/simple_pipeline.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/rtl/bonfire_core_top.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/openocd_bitbang/main.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/openocd_bitbang/sim_testbench.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/openocd_bitbang/remote_bitbang.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/openocd_bitbang/bonfire.cfg`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/tb/tb_debug_module.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/tb/tb_jtag_dtm.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/tests/test_debug_module.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/tests/test_jtag_dtm.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/tests/test_openocd_remote_bitbang.py`
-- `/tmp/workspace/bonfireprocessor/bonfire-core/scripts/README.md`
+- `rtl/debugModule.py`
+- `rtl/jtag_dtm.py`
+- `rtl/decode.py`
+- `rtl/fetch.py`
+- `rtl/simple_pipeline.py`
+- `rtl/bonfire_core_top.py`
+- `openocd_bitbang/main.py`
+- `openocd_bitbang/sim_testbench.py`
+- `openocd_bitbang/remote_bitbang.py`
+- `openocd_bitbang/bonfire.cfg`
+- `tb/tb_debug_module.py`
+- `tb/tb_jtag_dtm.py`
+- `tests/test_debug_module.py`
+- `tests/test_jtag_dtm.py`
+- `tests/test_openocd_remote_bitbang.py`
+- `scripts/README.md`
