@@ -17,6 +17,7 @@ nav:
       - Overview: hardware/overview.md
       - Core: hardware/core.md
       - SoC: hardware/soc.md
+      - Extended SoC: hardware/extended-soc.md
       - Interfaces and Memory: hardware/interfaces-and-memory.md
   - Workflows:
       - Overview: workflows/overview.md
