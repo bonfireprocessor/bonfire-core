@@ -138,7 +138,7 @@
             "type": "debugpy",
             "request": "launch",
             "console": "integratedTerminal",
-            "args": ["--port=3335"]
+            "args": ["--port=3335","--debug-trace"]
         }
 
     ]
