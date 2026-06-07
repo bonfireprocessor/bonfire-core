@@ -63,9 +63,15 @@ int main(void)
 #endif
 
     uint32_t counter = 0;
-
+    uint32_t shifted_counter_save = 0;
     while (1) {
-        bonfire_write32(BONFIRE_LED_BASE, (counter++) & BONFIRE_LED_MASK);
-        report_platform();
+
+        uint32_t shifted_counter = counter++ >> ((BONFIRE_LED_SHIFT>0) ? BONFIRE_LED_SHIFT-2 : 0);
+        if (shifted_counter != shifted_counter_save) {
+            shifted_counter_save = shifted_counter;
+            bonfire_write32(BONFIRE_LED_BASE, shifted_counter & BONFIRE_LED_MASK);
+            printk("Counter: %u\n\n", counter);
+            report_platform();
+        }
     }    
 }
