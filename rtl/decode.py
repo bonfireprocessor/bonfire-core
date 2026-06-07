@@ -225,38 +225,40 @@ class DecodeBundle(PipelineControl):
                         debugRegisterBundle.dpc_jump.next = True
 
                 if dm_halt:
-                    if debugRegisterBundle.commandType == t_abstractCommandType.access_reg and \
-                       debugRegisterBundle.abstractCommandNew and \
-                       debugRegisterBundle.abstractCommandState == t_abstractCommandState.none and \
-                       (debugRegisterBundle.transfer or debugRegisterBundle.postexec):
-                        debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.taken
+                    if debugRegisterBundle.abstractCommandState == t_abstractCommandState.none:
+                        if debugRegisterBundle.abstractCommandNew and \
+                           debugRegisterBundle.commandType == t_abstractCommandType.access_reg and \
+                           (debugRegisterBundle.transfer or debugRegisterBundle.postexec):
+                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.taken
 
-                    if debugRegisterBundle.abstractCommandState == t_abstractCommandState.taken:
-                        if debugRegisterBundle.transfer:
-                            if debugRegisterBundle.write:
-                                if debugRegisterBundle.postexec:
-                                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
-                                else:
-                                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
-
-                                if debugRegisterBundle.csrAccess:
-                                    dr0 = debugRegisterBundle.dataRegs[0]
-                                    if debugRegisterBundle.regno[0]:
-                                        debugRegisterBundle.dpc.next = dr0[conf.xlen:conf.ip_low]
-                                    else:
-                                        self.debugCSRBundle.ebreakm.next = dr0[15]
-                                        self.debugCSRBundle.step.next = dr0[2]
+                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.taken:
+                        if debugRegisterBundle.transfer and debugRegisterBundle.write:
+                            if debugRegisterBundle.postexec:
+                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
                             else:
-                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvalid
-                                if debugRegisterBundle.csrAccess:
-                                    if debugRegisterBundle.regno[0]:
-                                        debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
-                                    else:
-                                        debugRegisterBundle.abstractCommandResult.next = dcsr_map
+                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+
+                            if debugRegisterBundle.csrAccess:
+                                dr0 = debugRegisterBundle.dataRegs[0]
+                                if debugRegisterBundle.regno[0]:
+                                    debugRegisterBundle.dpc.next = dr0[conf.xlen:conf.ip_low]
                                 else:
-                                    debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
+                                    self.debugCSRBundle.ebreakm.next = dr0[15]
+                                    self.debugCSRBundle.step.next = dr0[2]
+
+                        elif debugRegisterBundle.transfer:
+                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvalid
+                            if debugRegisterBundle.csrAccess:
+                                if debugRegisterBundle.regno[0]:
+                                    debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
+                                else:
+                                    debugRegisterBundle.abstractCommandResult.next = dcsr_map
+                            else:
+                                debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
+
                         elif debugRegisterBundle.postexec:
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
+
                     elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.regvalid:
                         if debugRegisterBundle.postexec:
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
