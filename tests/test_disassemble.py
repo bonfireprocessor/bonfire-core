@@ -1,11 +1,11 @@
-from tb.disassemble import disassemble_rv32im
+from tb.disassemble import RV32IMDisassembler, disassemble_rv32im
 from rtl.instructions import Opcodes as op
 from rtl.instructions import MulDivFunct as md
 from rtl.instructions import BranchFunct3 as b3
 
 
 def test_disassemble_add_and_fields():
-    text, fields = disassemble_rv32im(0x00C586B3)
+    text, fields = RV32IMDisassembler.disassemble_rv32im(0x00C586B3)
 
     assert text == "add a3,a1,a2"
     assert fields["opcode"] == op.RV32_OP
@@ -15,7 +15,7 @@ def test_disassemble_add_and_fields():
 
 
 def test_disassemble_lbu_and_i_fields():
-    text, fields = disassemble_rv32im(0x0054C303)
+    text, fields = RV32IMDisassembler.disassemble_rv32im(0x0054C303)
 
     assert text == "lbu t1,5(s1)"
     assert fields["opcode"] == op.RV32_LOAD
@@ -24,7 +24,7 @@ def test_disassemble_lbu_and_i_fields():
 
 
 def test_disassemble_mul_uses_m_extension():
-    text, fields = disassemble_rv32im(0x02C58533)
+    text, fields = RV32IMDisassembler.disassemble_rv32im(0x02C58533)
 
     assert text == "mul a0,a1,a2"
     assert fields["opcode"] == op.RV32_OP
@@ -32,7 +32,7 @@ def test_disassemble_mul_uses_m_extension():
 
 
 def test_disassemble_branch_and_b_immediate():
-    text, fields = disassemble_rv32im(0xFEC588E3)
+    text, fields = RV32IMDisassembler.disassemble_rv32im(0xFEC588E3)
 
     assert text == "beq a1,a2,-16"
     assert fields["opcode"] == op.RV32_BRANCH
@@ -41,14 +41,14 @@ def test_disassemble_branch_and_b_immediate():
 
 
 def test_disassemble_unknown_opcode_word_fallback():
-    text, fields = disassemble_rv32im(0xFFFFFFFF)
+    text, fields = RV32IMDisassembler.disassemble_rv32im(0xFFFFFFFF)
 
     assert text == ".word 0xffffffff"
     assert fields["opcode_name"] == "UNKNOWN"
 
 
 def test_disassemble_csrrw_register_source():
-    text, fields = disassemble_rv32im(0x340110F3)
+    text, fields = RV32IMDisassembler.disassemble_rv32im(0x340110F3)
 
     assert text == "csrrw ra,0x340,sp"
     assert fields["opcode"] == op.RV32_SYSTEM
@@ -56,8 +56,15 @@ def test_disassemble_csrrw_register_source():
 
 
 def test_disassemble_csrrwi_immediate_source():
-    text, fields = disassemble_rv32im(0x3402D0F3)
+    text, fields = RV32IMDisassembler.disassemble_rv32im(0x3402D0F3)
 
     assert text == "csrrwi ra,0x340,5"
     assert fields["opcode"] == op.RV32_SYSTEM
     assert fields["rs1"] == 5
+
+
+def test_module_wrapper_still_works():
+    text, fields = disassemble_rv32im(0x00C586B3)
+
+    assert text == "add a3,a1,a2"
+    assert fields["opcode"] == op.RV32_OP
