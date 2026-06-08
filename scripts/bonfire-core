@@ -3,14 +3,10 @@ set -euo pipefail
 
 # bonfire-core: universal frontend for the bonfire-core development environment.
 #
-# - Runs pytest-based unit tests and core integration tests
-# - Can manage the local Python venv (via scripts/install.sh)
-# - Can run a single core integration program (--hex/--elf/--sig/--vcd)
-# - Can start the simulated GDB server (--gdbserver [--port N])
-# - Can start the OpenOCD remote_bitbang JTAG/Core simulation server (--openocd-bitbang [--port N])
-#
-# Any options not recognized by this script are passed through to pytest.
-# Use "--" to force all remaining args to be passed to pytest.
+# - Prepares the local Python/toolchain environment
+# - Passes explicit test invocations through to pytest (--pytest -- ...)
+# - Starts the simulated GDB server (--gdbserver [--hex PATH] [--port N])
+# - Starts the OpenOCD remote_bitbang server (--openocd-bitbang [--hex PATH] [--port N])
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CODE_DIR="$ROOT_DIR/code"
@@ -23,57 +19,44 @@ TOOLCHAIN_BIN="${TOOLCHAIN_BIN:-$TOOLCHAIN_BIN_DEFAULT}"
 # - OR a full path prefix like "/opt/.../bin/riscv64-unknown-elf"
 TARGET_PREFIX="${TARGET_PREFIX:-riscv64-unknown-elf}"
 
-# Where the build will leave ELFs (relative to repo root by default)
-BONFIRE_ELF_DIR_DEFAULT="code/build/core-tests"
-BONFIRE_ELF_DIR="${BONFIRE_ELF_DIR:-$BONFIRE_ELF_DIR_DEFAULT}"
-
-# Where signature files will be written
-BONFIRE_SIG_DIR_DEFAULT="signatures"
-BONFIRE_SIG_DIR="${BONFIRE_SIG_DIR:-$BONFIRE_SIG_DIR_DEFAULT}"
-
 DEFAULT_GDBSERVER_HEX="code/build/debug-tests/endless.hex"
 
 usage() {
   cat <<'USAGE'
-bonfire-core - bonfire-core universal test runner
+bonfire-core - bonfire-core universal runner
 
 Usage:
-  scripts/bonfire-core [OPTIONS] [-- PYTEST_ARGS...]
+  scripts/bonfire-core [OPTIONS] -- [PYTEST_ARGS...]
 
-Test selection:
-  --ut              Run unit + pipeline integration tests (pytest-based)
-  --integration     Run core HEX integration tests (pytest-based)
-  --all             Run all tests (default when no args are given)
+Pytest:
+  --pytest          Run pytest. All arguments after "--" are passed to pytest.
+
+Server modes:
   --gdbserver       Start the simulated GDB server instead of running pytest
   --openocd-bitbang Start the OpenOCD remote_bitbang JTAG/Core simulation server
+  --hex PATH        Server HEX image to load
+                    (default: code/build/debug-tests/endless.hex)
   --port N          Server TCP port (GDB default: first free port in 5500-5550,
                     OpenOCD bitbang default: 3335)
   --debug-trace     With --openocd-bitbang: print Debug Module/progbuf trace
 
 Environment / venv:
-  --install         Create/update ./\.venv and install Python deps (runs scripts/install.sh)
-  --keepenv         Do not activate ./\.venv; keep current Python environment
+  --install         Create/update ./.venv and install Python deps (runs scripts/install.sh)
+  --keepenv         Do not activate ./.venv; keep current Python environment
                     (also via BONFIRE_CORE_KEEPENV=1)
-
-Single core run (pytest-based):
-  --hex PATH        Run exactly one HEX program via tests/test_core.py
-                    With --gdbserver/--openocd-bitbang: HEX image to load
-                    (default: code/build/debug-tests/endless.hex)
-  --elf PATH        Optional ELF path (override)
-  --sig PATH        Optional signature output path (override)
-  --vcd PATH        Optional VCD output path (MyHDL appends .vcd automatically)
 
 Other:
   --help, -h        Show this help
 
-Notes:
-- Any unknown options are passed through to pytest.
-- Use "--" to pass arguments to pytest unmodified.
+Examples:
+  scripts/bonfire-core --pytest -- --collect-only
+  scripts/bonfire-core --pytest -- tests/test_debug_module.py::test_debug_module_jtag -s -vv --waveform
+  scripts/bonfire-core --gdbserver --hex code/build/debug-tests/endless.hex --port 5500
+  scripts/bonfire-core --openocd-bitbang --hex code/build/debug-tests/endless.hex --port 3335 --debug-trace
 USAGE
 }
 
-RUN_UT=0
-RUN_INTEGRATION=0
+RUN_PYTEST=0
 RUN_GDBSERVER=0
 RUN_OPENOCD_BITBANG=0
 OPENOCD_DEBUG_TRACE=0
@@ -81,19 +64,9 @@ DO_INSTALL=0
 KEEPENV=0
 
 TB_HEX=""
-TB_ELF=""
-TB_SIG=""
-TB_VCD=""
-GDBSERVER_PORT=""
+SERVER_PORT=""
 
 PYTEST_ARGS=()
-
-# Default behavior:
-# - no args -> same as --all
-if [[ $# -eq 0 ]]; then
-  RUN_UT=1
-  RUN_INTEGRATION=1
-fi
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -112,19 +85,8 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
 
-    --ut)
-      RUN_UT=1
-      shift
-      ;;
-
-    --integration)
-      RUN_INTEGRATION=1
-      shift
-      ;;
-
-    --all)
-      RUN_UT=1
-      RUN_INTEGRATION=1
+    --pytest)
+      RUN_PYTEST=1
       shift
       ;;
 
@@ -144,32 +106,14 @@ while [[ $# -gt 0 ]]; do
       ;;
 
     --port)
-      GDBSERVER_PORT="${2:-}"
-      [[ -n "$GDBSERVER_PORT" ]] || { echo "ERROR: --port requires a value" >&2; exit 2; }
+      SERVER_PORT="${2:-}"
+      [[ -n "$SERVER_PORT" ]] || { echo "ERROR: --port requires a value" >&2; exit 2; }
       shift 2
       ;;
 
     --hex)
       TB_HEX="${2:-}"
       [[ -n "$TB_HEX" ]] || { echo "ERROR: --hex requires a value" >&2; exit 2; }
-      shift 2
-      ;;
-
-    --elf)
-      TB_ELF="${2:-}"
-      [[ -n "$TB_ELF" ]] || { echo "ERROR: --elf requires a value" >&2; exit 2; }
-      shift 2
-      ;;
-
-    --sig)
-      TB_SIG="${2:-}"
-      [[ -n "$TB_SIG" ]] || { echo "ERROR: --sig requires a value" >&2; exit 2; }
-      shift 2
-      ;;
-
-    --vcd)
-      TB_VCD="${2:-}"
-      [[ -n "$TB_VCD" ]] || { echo "ERROR: --vcd requires a value" >&2; exit 2; }
       shift 2
       ;;
 
@@ -180,9 +124,9 @@ while [[ $# -gt 0 ]]; do
       ;;
 
     *)
-      # Pass-through to pytest.
-      PYTEST_ARGS+=("$1")
-      shift
+      echo "ERROR: unknown option: $1" >&2
+      echo "Hint: use --pytest -- <args> to pass arguments to pytest" >&2
+      exit 2
       ;;
   esac
 done
@@ -191,27 +135,10 @@ if [[ "${BONFIRE_CORE_KEEPENV:-}" == "1" ]]; then
   KEEPENV=1
 fi
 
-if [[ $RUN_GDBSERVER -eq 1 || $RUN_OPENOCD_BITBANG -eq 1 ]]; then
-  if [[ $RUN_GDBSERVER -eq 1 && $RUN_OPENOCD_BITBANG -eq 1 ]]; then
-    echo "ERROR: --gdbserver cannot be combined with --openocd-bitbang" >&2
-    exit 2
-  fi
-  if [[ $RUN_UT -eq 1 || $RUN_INTEGRATION -eq 1 ]]; then
-    echo "ERROR: server modes cannot be combined with --ut/--integration/--all" >&2
-    exit 2
-  fi
-  if [[ $RUN_GDBSERVER -eq 1 && -n "$TB_ELF$TB_SIG$TB_VCD" ]]; then
-    echo "ERROR: --gdbserver only supports --hex and --port from the run-specific options" >&2
-    exit 2
-  fi
-  if [[ $RUN_OPENOCD_BITBANG -eq 1 && -n "$TB_ELF$TB_SIG" ]]; then
-    echo "ERROR: --openocd-bitbang only supports --hex, --port, and --vcd from the run-specific options" >&2
-    exit 2
-  fi
-  if [[ ${#PYTEST_ARGS[@]} -ne 0 ]]; then
-    echo "ERROR: server modes do not accept pytest arguments" >&2
-    exit 2
-  fi
+mode_count=$((RUN_PYTEST + RUN_GDBSERVER + RUN_OPENOCD_BITBANG))
+if [[ $mode_count -ne 1 ]]; then
+  echo "ERROR: choose exactly one mode: --pytest, --gdbserver, or --openocd-bitbang" >&2
+  exit 2
 fi
 
 if [[ $OPENOCD_DEBUG_TRACE -eq 1 && $RUN_OPENOCD_BITBANG -eq 0 ]]; then
@@ -219,32 +146,18 @@ if [[ $OPENOCD_DEBUG_TRACE -eq 1 && $RUN_OPENOCD_BITBANG -eq 0 ]]; then
   exit 2
 fi
 
-# If the user did not explicitly choose a test selection mode and provided args,
-# default to --all unless we are in a server mode.
-if [[ $RUN_GDBSERVER -eq 0 && $RUN_OPENOCD_BITBANG -eq 0 && $RUN_UT -eq 0 && $RUN_INTEGRATION -eq 0 ]]; then
-  RUN_UT=1
-  RUN_INTEGRATION=1
-fi
-
-# Resolve gcc path. If TARGET_PREFIX already contains a path, don't prepend TOOLCHAIN_BIN.
-GCC=""
-if [[ "$TARGET_PREFIX" == */* ]]; then
-  GCC="${TARGET_PREFIX}-gcc"
-  TOOLCHAIN_BIN_RESOLVED="$(dirname "$TARGET_PREFIX")"
+if [[ $RUN_PYTEST -eq 1 ]]; then
+  if [[ -n "$TB_HEX$SERVER_PORT" || $OPENOCD_DEBUG_TRACE -eq 1 ]]; then
+    echo "ERROR: --pytest does not accept --hex, --port, or --debug-trace" >&2
+    echo "Hint: pass pytest options after --, e.g. --pytest -- tests/test_core.py --bonfire-hex path.hex" >&2
+    exit 2
+  fi
 else
-  GCC="$TOOLCHAIN_BIN/${TARGET_PREFIX}-gcc"
-  TOOLCHAIN_BIN_RESOLVED="$TOOLCHAIN_BIN"
+  if [[ ${#PYTEST_ARGS[@]} -ne 0 ]]; then
+    echo "ERROR: server modes do not accept pytest arguments" >&2
+    exit 2
+  fi
 fi
-
-if [[ ! -x "$GCC" ]]; then
-  echo "ERROR: toolchain not found: $GCC" >&2
-  echo "Hint: either set TARGET_PREFIX=riscv64-unknown-elf (and TOOLCHAIN_BIN=/path/to/bin)" >&2
-  echo "      or set TARGET_PREFIX=/path/to/bin/riscv64-unknown-elf" >&2
-  exit 2
-fi
-
-# Ensure toolchain bin dir is on PATH (needed when Makefiles call objdump/objcopy/etc.)
-export PATH="$TOOLCHAIN_BIN_RESOLVED:$PATH"
 
 if [[ $DO_INSTALL -eq 1 ]]; then
   "$ROOT_DIR/scripts/install.sh"
@@ -259,95 +172,61 @@ if [[ $KEEPENV -eq 0 ]]; then
   . "$ROOT_DIR/.venv/bin/activate"
 fi
 
-mkdir -p "$ROOT_DIR/$BONFIRE_SIG_DIR"
+resolve_toolchain() {
+  if [[ "$TARGET_PREFIX" == */* ]]; then
+    GCC="${TARGET_PREFIX}-gcc"
+    TOOLCHAIN_BIN_RESOLVED="$(dirname "$TARGET_PREFIX")"
+  else
+    GCC="$TOOLCHAIN_BIN/${TARGET_PREFIX}-gcc"
+    TOOLCHAIN_BIN_RESOLVED="$TOOLCHAIN_BIN"
+  fi
 
-pushd "$ROOT_DIR" >/dev/null
-export BONFIRE_ELF_DIR
-export BONFIRE_SIG_DIR
-
-# Optional waveform output (applies to both --hex and --integration runs).
-# NOTE: This traces *every selected* test case. Prefer "-k <hexname>" to keep it small.
-if [[ -n "$TB_VCD" ]]; then
-  TB_VCD_BASE="$TB_VCD"
-  TB_VCD_BASE="${TB_VCD_BASE%.vcd}"
-  export BONFIRE_CORE_VCD="$TB_VCD_BASE"
-fi
-
-if [[ $RUN_GDBSERVER -eq 1 ]]; then
-  if [[ -z "$TB_HEX" ]]; then
-    TB_HEX="$DEFAULT_GDBSERVER_HEX"
-    pushd "$CODE_DIR" >/dev/null
-    make -B debug-tests TARGET_PREFIX="$TARGET_PREFIX" KEEP_ELF=1
-    popd >/dev/null
-  elif [[ ! -f "$TB_HEX" ]]; then
-    echo "ERROR: HEX file not found: $TB_HEX" >&2
+  if [[ ! -x "$GCC" ]]; then
+    echo "ERROR: toolchain not found: $GCC" >&2
+    echo "Hint: either set TARGET_PREFIX=riscv64-unknown-elf (and TOOLCHAIN_BIN=/path/to/bin)" >&2
+    echo "      or set TARGET_PREFIX=/path/to/bin/riscv64-unknown-elf" >&2
     exit 2
   fi
 
+  export PATH="$TOOLCHAIN_BIN_RESOLVED:$PATH"
+}
+
+pushd "$ROOT_DIR" >/dev/null
+
+if [[ $RUN_PYTEST -eq 1 ]]; then
+  exec python -m pytest "${PYTEST_ARGS[@]}"
+fi
+
+if [[ -z "$TB_HEX" ]]; then
+  resolve_toolchain
+  TB_HEX="$DEFAULT_GDBSERVER_HEX"
+  pushd "$CODE_DIR" >/dev/null
+  make -B debug-tests TARGET_PREFIX="$TARGET_PREFIX" KEEP_ELF=1
+  popd >/dev/null
+elif [[ ! -f "$TB_HEX" ]]; then
+  echo "ERROR: HEX file not found: $TB_HEX" >&2
+  exit 2
+fi
+
+if [[ $RUN_GDBSERVER -eq 1 ]]; then
   GDBSERVER_CMD=(python -m gdbserver --hex "$TB_HEX")
-  if [[ -n "$GDBSERVER_PORT" ]]; then
-    GDBSERVER_CMD+=(--port "$GDBSERVER_PORT")
+  if [[ -n "$SERVER_PORT" ]]; then
+    GDBSERVER_CMD+=(--port "$SERVER_PORT")
   fi
 
   exec "${GDBSERVER_CMD[@]}"
 fi
 
 if [[ $RUN_OPENOCD_BITBANG -eq 1 ]]; then
-  if [[ -z "$TB_HEX" ]]; then
-    TB_HEX="$DEFAULT_GDBSERVER_HEX"
-    pushd "$CODE_DIR" >/dev/null
-    make -B debug-tests TARGET_PREFIX="$TARGET_PREFIX" KEEP_ELF=1
-    popd >/dev/null
-  elif [[ ! -f "$TB_HEX" ]]; then
-    echo "ERROR: HEX file not found: $TB_HEX" >&2
-    exit 2
-  fi
-
   OPENOCD_BITBANG_CMD=(python -m openocd_bitbang --hex "$TB_HEX")
-  if [[ -n "$GDBSERVER_PORT" ]]; then
-    OPENOCD_BITBANG_CMD+=(--port "$GDBSERVER_PORT")
-  fi
-  if [[ -n "$TB_VCD" ]]; then
-    OPENOCD_BITBANG_CMD+=(--vcd "$TB_VCD_BASE")
+  if [[ -n "$SERVER_PORT" ]]; then
+    OPENOCD_BITBANG_CMD+=(--port "$SERVER_PORT")
   fi
   if [[ $OPENOCD_DEBUG_TRACE -eq 1 ]]; then
     OPENOCD_BITBANG_CMD+=(--debug-trace)
   fi
 
   exec "${OPENOCD_BITBANG_CMD[@]}"
-fi
-
-# Single-run mode: restrict test_core parametrization to exactly one hex.
-if [[ -n "$TB_HEX" ]]; then
-  export BONFIRE_CORE_HEX="$TB_HEX"
-  [[ -n "$TB_ELF" ]] && export BONFIRE_CORE_ELF="$TB_ELF"
-  [[ -n "$TB_SIG" ]] && export BONFIRE_CORE_SIG="$TB_SIG"
-
-  # For a single-run, we prefer -s so monitor output is visible.
-  exec python -m pytest -s -vv tests/test_core.py ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"}
-fi
-
-# Build code programs only when we run core integration tests.
-if [[ $RUN_INTEGRATION -eq 1 ]]; then
-  pushd "$CODE_DIR" >/dev/null
-  make -B all TARGET_PREFIX="$TARGET_PREFIX" KEEP_ELF=1
-  popd >/dev/null
-fi
-
-if [[ $RUN_UT -eq 1 ]]; then
-  python -m pytest \
-    tests/test_ut_alu.py \
-    tests/test_ut_barrel_shifter.py \
-    tests/test_ut_decoder.py \
-    tests/test_ut_divider.py \
-    tests/test_ut_regfile.py \
-    tests/test_ut_loadstore.py \
-    tests/test_integration_pipeline.py \
-    ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"}
-fi
-
-if [[ $RUN_INTEGRATION -eq 1 ]]; then
-  python -m pytest tests/test_core.py tests/test_bonfire_core_soc_tb.py tests/test_extended_soc_fusesoc.py ${PYTEST_ARGS[@]+"${PYTEST_ARGS[@]}"}
 fi
 
 popd >/dev/null

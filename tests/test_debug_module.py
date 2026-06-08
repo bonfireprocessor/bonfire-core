@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -8,30 +7,25 @@ import pytest
 from rtl import config
 from tb.tb_debug_module import BonfireCoreDebugTestbench
 
-from .conftest import SimFailure, run_sim
-
-
-def _opt_env(name: str) -> str | None:
-    v = os.environ.get(name, "").strip()
-    return v or None
+from .conftest import SimFailure, run_sim, waveform_config
 
 
 def _run_debug_module_test(
     sim_env,
     repo_root: Path,
     debug_transport: str,
-    vcd_env: str,
+    waveform_name: str,
     duration: int,
+    request: pytest.FixtureRequest,
 ):
-    hex_path = Path(_opt_env("BONFIRE_DEBUG_HEX") or "code/build/debug-tests/debug.hex")
+    hex_path = Path(request.config.getoption("--bonfire-hex") or "code/build/debug-tests/debug.hex")
     if not hex_path.is_absolute():
         hex_path = repo_root / hex_path
 
     if not hex_path.is_file():
         pytest.skip(f"Debug test HEX file not found: {hex_path}")
 
-    verbose = _opt_env("BONFIRE_DEBUG_VERBOSE") in ("1", "true", "yes", "on")
-    vcd = _opt_env(vcd_env)
+    verbose = request.config.getoption("verbose") > 0
 
     conf = config.BonfireConfig()
     monitor_result = {"seen": False, "time": None, "address": None, "value": None}
@@ -45,15 +39,7 @@ def _run_debug_module_test(
     )
     tb = debug_tb.testbench()
 
-    if vcd:
-        vcd_path = Path(vcd)
-        if not vcd_path.is_absolute():
-            vcd_path = sim_env["waveforms_dir"] / vcd_path
-        filename = str(vcd_path.resolve())
-        trace = True
-    else:
-        filename = None
-        trace = False
+    trace, filename = waveform_config(request, sim_env, waveform_name)
 
     try:
         run_sim(tb, trace=trace, filename=filename, duration=duration, waveforms_dir=sim_env["waveforms_dir"])
@@ -66,21 +52,23 @@ def _run_debug_module_test(
         pytest.fail("Monitor base indicates failure: 0x{:08x}".format(monitor_result["value"]), pytrace=False)
 
 
-def test_debug_module(sim_env, repo_root: Path):
+def test_debug_module(sim_env, repo_root: Path, request: pytest.FixtureRequest):
     _run_debug_module_test(
         sim_env,
         repo_root,
         debug_transport="dmi",
-        vcd_env="BONFIRE_DEBUG_VCD",
+        waveform_name="debug_module",
         duration=20_000,
+        request=request,
     )
 
 
-def test_debug_module_jtag(sim_env, repo_root: Path):
+def test_debug_module_jtag(sim_env, repo_root: Path, request: pytest.FixtureRequest):
     _run_debug_module_test(
         sim_env,
         repo_root,
         debug_transport="jtag",
-        vcd_env="BONFIRE_DEBUG_JTAG_VCD",
+        waveform_name="debug_module_jtag",
         duration=15_000_000,
+        request=request,
     )

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
@@ -9,12 +8,7 @@ from rtl import config
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
 from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
 
-from .conftest import run_sim
-
-
-def _opt_env(name: str) -> str | None:
-    v = os.environ.get(name, "").strip()
-    return v or None
+from .conftest import run_sim, waveform_config
 
 
 @pytest.mark.parametrize(
@@ -33,7 +27,7 @@ def test_myhdl_soc(
     hex_default: str,
     expose_wishbone: bool,
 ):
-    hex_path = Path(_opt_env("BONFIRE_SOC_HEX") or hex_default)
+    hex_path = Path(request.config.getoption("--bonfire-hex") or hex_default)
     if not hex_path.is_absolute():
         hex_path = repo_root / hex_path
 
@@ -50,16 +44,7 @@ def test_myhdl_soc(
     soc_tb = BonfireCoreSoCTestbench(soc)
     tb = soc_tb.testbench()
 
-    vcd = _opt_env("BONFIRE_SOC_VCD")
-    if vcd:
-        vcd_path = Path(vcd)
-        if not vcd_path.is_absolute():
-            vcd_path = sim_env["waveforms_dir"] / vcd_path
-        filename = str(vcd_path.resolve())
-        trace = True
-    else:
-        filename = None
-        trace = False
+    trace, filename = waveform_config(request, sim_env, "soc_{}".format("wishbone" if expose_wishbone else "led"))
 
     duration = 80_000 if expose_wishbone else 20_000
     run_sim(tb, trace=trace, filename=filename, duration=duration, waveforms_dir=sim_env["waveforms_dir"])

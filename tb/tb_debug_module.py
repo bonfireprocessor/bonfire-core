@@ -412,7 +412,7 @@ class BonfireCoreDebugTestbench:
             d = core.backend.decode
             if core.backend.execute.taken:
                 t_ip = d.debug_current_ip_o
-                if self.verbose:
+                if self.verbose and d.valid_o and d.debug_word_o[2:0] == 3:
                     print("@{}ns exc: {} : {} ".format(now(), t_ip, d.debug_word_o))
 
             inv = d.en_i and d.invalid_opcode and not d.kill_i

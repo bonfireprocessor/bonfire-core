@@ -7,7 +7,7 @@ import pytest
 
 from tb import tb_core
 
-from .conftest import assert_monitor_pass, run_sim
+from .conftest import assert_monitor_pass, run_sim, waveform_config
 
 
 def _opt_env(name: str) -> str | None:
@@ -15,15 +15,14 @@ def _opt_env(name: str) -> str | None:
     return v or None
 
 
-def _hex_files(repo_root: Path) -> list[str]:
+def _hex_files(repo_root: Path, single: str | None = None) -> list[str]:
     """List HEX programs for core integration tests.
 
-    If BONFIRE_CORE_HEX is set, run exactly that one program (single-run mode).
+    If --bonfire-hex is set, run exactly that one program (single-run mode).
     Otherwise, collect all HEX files from BONFIRE_CORE_HEX_DIR
     (default: code/build/core-tests, excluding wb_test.hex).
     """
 
-    single = _opt_env("BONFIRE_CORE_HEX")
     if single:
         p = Path(single)
         # Normalize to a repo-root relative string when possible (helps pytest id output).
@@ -48,10 +47,19 @@ def _hex_files(repo_root: Path) -> list[str]:
     return result
 
 
-def _paths_for_hex(repo_root: Path, hex_path: str) -> tuple[str, str, str]:
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    if "hex_path" not in metafunc.fixturenames:
+        return
+
+    repo_root = Path(__file__).resolve().parents[1]
+    selected_hex = metafunc.config.getoption("--bonfire-hex")
+    metafunc.parametrize("hex_path", _hex_files(repo_root, selected_hex))
+
+
+def _paths_for_hex(repo_root: Path, request: pytest.FixtureRequest, hex_path: str) -> tuple[str, str, str]:
     """Compute hex/elf/sig paths.
 
-    The wrapper script can provide:
+    The test runner can provide:
       BONFIRE_ELF_DIR: directory containing <stem>.elf
       BONFIRE_SIG_DIR: directory for writing <stem>.sig
 
@@ -64,9 +72,9 @@ def _paths_for_hex(repo_root: Path, hex_path: str) -> tuple[str, str, str]:
     elf_dir = os.environ.get("BONFIRE_ELF_DIR", "").strip()
     sig_dir = os.environ.get("BONFIRE_SIG_DIR", "").strip()
 
-    # Single-run mode can pass exact ELF/SIG paths (tb_run-style).
-    elf_override = _opt_env("BONFIRE_CORE_ELF")
-    sig_override = _opt_env("BONFIRE_CORE_SIG")
+    # Single-run mode can pass exact ELF/SIG paths.
+    elf_override = request.config.getoption("--bonfire-elf")
+    sig_override = request.config.getoption("--bonfire-sig")
 
     elf_rel = ""
     if elf_override:
@@ -85,22 +93,12 @@ def _paths_for_hex(repo_root: Path, hex_path: str) -> tuple[str, str, str]:
     return hex_rel, elf_rel, sig_rel
 
 
-@pytest.mark.parametrize("hex_path", _hex_files(Path(__file__).resolve().parents[1]))
 def test_core(sim_env, capsys: pytest.CaptureFixture[str], request: pytest.FixtureRequest, hex_path: str):
     repo_root = Path(__file__).resolve().parents[1]
-    hex_file, elf_file, sig_file = _paths_for_hex(repo_root, hex_path)
+    hex_file, elf_file, sig_file = _paths_for_hex(repo_root, request, hex_path)
 
     verbose = _opt_env("BONFIRE_CORE_VERBOSE") in ("1", "true", "yes", "on")
-    vcd = _opt_env("BONFIRE_CORE_VCD")
-
-    trace = bool(vcd)
-    if vcd:
-        vcd_path = Path(vcd)
-        if not vcd_path.is_absolute():
-            vcd_path = sim_env["waveforms_dir"] / vcd_path
-        filename = str(vcd_path.resolve())
-    else:
-        filename = None
+    trace, filename = waveform_config(request, sim_env, "core_{}".format(Path(hex_path).stem))
 
     tb = tb_core.tb(hexFile=hex_file, elfFile=elf_file, sigFile=sig_file, ramsize=16384, verbose=verbose)
     run_sim(tb, trace=trace, filename=filename, duration=20_000, waveforms_dir=sim_env["waveforms_dir"])
