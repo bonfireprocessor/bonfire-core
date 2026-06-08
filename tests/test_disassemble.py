@@ -45,3 +45,19 @@ def test_disassemble_unknown_opcode_word_fallback():
 
     assert text == ".word 0xffffffff"
     assert fields["opcode_name"] == "UNKNOWN"
+
+
+def test_disassemble_csrrw_register_source():
+    text, fields = disassemble_rv32im(0x340110F3)
+
+    assert text == "csrrw ra,0x340,sp"
+    assert fields["opcode"] == op.RV32_SYSTEM
+    assert fields["rs1"] == 2
+
+
+def test_disassemble_csrrwi_immediate_source():
+    text, fields = disassemble_rv32im(0x3402D0F3)
+
+    assert text == "csrrwi ra,0x340,5"
+    assert fields["opcode"] == op.RV32_SYSTEM
+    assert fields["rs1"] == 5

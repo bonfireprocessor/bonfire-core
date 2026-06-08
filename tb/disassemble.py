@@ -208,7 +208,7 @@ def _disassemble_from_fields(fields):
         }
         m = names.get(funct3)
         if m is not None:
-            src = fields["rs1"] if funct3 in (y3.RV32_F3_CSRRWI, y3.RV32_F3_CSRRSI, y3.RV32_F3_CSRRCI) else rs1
+            src = rs1 if funct3 in (y3.RV32_F3_CSRRW, y3.RV32_F3_CSRRS, y3.RV32_F3_CSRRC) else fields["rs1"]
             return "{} {},0x{:03x},{}".format(m, rd, funct12, src)
 
     return ".word 0x{:08x}".format(fields["word"])
