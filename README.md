@@ -65,17 +65,31 @@ For day-to-day development, the recommended entry point is the universal runner:
 
 - [`scripts/bonfire-core`](scripts/bonfire-core)
 
-It can run pytest-based test groups, single HEX runs, and the simulated GDB server.
+It prepares the environment, passes explicit test invocations to pytest, and
+starts the simulated GDB/OpenOCD servers.
 
 Quick test run (unit + integration):
 
 ```bash
 cd bonfire-core
 scripts/bonfire-core --install
-scripts/bonfire-core --all
+scripts/bonfire-core --pytest -- tests/test_ut_decoder.py -q
 ```
 
-To run specific test groups, see the runner documentation:
+List tests with pytest and run selected node IDs directly:
+
+```bash
+scripts/bonfire-core --pytest -- --collect-only
+scripts/bonfire-core --pytest -- tests/test_debug_module.py::test_debug_module_jtag -s -vv
+```
+
+Waveforms are pytest options:
+
+```bash
+scripts/bonfire-core --pytest -- tests/test_debug_module.py::test_debug_module_jtag -s -vv --waveform
+```
+
+To run specific tests or start servers, see the runner documentation:
 
 - [`scripts/README.md`](scripts/README.md)
 

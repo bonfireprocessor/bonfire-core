@@ -18,8 +18,66 @@ class SimFailure(AssertionError):
     pass
 
 
+def pytest_addoption(parser: pytest.Parser) -> None:
+    group = parser.getgroup("bonfire")
+    group.addoption(
+        "--waveform",
+        action="store_true",
+        help="Enable MyHDL waveform generation for tests that support tracing.",
+    )
+    group.addoption(
+        "--vcd",
+        action="store",
+        default=None,
+        metavar="NAME_OR_PATH",
+        help="Optional waveform output basename/path. Defaults to a test-specific name.",
+    )
+    group.addoption(
+        "--bonfire-hex",
+        action="store",
+        default=None,
+        metavar="PATH",
+        help="Run tests that support HEX selection with this HEX image.",
+    )
+    group.addoption(
+        "--bonfire-elf",
+        action="store",
+        default=None,
+        metavar="PATH",
+        help="Optional ELF path for tests that support ELF-aware simulation.",
+    )
+    group.addoption(
+        "--bonfire-sig",
+        action="store",
+        default=None,
+        metavar="PATH",
+        help="Optional signature output path for tests that support signatures.",
+    )
+
+
 def _ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
+
+
+def waveform_config(request: pytest.FixtureRequest, sim_env: dict, default_name: str) -> tuple[bool, str | None]:
+    """Return MyHDL trace settings from pytest options.
+
+    Tests provide a stable default_name so callers can simply pass --waveform
+    without knowing any testbench-specific environment variable.
+    """
+
+    if not request.config.getoption("--waveform"):
+        return False, None
+
+    name = request.config.getoption("--vcd") or default_name
+    vcd_path = Path(str(name))
+    if vcd_path.suffix == ".vcd":
+        vcd_path = vcd_path.with_suffix("")
+    if not vcd_path.is_absolute():
+        vcd_path = sim_env["waveforms_dir"] / vcd_path
+    vcd_path = vcd_path.resolve()
+    print("[waveform] writing {}.vcd".format(vcd_path))
+    return True, str(vcd_path)
 
 
 def run_sim(inst, *, trace: bool = False, filename: Optional[str] = None, duration: int = 10_000, waveforms_dir: Path) -> SimRunResult:

@@ -6,7 +6,6 @@ License: See LICENSE
 from __future__ import annotations
 
 import contextlib
-import os
 import signal
 import socket
 import shutil
@@ -21,6 +20,7 @@ import pytest
 
 from openocd_bitbang.probe import RemoteBitbangClient, ScanResult
 from rtl.jtag_dtm import JTAG_IDCODE, JTAG_IR_WIDTH
+from .conftest import waveform_config
 
 
 def _free_tcp_port() -> int:
@@ -237,24 +237,15 @@ shutdown
 """.format(host=host, port=port, idcode=JTAG_IDCODE)
 
 
-def _vcd_path_from_env(sim_env, name: str) -> Path | None:
-    vcd = os.environ.get(name, "").strip()
-    if not vcd:
-        return None
-    vcd_path = Path(vcd)
-    if not vcd_path.is_absolute():
-        vcd_path = sim_env["waveforms_dir"] / vcd_path
-    return vcd_path.resolve()
-
-
-def test_openocd_remote_bitbang_scan_chain_reads_idcode(sim_env, tmp_path: Path):
+def test_openocd_remote_bitbang_scan_chain_reads_idcode(sim_env, tmp_path: Path, request: pytest.FixtureRequest):
     """Run real OpenOCD against the server and require scan_chain to see IDCODE."""
 
     if shutil.which("openocd") is None:
         pytest.skip("openocd not installed")
 
     port = _free_tcp_port()
-    vcd_path = _vcd_path_from_env(sim_env, "BONFIRE_OPENOCD_BITBANG_VCD")
+    trace, filename = waveform_config(request, sim_env, "openocd_bitbang_scan_chain")
+    vcd_path = Path(filename) if trace and filename is not None else None
     config_path = tmp_path / "bonfire_remote_bitbang.cfg"
     config_path.write_text(_openocd_config("127.0.0.1", port), encoding="utf-8")
     print("\n[test] OpenOCD config written to {}".format(config_path))

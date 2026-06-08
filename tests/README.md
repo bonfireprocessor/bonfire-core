@@ -81,18 +81,13 @@ pytest -s -vv tests/test_core.py
 
 Run a single program (examples):
 ```bash
-# by keyword (matches the parameter id, i.e. the hex path)
-pytest -vv tests/test_core.py -k loadsave
-
-# exact parameter id match
-pytest -vv tests/test_core.py -k "code/build/core-tests/loadsave.hex"
-
-# with monitor output for a single program
-pytest -s -vv tests/test_core.py -k loadsave
+pytest -s -vv tests/test_core.py --bonfire-hex code/build/core-tests/loadsave.hex
 ```
 
 Notes:
 - `wb_test.hex` is intentionally skipped (special case).
+- `--bonfire-elf PATH` and `--bonfire-sig PATH` can be used with
+  `--bonfire-hex` when a test needs an explicit ELF or signature path.
 
 ### SoC integration tests
 Purpose: run the pure MyHDL SoC testbench that was historically available via
@@ -107,14 +102,27 @@ The test runs two variants:
 - `code/build/soc/sim/wishbone.hex` with the Wishbone master exposed and
   connected to `Wishbone_bfm`.
 
-The firmware image can be overridden with `BONFIRE_SOC_HEX`.
+The firmware image can be overridden with `--bonfire-hex`.
 
 Run:
 ```bash
 pytest -vv tests/test_bonfire_core_soc_tb.py
+pytest -vv tests/test_bonfire_core_soc_tb.py --bonfire-hex code/build/soc/sim/led.hex
 ```
+
+## Waveforms
+
+Tests that support MyHDL tracing accept these pytest options:
+
+```bash
+pytest tests/test_debug_module.py::test_debug_module_jtag -s -vv --waveform
+pytest tests/test_jtag_dtm.py::test_jtag_dtm -s -vv --waveform --vcd jtag_dtm_manual
+```
+
+If `--vcd` is omitted, each test uses a stable default basename and writes to
+`waveforms/<default>.vcd`.
 
 ## General notes
 - Some legacy testbenches emit VHDL conversion output into `./vhdl_gen/`.
-- Waveforms are written into a per-test temporary directory.
+- Waveforms are written into `./waveforms`.
 - The RISC-V compliance suite uses `run_compliance.py` (via `run_compliance.sh`) directly, not pytest. See [COMPLIANCE.md](../COMPLIANCE.md).
