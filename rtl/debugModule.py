@@ -27,6 +27,9 @@ class DebugCSRBundle():
         self.ebreakm = Signal(bool(0)) #dcsr[15]
         self.cause = Signal(modbv(0)[3:0]) #dcsr[8..6]
         self.step = Signal(bool(0)) #dcsr[2] single step mode
+        self.csr_we = Signal(bool(0))
+        self.csr_adr = Signal(modbv(0)[8:])
+        self.csr_data = Signal(modbv(0)[config.xlen:])
 
     @block
     def dcsr_map(self,word):
@@ -90,6 +93,11 @@ class DebugRegisterBundle:
 
         # resumeack bit, used for dmstatus all/any resumeack
         self.resumeack = Signal(bool(0))
+
+        # Internal core-to-debug signal. It marks that the currently accepted
+        # pipeline instruction reached the execute result/commit point.
+        self.instr_retired = Signal(bool(0))
+        self.instr_retire_dpc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
 
 
         assert config.numdata<=16, "maximum allowed debug Data Registers are 16"
@@ -295,9 +303,6 @@ class DMI:
                                 debugRegs.abstractCommandNew.next = True
 
         return instances()
-
-
-
 
 
 

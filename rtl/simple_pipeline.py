@@ -52,7 +52,7 @@ class SimpleBackend:
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset,debugRegisterBundle=debugRegisterBundle)
-        exec_inst = self.execute.SimpleExecute(self.decode, databus, debugport, clock,reset )
+        exec_inst = self.execute.SimpleExecute(self.decode, databus, debugport, clock,reset, debugRegisterBundle=debugRegisterBundle )
 
         d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
 

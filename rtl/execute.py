@@ -44,7 +44,7 @@ class ExecuteBundle(PipelineControl):
 
 
     @block
-    def SimpleExecute(self, decode, databus, debugport, clock, reset):
+    def SimpleExecute(self, decode, databus, debugport, clock, reset, debugRegisterBundle=None):
         """
         Simple execution Unit designed for single stage in-order execution
         decode : DecodeBundle class instance
@@ -72,9 +72,20 @@ class ExecuteBundle(PipelineControl):
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
 
-        csr_inst = self.csr.CSRUnit(self.trapCSR,self.csrUpdate,clock,reset)
+        if self.config.enableDebugModule:
+            csr_inst = self.csr.CSRUnit(self.trapCSR,self.csrUpdate,clock,reset, debugCSRBundle=decode.debugCSRBundle, debugRegisterBundle=debugRegisterBundle)
+        else:
+            csr_inst = self.csr.CSRUnit(self.trapCSR,self.csrUpdate,clock,reset)
 
         p_inst = self.pipeline_instance(busy,valid)
+
+        if self.config.enableDebugModule:
+            @always_comb
+            def debug_retire_comb():
+                debugRegisterBundle.instr_retired.next = valid
+                debugRegisterBundle.instr_retire_dpc.next = decode.next_ip_o[self.config.xlen:self.config.ip_low]
+                if self.taken and (decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd) and jump:
+                    debugRegisterBundle.instr_retire_dpc.next = jump_dest[self.config.xlen:self.config.ip_low]
 
 
         @always_seq(clock.posedge,reset=reset)

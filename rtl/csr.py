@@ -34,7 +34,7 @@ class CSRUnitBundle(PipelineControl):
 
 
     @block
-    def CSRUnit(self,trap_csrs, trap_csr_upate,clock,reset):
+    def CSRUnit(self,trap_csrs, trap_csr_upate,clock,reset, debugCSRBundle=None, debugRegisterBundle=None):
 
         # Pipeline control
         busy = Signal(bool(0))
@@ -49,12 +49,12 @@ class CSRUnitBundle(PipelineControl):
 
 
         csr_we = Signal(bool(0)) # Write Enable for CSRs
-        csr_select_adr = Signal(modbv(0)[7:]) # Currently selected CSR
+        csr_select_adr = Signal(modbv(0)[8:]) # Currently selected CSR
 
         # CSR Address parts
         rw = Signal(modbv(0)[2:])
         priv = Signal(modbv(0)[2:])
-        reg = Signal(modbv(0)[7:])
+        reg = Signal(modbv(0)[8:])
 
         #Read Interface
         trap_csr_read_view = CSR_ReadViewBundle(self.config)
@@ -90,37 +90,92 @@ class CSRUnitBundle(PipelineControl):
             rw.next = self.csr_adr[12:10]
             priv.next = self.csr_adr[10:8]
             #grp.next = self.csr_adr[8:6]
-            reg.next  = self.csr_adr[7:]
+            reg.next  = self.csr_adr[8:]
 
 
-        @always_comb
-        def csr_select_proc():
+        if debugCSRBundle is not None:
+            assert debugRegisterBundle is not None, "debug CSR access requires debugRegisterBundle"
 
-            csr_in.next = 0
-            inv_reg.next = False
-            csr_we.next = False
-            csr_select_adr.next = reg
+            @always_comb
+            def csr_select_proc():
 
-            if priv == 0b11:
-                if rw == 0b11: # Read Only Registers
-                    if reg == CSRAdr.vendorid or reg == CSRAdr.archid or reg == CSRAdr.hartid:
-                        pass
-                    elif reg == CSRAdr.impid:
-                        csr_in.next = 0x8000 # Dummy Value
-                    else:
-                        inv_reg.next = True
-                elif rw == 0: # Read Write Registers
-                    if reg == CSRAdr.isa:
-                        csr_in.next[32:30]=0b01
-                    elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
-                        csr_we.next = self.taken
-                        csr_in.next = trap_csr_read_view.data
+                csr_in.next = 0
+                inv_reg.next = False
+                csr_we.next = False
+                csr_select_adr.next = reg
+                debugCSRBundle.csr_we.next = False
+                debugCSRBundle.csr_adr.next = reg
+                debugCSRBundle.csr_data.next = csr_out
+
+                if priv == 0b11:
+                    if rw == 0b11: # Read Only Registers
+                        if reg == CSRAdr.vendorid or reg == CSRAdr.archid or reg == CSRAdr.hartid:
+                            pass
+                        elif reg == CSRAdr.impid:
+                            csr_in.next = 0x8000 # Dummy Value
+                        else:
+                            inv_reg.next = True
+                    elif rw == 0: # Read Write Registers
+                        if reg == CSRAdr.isa:
+                            csr_in.next[32:30]=0b01
+                        elif reg == CSRAdr.dcsr:
+                            csr_in.next[32:28] = 4
+                            csr_in.next[15] = debugCSRBundle.ebreakm
+                            csr_in.next[9:6] = debugCSRBundle.cause
+                            csr_in.next[2] = debugCSRBundle.step
+                            csr_in.next[2:0] = 3
+                            debugCSRBundle.csr_we.next = self.taken and not inv_op
+                        elif reg == CSRAdr.dpc:
+                            csr_in.next = debugRegisterBundle.dpc << self.config.ip_low
+                            debugCSRBundle.csr_we.next = self.taken and not inv_op
+                        elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
+                            csr_we.next = self.taken
+                            csr_in.next = trap_csr_read_view.data
+                        else:
+                            inv_reg.next = True
+                    elif reg == CSRAdr.dcsr:
+                        csr_in.next[32:28] = 4
+                        csr_in.next[15] = debugCSRBundle.ebreakm
+                        csr_in.next[9:6] = debugCSRBundle.cause
+                        csr_in.next[2] = debugCSRBundle.step
+                        csr_in.next[2:0] = 3
+                        debugCSRBundle.csr_we.next = self.taken and not inv_op
+                    elif reg == CSRAdr.dpc:
+                        csr_in.next = debugRegisterBundle.dpc << self.config.ip_low
+                        debugCSRBundle.csr_we.next = self.taken and not inv_op
                     else:
                         inv_reg.next = True
                 else:
                     inv_reg.next = True
-            else:
-                inv_reg.next = True
+        else:
+            @always_comb
+            def csr_select_proc():
+
+                csr_in.next = 0
+                inv_reg.next = False
+                csr_we.next = False
+                csr_select_adr.next = reg
+
+                if priv == 0b11:
+                    if rw == 0b11: # Read Only Registers
+                        if reg == CSRAdr.vendorid or reg == CSRAdr.archid or reg == CSRAdr.hartid:
+                            pass
+                        elif reg == CSRAdr.impid:
+                            csr_in.next = 0x8000 # Dummy Value
+                        else:
+                            inv_reg.next = True
+                    elif rw == 0: # Read Write Registers
+                        if reg == CSRAdr.isa:
+                            csr_in.next[32:30]=0b01
+                        elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
+                            csr_we.next = self.taken
+                            csr_in.next = trap_csr_read_view.data
+                        else:
+                            inv_reg.next = True
+                    else:
+                        inv_reg.next = True
+                else:
+                    inv_reg.next = True
 
         @always_comb
         def csr_result_proc():
