@@ -91,6 +91,7 @@ class DecodeBundle(PipelineControl):
 
         if self.config.enableDebugModule:
             self.debugCSRBundle = DebugCSRBundle(self.config)
+            self.debugCSRUpdateBundle = DebugCSRUpdateBundle(self.config)
 
 
         # Debug
@@ -128,7 +129,6 @@ class DecodeBundle(PipelineControl):
         dm_ebreak_halt_req = Signal(bool(0))
         dm_step_armed = Signal(bool(0))
         dm_step_halt_pending = Signal(bool(0))
-        dm_step_halt_dpc = Signal(modbv(0)[self.xlen:self.config.ip_low])
 
         ins_word = Signal(modbv(0)[32:])
 
@@ -165,7 +165,6 @@ class DecodeBundle(PipelineControl):
             conf = self.config
             assert debugRegisterBundle is not None, "enableDebugModule requires a debugRegisterBundle"
 
-            dcsr_map = Signal(modbv(0)[32:])
             progbuf=Signal(modbv(0)[conf.xlen:])
             progbuf_pointer=Signal(modbv(0)[1:]) # only 1 bit needed to select between progbuf0 and progbuf1
 
@@ -182,9 +181,6 @@ class DecodeBundle(PipelineControl):
                 @always_comb
                 def progbuf_mux():
                     progbuf.next = debugRegisterBundle.progbuf0            
-
-
-            dcsr_map_i = self.debugCSRBundle.dcsr_map(dcsr_map)
 
             @always_comb
             def comb2():
@@ -204,7 +200,7 @@ class DecodeBundle(PipelineControl):
                 if debugRegisterBundle.abstractCommandNew and \
                    debugRegisterBundle.abstractCommandState == t_abstractCommandState.none and \
                    debugRegisterBundle.commandType == t_abstractCommandType.access_reg:
-                    dm_regwrite.next = debugRegisterBundle.write and not debugRegisterBundle.csrAccess
+                    dm_regwrite.next = debugRegisterBundle.write
                     self.rs1_adr_o.next = debugRegisterBundle.regno
                 elif not downstream_busy:
                     self.rs1_adr_o.next = temp_instr[20:15]
@@ -223,27 +219,26 @@ class DecodeBundle(PipelineControl):
             @always(clock.posedge)
             def debug_module_seq():
                 debugRegisterBundle.reqAck.next = False
+                self.debugCSRUpdateBundle.we_dpc.next = False
+                self.debugCSRUpdateBundle.we_cause.next = False
 
                 if debugRegisterBundle.dpc_jump:
                     debugRegisterBundle.dpc_jump.next = False
 
-                if self.debugCSRBundle.csr_we:
-                    if self.debugCSRBundle.csr_adr == CSRAdr.dpc:
-                        debugRegisterBundle.dpc.next = self.debugCSRBundle.csr_data[conf.xlen:conf.ip_low]
-                    elif self.debugCSRBundle.csr_adr == CSRAdr.dcsr:
-                        self.debugCSRBundle.ebreakm.next = self.debugCSRBundle.csr_data[15]
-                        self.debugCSRBundle.step.next = self.debugCSRBundle.csr_data[2]
-
                 if dm_ebreak_halt_req:
-                    debugRegisterBundle.dpc.next = self.current_ip_i[conf.xlen:conf.ip_low]
-                    self.debugCSRBundle.cause.next = 1
+                    self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[conf.xlen:conf.ip_low]
+                    self.debugCSRUpdateBundle.we_dpc.next = True
+                    self.debugCSRUpdateBundle.cause.next = 1
+                    self.debugCSRUpdateBundle.we_cause.next = True
                     dm_halt.next = True
                     dm_step_armed.next = False
                     dm_step_halt_pending.next = False
 
                 elif dm_step_halt_pending and debugRegisterBundle.instr_retired:
-                    debugRegisterBundle.dpc.next = debugRegisterBundle.instr_retire_dpc
-                    self.debugCSRBundle.cause.next = 4
+                    self.debugCSRUpdateBundle.dpc.next = debugRegisterBundle.instr_retire_dpc
+                    self.debugCSRUpdateBundle.we_dpc.next = True
+                    self.debugCSRUpdateBundle.cause.next = 4
+                    self.debugCSRUpdateBundle.we_cause.next = True
                     dm_halt.next = True
                     dm_step_armed.next = False
                     dm_step_halt_pending.next = False
@@ -252,8 +247,10 @@ class DecodeBundle(PipelineControl):
                    not downstream_busy and not debugRegisterBundle.reqAck:
                     if debugRegisterBundle.haltreq and self.en_i and not self.kill_i:
                         debugRegisterBundle.reqAck.next = True
-                        debugRegisterBundle.dpc.next = self.current_ip_i[conf.xlen:conf.ip_low]
-                        self.debugCSRBundle.cause.next = 3
+                        self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[conf.xlen:conf.ip_low]
+                        self.debugCSRUpdateBundle.we_dpc.next = True
+                        self.debugCSRUpdateBundle.cause.next = 3
+                        self.debugCSRUpdateBundle.we_cause.next = True
                         dm_halt.next = True
                         dm_step_armed.next = False
                     elif debugRegisterBundle.resumereq:
@@ -266,7 +263,6 @@ class DecodeBundle(PipelineControl):
                    not dm_kill and not downstream_busy and self.en_i and not self.kill_i and \
                    not dm_ebreak_halt_req:
                     dm_step_halt_pending.next = True
-                    dm_step_halt_dpc.next = self.next_ip_i[conf.xlen:conf.ip_low]
 
                 if dm_halt:
                     if debugRegisterBundle.abstractCommandState == t_abstractCommandState.none:
@@ -282,23 +278,9 @@ class DecodeBundle(PipelineControl):
                             else:
                                 debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
 
-                            if debugRegisterBundle.csrAccess:
-                                dr0 = debugRegisterBundle.dataRegs[0]
-                                if debugRegisterBundle.regno[0]:
-                                    debugRegisterBundle.dpc.next = dr0[conf.xlen:conf.ip_low]
-                                else:
-                                    self.debugCSRBundle.ebreakm.next = dr0[15]
-                                    self.debugCSRBundle.step.next = dr0[2]
-
                         elif debugRegisterBundle.transfer:
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvalid
-                            if debugRegisterBundle.csrAccess:
-                                if debugRegisterBundle.regno[0]:
-                                    debugRegisterBundle.abstractCommandResult.next = debugRegisterBundle.dpc << 2
-                                else:
-                                    debugRegisterBundle.abstractCommandResult.next = dcsr_map
-                            else:
-                                debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
+                            debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
 
                         elif debugRegisterBundle.postexec:
                             debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec

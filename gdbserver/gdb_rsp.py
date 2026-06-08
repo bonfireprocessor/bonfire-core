@@ -86,7 +86,7 @@ class RSPHandler(object):
         from rtl.instructions import CSRAdr
 
         dcsr = 0x700 | CSRAdr.dcsr
-        yield self.debugAPI.readReg(regno=dcsr)
+        yield self.debugAPI.readCSR(csr_adr=dcsr)
         value = self.debugAPI.cmd_result()
         if ebreakm is not None:
             if ebreakm:
@@ -98,7 +98,7 @@ class RSPHandler(object):
                 value |= (1 << 2)
             else:
                 value &= ~(1 << 2)
-        yield self.debugAPI.writeReg(regno=dcsr, value=value)
+        yield self.debugAPI.writeCSR(csr_adr=dcsr, value=value)
 
     # Renamed from 'bytes' to 'packet_bytes' to avoid shadowing Python's
     # built-in bytes type.
@@ -144,7 +144,7 @@ class RSPHandler(object):
                         yield self.debugAPI.readGPR(regno=i)
                         registers[i] = self.debugAPI.cmd_result()
 
-                    yield self.debugAPI.readReg(regno=0x700 | CSRAdr.dpc)
+                    yield self.debugAPI.readCSR(csr_adr=0x700 | CSRAdr.dpc)
                     registers[32] = self.debugAPI.cmd_result()
 
                     s = ''
@@ -190,14 +190,14 @@ class RSPHandler(object):
                 value = int(value, 16)
                 if regnum in range(0, 32):
                     regnum += 0x1000
+                    yield self.debugAPI.writeReg(regno=regnum, value=value)
                 elif regnum == 32:
-                    regnum = (0x700 | CSRAdr.dpc)
+                    yield self.debugAPI.writeCSR(csr_adr=(0x700 | CSRAdr.dpc), value=value)
                 else:
                     self.log.error('invalid register number %d in P command' % (regnum))
                     self.send("E01")
                     return
 
-                yield self.debugAPI.writeReg(regno=regnum, value=value)
                 self.send("OK")
 
             def handle_s(subcmd: str) -> Generator[Any, None, None]:
@@ -220,7 +220,7 @@ class RSPHandler(object):
                 if subcmd:
                     addr = int(subcmd, 16)
                     self.log.info(' continue at (@%#.8x )' % (addr))
-                    yield self.debugAPI.writeReg(regno=(0x700 | CSRAdr.dpc), value=addr)
+                    yield self.debugAPI.writeCSR(csr_adr=(0x700 | CSRAdr.dpc), value=addr)
 
                 if self.breakpoints:
                     # If software breakpoints were patched into memory,

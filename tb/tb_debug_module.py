@@ -86,13 +86,13 @@ class BonfireCoreDebugTestbench:
         v = modbv(0)[32:]
         v[15] = breakm
         v[2] = step
-        yield api.writeReg(regno=dcsr, value=v)
-        yield api.readReg(regno=dcsr)
+        yield api.writeCSR(csr_adr=dcsr, value=v)
+        yield api.readCSR(csr_adr=dcsr)
         self.log("dcsr = {} (ebreakm={}, step={})".format(hex(api.cmd_result()), breakm, step))
         assert api.result[15] == breakm and api.result[2] == step, "dcsr write failed"
 
     def check_dpc(self, api: DebugAPI, expected: int, text: str) -> Generator[Any, None, None]:
-        yield api.readReg(regno=0x700 | CSRAdr.dpc)
+        yield api.readCSR(csr_adr=0x700 | CSRAdr.dpc)
         actual = api.cmd_result()
         self.log("{} dpc = {}".format(text, hex(actual)))
         assert actual == expected, "{} dpc: {} expected: {}".format(text, hex(actual), hex(expected))
@@ -166,11 +166,22 @@ class BonfireCoreDebugTestbench:
         yield self.execute_progbuf0(api, CSRR_A0_DPC)
         yield self.check_gpr(api, regno=10, check_value=0x14)
 
+    def check_debug_csr_abstract_access_rejected(self, api: DebugAPI) -> Generator[Any, None, None]:
+        self.log("testing that debug CSRs are not accessible through abstract commands")
+
+        yield api.readReg(regno=0x700 | CSRAdr.dcsr, AssertCmdErr=False)
+        assert api.cmderr == 2, "abstract dcsr read cmderr: {} expected 2".format(api.cmderr)
+        yield api.dmi_write(0x16, 0x00000700)
+
+        yield api.writeReg(regno=0x700 | CSRAdr.dpc, value=0x10, AssertCmdErr=False)
+        assert api.cmderr == 2, "abstract dpc write cmderr: {} expected 2".format(api.cmderr)
+        yield api.dmi_write(0x16, 0x00000700)
+
     def check_ebreakm_and_step(self, api: DebugAPI) -> Generator[Any, None, None]:
         self.log("testing ebreakm and single step debug entry")
 
         yield api.writeMemory(memadr=0x0C, memvalue=EBREAK)
-        yield api.writeReg(regno=0x700 | CSRAdr.dpc, value=0x0C)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x0C)
         yield self.set_and_check_dcsr(api, breakm=True, step=False)
         yield self.resume_without_running_assert(api)
         yield api.check_halted()
@@ -178,11 +189,11 @@ class BonfireCoreDebugTestbench:
             yield api.check_halted()
 
         yield self.check_dpc(api, 0x0C, "ebreakm halt")
-        yield api.readReg(regno=0x700 | CSRAdr.dcsr)
+        yield api.readCSR(csr_adr=0x700 | CSRAdr.dcsr)
         assert api.result[9:6] == 1, "ebreakm dcsr cause: {} expected 1".format(int(api.result[9:6]))
         yield api.writeMemory(memadr=0x0C, memvalue=DEBUG_LOOP_J)
 
-        yield api.writeReg(regno=0x700 | CSRAdr.dpc, value=0x0C)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x0C)
         yield self.set_and_check_dcsr(api, breakm=False, step=True)
         yield self.resume_without_running_assert(api)
         yield api.check_halted()
@@ -190,17 +201,17 @@ class BonfireCoreDebugTestbench:
             yield api.check_halted()
 
         yield self.check_dpc(api, 0x0C, "single step jump halt")
-        yield api.readReg(regno=0x700 | CSRAdr.dcsr)
+        yield api.readCSR(csr_adr=0x700 | CSRAdr.dcsr)
         assert api.result[9:6] == 4, "jump step dcsr cause: {} expected 4".format(int(api.result[9:6]))
 
-        yield api.writeReg(regno=0x700 | CSRAdr.dpc, value=0x10)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x10)
         dcsr_value = modbv(0)[32:]
         dcsr_value[15] = True
         dcsr_value[2] = True
         yield api.writeGPR(regno=8, value=dcsr_value)
         yield self.execute_progbuf0(api, CSRW_DCSR_S0)
         yield api.writeGPR(regno=8, value=0)
-        yield api.readReg(regno=0x700 | CSRAdr.dcsr)
+        yield api.readCSR(csr_adr=0x700 | CSRAdr.dcsr)
         self.log("dcsr = {} after CSR progbuf write".format(hex(api.cmd_result())))
         assert api.result[15] and api.result[2], "dcsr progbuf write did not set ebreakm/step"
         yield self.resume_without_running_assert(api)
@@ -209,7 +220,7 @@ class BonfireCoreDebugTestbench:
             yield api.check_halted()
 
         yield self.check_dpc(api, 0x14, "single step halt")
-        yield api.readReg(regno=0x700 | CSRAdr.dcsr)
+        yield api.readCSR(csr_adr=0x700 | CSRAdr.dcsr)
         assert api.result[9:6] == 4, "step dcsr cause: {} expected 4".format(int(api.result[9:6]))
         yield self.check_gpr(api, regno=8, check_value=0x10000010)
 
@@ -366,7 +377,7 @@ class BonfireCoreDebugTestbench:
             self.log("reading and modifying dcsr")
             dcsr = 0x700 | CSRAdr.dcsr
             mark("reading dcsr")
-            yield api.readReg(regno=dcsr)
+            yield api.readCSR(csr_adr=dcsr)
             dcsr_default = api.cmd_result()
             self.log("default dcsr = {}".format(hex(dcsr_default)))
             mark("writing and checking dcsr")
@@ -378,6 +389,7 @@ class BonfireCoreDebugTestbench:
             else:
                 mark("testing debug CSR instructions")
                 yield self.check_debug_csr_instructions(api)
+                yield self.check_debug_csr_abstract_access_rejected(api)
                 mark("testing ebreakm and single step")
                 yield self.check_ebreakm_and_step(api)
 
@@ -397,7 +409,7 @@ class BonfireCoreDebugTestbench:
 
             self.log("patching dpc to 0x10 to leave endless loop and hit success path")
             mark("patching dpc to success path")
-            yield api.writeReg(regno=0x700 | CSRAdr.dpc, value=0x10)
+            yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x10)
             mark("clearing dcsr step and resuming")
             yield self.set_and_check_dcsr(api, breakm=True)
             yield api.resume()

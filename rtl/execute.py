@@ -73,7 +73,11 @@ class ExecuteBundle(PipelineControl):
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
 
         if self.config.enableDebugModule:
-            csr_inst = self.csr.CSRUnit(self.trapCSR,self.csrUpdate,clock,reset, debugCSRBundle=decode.debugCSRBundle, debugRegisterBundle=debugRegisterBundle)
+            csr_inst = self.csr.CSRUnit(
+                self.trapCSR,self.csrUpdate,clock,reset,
+                debugCSRBundle=decode.debugCSRBundle,
+                debugCSRUpdateBundle=decode.debugCSRUpdateBundle,
+                debugRegisterBundle=debugRegisterBundle)
         else:
             csr_inst = self.csr.CSRUnit(self.trapCSR,self.csrUpdate,clock,reset)
 

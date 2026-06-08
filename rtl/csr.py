@@ -10,6 +10,7 @@ from rtl.pipeline_control import *
 
 from rtl.instructions import  CSRAdr
 from rtl.trap import CSR_ReadViewBundle
+from rtl.debugModule import DebugCSRReadViewBundle
 
 
 class CSRUnitBundle(PipelineControl):
@@ -34,7 +35,7 @@ class CSRUnitBundle(PipelineControl):
 
 
     @block
-    def CSRUnit(self,trap_csrs, trap_csr_upate,clock,reset, debugCSRBundle=None, debugRegisterBundle=None):
+    def CSRUnit(self,trap_csrs, trap_csr_upate,clock,reset, debugCSRBundle=None, debugCSRUpdateBundle=None, debugRegisterBundle=None):
 
         # Pipeline control
         busy = Signal(bool(0))
@@ -58,12 +59,19 @@ class CSRUnitBundle(PipelineControl):
 
         #Read Interface
         trap_csr_read_view = CSR_ReadViewBundle(self.config)
+        if debugCSRBundle is not None:
+            assert debugCSRUpdateBundle is not None, "debug CSR access requires debugCSRUpdateBundle"
+            assert debugRegisterBundle is not None, "debug CSR access requires debugRegisterBundle"
+            debug_csr_read_view = DebugCSRReadViewBundle(self.config)
 
 
 
         p_inst = self.pipeline_instance(busy,valid)
         p_csr_write_inst = trap_csrs.csr_write(csr_we,csr_select_adr,csr_out,trap_csr_upate,clock,reset)
         p_csr_read_inst = trap_csr_read_view.csr_read(csr_select_adr,trap_csrs)
+        if debugCSRBundle is not None:
+            p_debug_csr_write_inst = debugCSRBundle.csr_write(csr_we,csr_select_adr,csr_out,debugCSRUpdateBundle,debugRegisterBundle,clock,reset)
+            p_debug_csr_read_inst = debug_csr_read_view.csr_read(csr_select_adr,debugCSRBundle,debugRegisterBundle)
 
 
         @always_comb
@@ -94,8 +102,6 @@ class CSRUnitBundle(PipelineControl):
 
 
         if debugCSRBundle is not None:
-            assert debugRegisterBundle is not None, "debug CSR access requires debugRegisterBundle"
-
             @always_comb
             def csr_select_proc():
 
@@ -103,9 +109,6 @@ class CSRUnitBundle(PipelineControl):
                 inv_reg.next = False
                 csr_we.next = False
                 csr_select_adr.next = reg
-                debugCSRBundle.csr_we.next = False
-                debugCSRBundle.csr_adr.next = reg
-                debugCSRBundle.csr_data.next = csr_out
 
                 if priv == 0b11:
                     if rw == 0b11: # Read Only Registers
@@ -118,31 +121,17 @@ class CSRUnitBundle(PipelineControl):
                     elif rw == 0: # Read Write Registers
                         if reg == CSRAdr.isa:
                             csr_in.next[32:30]=0b01
-                        elif reg == CSRAdr.dcsr:
-                            csr_in.next[32:28] = 4
-                            csr_in.next[15] = debugCSRBundle.ebreakm
-                            csr_in.next[9:6] = debugCSRBundle.cause
-                            csr_in.next[2] = debugCSRBundle.step
-                            csr_in.next[2:0] = 3
-                            debugCSRBundle.csr_we.next = self.taken and not inv_op
-                        elif reg == CSRAdr.dpc:
-                            csr_in.next = debugRegisterBundle.dpc << self.config.ip_low
-                            debugCSRBundle.csr_we.next = self.taken and not inv_op
                         elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
                             csr_we.next = self.taken
                             csr_in.next = trap_csr_read_view.data
+                        elif debug_csr_read_view.valid:
+                            csr_we.next = self.taken
+                            csr_in.next = debug_csr_read_view.data
                         else:
                             inv_reg.next = True
-                    elif reg == CSRAdr.dcsr:
-                        csr_in.next[32:28] = 4
-                        csr_in.next[15] = debugCSRBundle.ebreakm
-                        csr_in.next[9:6] = debugCSRBundle.cause
-                        csr_in.next[2] = debugCSRBundle.step
-                        csr_in.next[2:0] = 3
-                        debugCSRBundle.csr_we.next = self.taken and not inv_op
-                    elif reg == CSRAdr.dpc:
-                        csr_in.next = debugRegisterBundle.dpc << self.config.ip_low
-                        debugCSRBundle.csr_we.next = self.taken and not inv_op
+                    elif debug_csr_read_view.valid:
+                        csr_we.next = self.taken
+                        csr_in.next = debug_csr_read_view.data
                     else:
                         inv_reg.next = True
                 else:
