@@ -119,6 +119,13 @@ class DebugRegisterBundle:
         self.xlen = xlen
 
         assert self.config.progbuf_size in range(1,3), "progbuf_size must be 1 or 2"
+        print("[rtl.debugModule] DebugRegisterBundle: xlen={} ip_low={} numdata={} progbuf_size={} dmi_adr_width={}".format(
+            config.xlen,
+            config.ip_low,
+            config.numdata,
+            config.progbuf_size,
+            config.dmi_adr_width,
+        ))
 
         self.hartState=Signal(t_debugHartState.running)
 
@@ -206,6 +213,11 @@ class DMI:
         debugRegs: Debug RegisterBundle
 
         """
+        print("[rtl.debugModule] DMI_interface: numdata={} progbuf_size={} dmi_adr_width={}".format(
+            self.config.numdata,
+            self.config.progbuf_size,
+            self.config.dmi_adr_width,
+        ))
 
         @always(clock.posedge)
         def seq():
@@ -364,7 +376,6 @@ class DMI:
                                 debugRegs.abstractCommandNew.next = True
 
         return instances()
-
 
 
 

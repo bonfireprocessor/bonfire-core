@@ -1,0 +1,56 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Mon Jun  8 13:59:21 2026
+[*]
+[dumpfile] "debug_module.vcd"
+[dumpfile_mtime] "Mon Jun  8 13:53:23 2026"
+[dumpfile_size] 3436210
+[savefile] "debug_decode_kill.gtkw"
+[timestart] 5731
+[size] 1736 1238
+[pos] -1 -1
+*-5.100405 5819 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] testbench.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.
+[sst_width] 253
+[signals_width] 349
+[sst_expanded] 1
+[sst_vpaned_height] 368
+@28
+testbench.BonfireCoreTop0_createInstance0.clock
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.dm_halt
+@22
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.current_ip_i[31:0]
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.word_i[31:0]
+@28
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.kill_i
+@22
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debug_word_o[31:0]
+@29
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.valid_o
+@22
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debug_current_ip_o[31:0]
+@28
+testbench.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.jump_i
+testbench.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.jump_taken
+testbench.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.ibus_en_o
+@22
+testbench.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.ibus_adr_o[31:0]
+testbench.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.ibus_db_rd[31:0]
+@28
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_en
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_we
+@22
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_adr[5:0]
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_dbi[31:0]
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.dtm_dbo[31:0]
+@28
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_resumeack
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_resumereq
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_haltreq
+testbench.BonfireCoreTop0_createInstance0.DMI0_DMI_interface0.debugRegs_commandType
+[pattern_trace] 1
+[pattern_trace] 0

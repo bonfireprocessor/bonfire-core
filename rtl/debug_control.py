@@ -63,6 +63,11 @@ def DebugDecodeController(
     progbuf_pointer,
     progbuf_last,
 ):
+    print("[rtl.debug_control] DebugDecodeController: xlen={} ip_low={} progbuf_size={}".format(
+        config.xlen,
+        config.ip_low,
+        config.progbuf_size,
+    ))
 
     @always_comb
     def debug_event_comb():

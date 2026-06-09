@@ -9,7 +9,7 @@ from __future__ import print_function
 
 from myhdl import *
 
-from rtl import config, bonfire_core_top, bonfire_interfaces
+from rtl import config, bonfire_core_top, bonfire_interfaces, debugModule
 
 
 from tb.ClkDriver import *
@@ -67,7 +67,13 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
     mon_i = monitor_instance(ram,mon_dbus,clock,sigFile=sigFile,elfFile=elfFile)
 
     core=bonfire_core_top.BonfireCoreTop(config)
-    dut = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
+    if config.enableDebugModule:
+        debug_transport = debugModule.AbstractDebugTransportBundle(config)
+        dut = core.createInstance(
+            ibus, dbus, control, clock, reset, debug, config,
+            debugTransportBundle=debug_transport)
+    else:
+        dut = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
 
 
 
