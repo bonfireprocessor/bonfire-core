@@ -1,0 +1,187 @@
+"""
+RISC-V debug control
+(c) 2026 The Bonfire Project
+License: See LICENSE
+"""
+from __future__ import print_function
+
+from myhdl import *
+
+from rtl.debugModule import *
+from rtl.instructions import Opcodes as op
+from rtl.instructions import PrivFunct12, SystemFunct3
+
+
+class DebugDecodeViewBundle:
+    """Signals observed by the debug controller from the decode stage.
+
+    The controller only reads these signals. Signals such as dm_break are
+    produced by instruction decode and reported back here so the controller can
+    finish program-buffer execution.
+    """
+    def __init__(self, config):
+        xlen = config.xlen
+
+        self.current_ip_i = Signal(modbv(0)[xlen:])
+        self.word_i = Signal(modbv(0)[xlen:])
+        self.en_i = Signal(bool(0))
+        self.kill_i = Signal(bool(0))
+        self.rs1_data_i = Signal(modbv(0)[xlen:])
+        self.valid_o = Signal(bool(0))
+        self.stall_i = Signal(bool(0))
+        self.downstream_busy = Signal(bool(0))
+        self.dm_break = Signal(bool(0))
+
+
+class DebugDecodeControlBundle:
+    """Signals driven by the debug controller into the decode stage.
+
+    These are the controller outputs used to halt, kill, inject program-buffer
+    execution, and write register-file data during abstract commands.
+    """
+    def __init__(self, config):
+        self.halt = Signal(bool(0))
+        self.kill = Signal(bool(0))
+        self.regwrite = Signal(bool(0))
+        self.regno = Signal(modbv(0)[5:])
+        self.data0 = Signal(modbv(0)[32:])
+        self.exec = Signal(bool(0))
+        self.ebreak_halt_req = Signal(bool(0))
+        self.step_armed = Signal(bool(0))
+        self.step_halt_pending = Signal(bool(0))
+
+
+@block
+def DebugDecodeController(
+    config,
+    clock,
+    debugRegisterBundle,
+    debugCSRBundle,
+    debugCSRUpdateBundle,
+    decode_view,
+    debug_control,
+    progbuf_pointer,
+    progbuf_last,
+):
+    print("[rtl.debug_control] DebugDecodeController: xlen={} ip_low={} progbuf_size={}".format(
+        config.xlen,
+        config.ip_low,
+        config.progbuf_size,
+    ))
+
+    @always_comb
+    def debug_event_comb():
+        debug_control.regwrite.next = False
+        debug_control.regno.next = debugRegisterBundle.regno
+        debug_control.data0.next = debugRegisterBundle.dataRegs[0]
+        debug_control.ebreak_halt_req.next = False
+
+        if debugRegisterBundle.abstractCommandNew and \
+           debugRegisterBundle.abstractCommandState == t_abstractCommandState.none and \
+           debugRegisterBundle.commandType == t_abstractCommandType.access_reg:
+            debug_control.regwrite.next = debugRegisterBundle.write
+
+        if not debug_control.halt and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i:
+            if debugCSRBundle.ebreakm and decode_view.word_i[7:2] == op.RV32_SYSTEM and \
+               decode_view.word_i[15:12] == SystemFunct3.RV32_F3_PRIV and \
+               decode_view.word_i[32:20] == PrivFunct12.RV32_F12_EBREAK:
+                debug_control.ebreak_halt_req.next = True
+
+    @always(clock.posedge)
+    def debug_module_seq():
+        debugRegisterBundle.reqAck.next = False
+        debugCSRUpdateBundle.we_dpc.next = False
+        debugCSRUpdateBundle.we_cause.next = False
+
+        if debugRegisterBundle.dpc_jump:
+            debugRegisterBundle.dpc_jump.next = False
+
+        if debug_control.ebreak_halt_req:
+            debugCSRUpdateBundle.dpc.next = decode_view.current_ip_i[config.xlen:config.ip_low]
+            debugCSRUpdateBundle.we_dpc.next = True
+            debugCSRUpdateBundle.cause.next = 1
+            debugCSRUpdateBundle.we_cause.next = True
+            debug_control.halt.next = True
+            debug_control.step_armed.next = False
+            debug_control.step_halt_pending.next = False
+
+        elif debug_control.step_halt_pending and debugRegisterBundle.instr_retired:
+            debugCSRUpdateBundle.dpc.next = debugRegisterBundle.instr_retire_dpc
+            debugCSRUpdateBundle.we_dpc.next = True
+            debugCSRUpdateBundle.cause.next = 4
+            debugCSRUpdateBundle.we_cause.next = True
+            debug_control.halt.next = True
+            debug_control.step_armed.next = False
+            debug_control.step_halt_pending.next = False
+
+        if not debug_control.ebreak_halt_req and not debug_control.step_halt_pending and \
+           not decode_view.downstream_busy and not debugRegisterBundle.reqAck:
+            if debugRegisterBundle.haltreq and decode_view.en_i and not decode_view.kill_i:
+                debugRegisterBundle.reqAck.next = True
+                debugCSRUpdateBundle.dpc.next = decode_view.current_ip_i[config.xlen:config.ip_low]
+                debugCSRUpdateBundle.we_dpc.next = True
+                debugCSRUpdateBundle.cause.next = 3
+                debugCSRUpdateBundle.we_cause.next = True
+                debug_control.halt.next = True
+                debug_control.step_armed.next = False
+            elif debugRegisterBundle.resumereq:
+                debugRegisterBundle.reqAck.next = True
+                debug_control.halt.next = False
+                debugRegisterBundle.dpc_jump.next = True
+                debug_control.step_armed.next = debugCSRBundle.step
+
+        if debug_control.step_armed and not debug_control.step_halt_pending and not debug_control.halt and \
+           not debug_control.kill and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i and \
+           not debug_control.ebreak_halt_req:
+            debug_control.step_halt_pending.next = True
+
+        if debug_control.halt:
+            if debugRegisterBundle.abstractCommandState == t_abstractCommandState.none:
+                if debugRegisterBundle.abstractCommandNew and \
+                   debugRegisterBundle.commandType == t_abstractCommandType.access_reg and \
+                   (debugRegisterBundle.transfer or debugRegisterBundle.postexec):
+                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.taken
+
+            elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.taken:
+                if debugRegisterBundle.transfer and debugRegisterBundle.write:
+                    if debugRegisterBundle.postexec:
+                        debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
+                    else:
+                        debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+
+                elif debugRegisterBundle.transfer:
+                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvalid
+                    debugRegisterBundle.abstractCommandResult.next = decode_view.rs1_data_i
+
+                elif debugRegisterBundle.postexec:
+                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
+
+            elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.regvalid:
+                if debugRegisterBundle.postexec:
+                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
+                else:
+                    debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+            elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec or \
+                 debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec2:
+                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.wait_retire
+            elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.wait_retire:
+                if not (decode_view.valid_o or decode_view.stall_i):
+                    if not progbuf_last and not decode_view.dm_break:
+                        progbuf_pointer.next = 1
+                        debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec2
+                    else:
+                        debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
+                        progbuf_pointer.next = 0
+
+    @always_comb
+    def dm_state():
+        debug_control.kill.next = debugRegisterBundle.dpc_jump
+        debug_control.exec.next = debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec or \
+                       debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec2
+
+        if debug_control.halt:
+            debugRegisterBundle.hartState.next = t_debugHartState.halted
+        else:
+            debugRegisterBundle.hartState.next = t_debugHartState.running
+
+    return instances()

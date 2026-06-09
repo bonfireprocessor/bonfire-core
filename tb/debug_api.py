@@ -25,6 +25,18 @@ from rtl.jtag_dtm import (
 from rtl.type_aliases import BitSignal
 
 EBREAK_INSN = 0x00100073
+CSR_OPCODE = 0x73
+CSRRS_FUNCT3 = 0x2
+CSRRW_FUNCT3 = 0x1
+CSR_SCRATCH_GPR = 8
+
+
+def encode_csrr(rd: int, csr_adr: int) -> int:
+    return (csr_adr << 20) | (CSRRS_FUNCT3 << 12) | (rd << 7) | CSR_OPCODE
+
+
+def encode_csrw(csr_adr: int, rs1: int) -> int:
+    return (csr_adr << 20) | (rs1 << 15) | (CSRRW_FUNCT3 << 12) | CSR_OPCODE
 
 
 class DebugAPI:
@@ -160,6 +172,24 @@ class DebugAPI:
         transfer: bool = True,
     ) -> Generator[Any, None, None]:
         yield self.writeReg(HartId=HartId, regno=regno + 0x1000, value=value, postexec=postexec, transfer=transfer)
+
+    def readCSR(self, csr_adr: int, scratch_reg: int = CSR_SCRATCH_GPR) -> Generator[Any, None, None]:
+        yield self.readGPR(regno=scratch_reg)
+        scratch_save = self.cmd_result()
+        yield self.writeProgbuf0(encode_csrr(scratch_reg, csr_adr))
+        yield self.readReg(transfer=False, postexec=True)
+        yield self.readGPR(regno=scratch_reg)
+        csr_value = self.cmd_result()
+        yield self.writeGPR(regno=scratch_reg, value=scratch_save)
+        self.result = modbv(csr_value)[32:]
+
+    def writeCSR(self, csr_adr: int, value: int, scratch_reg: int = CSR_SCRATCH_GPR) -> Generator[Any, None, None]:
+        yield self.readGPR(regno=scratch_reg)
+        scratch_save = self.cmd_result()
+        yield self.writeGPR(regno=scratch_reg, value=value)
+        yield self.writeProgbuf0(encode_csrw(csr_adr, scratch_reg))
+        yield self.readReg(transfer=False, postexec=True)
+        yield self.writeGPR(regno=scratch_reg, value=scratch_save)
 
     def ResetCore(self) -> None:
         c = modbv(0)[32:]

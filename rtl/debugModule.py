@@ -19,9 +19,22 @@ debugSpecVersion = 2 # RISC-V Debug Spec 0.13
 csr_depc = 0x7b1
 xdedebugver = 4 # RISC-V Debug Spec 0.13
 
+class DebugCSRUpdateBundle:
+    def __init__(self,config):
+        self.config = config
+        self.xlen = config.xlen
+        xlen = config.xlen
+
+        self.dpc = Signal(modbv(0)[xlen:config.ip_low])
+        self.cause = Signal(modbv(0)[3:0])
+        self.we_dpc = Signal(bool(0))
+        self.we_cause = Signal(bool(0))
+
+
 class DebugCSRBundle():
     def __init__(self,config):
         self.config = config
+        self.xlen = config.xlen
 
          #used dcsrs bits
         self.ebreakm = Signal(bool(0)) #dcsr[15]
@@ -29,16 +42,73 @@ class DebugCSRBundle():
         self.step = Signal(bool(0)) #dcsr[2] single step mode
 
     @block
-    def dcsr_map(self,word):
-        # Set the bits in word according to the dcsr register spec
+    def csr_write(self,we,adr,data,update,debugRegs,clock,reset):
+        """
+        we: bool Write Enable
+        adr : [8:] CSR Adr
+        data: [32:] Input data to write
+        update: DebugCSRUpdateBundle
+        debugRegs: DebugRegisterBundle
+        clock: clock signal
+        reset : reset signal
+        """
+
+        upper = self.config.xlen
+        lower = self.config.ip_low
+
+        @always(clock.posedge)
+        def seq():
+            if reset:
+                self.ebreakm.next = False
+                self.cause.next = 0
+                self.step.next = False
+                debugRegs.dpc.next = 0
+
+            elif we:
+                if adr == CSRAdr.dcsr:
+                    self.ebreakm.next = data[15]
+                    self.step.next = data[2]
+                elif adr == CSRAdr.dpc:
+                    debugRegs.dpc.next = data[upper:lower]
+            else:
+                if update.we_cause:
+                    self.cause.next = update.cause
+                if update.we_dpc:
+                    debugRegs.dpc.next = update.dpc
+
+        return instances()
+
+
+class DebugCSRReadViewBundle:
+    def __init__(self,config):
+        self.config=config
+        self.xlen = config.xlen
+        xlen=config.xlen
+
+        self.valid = Signal(bool(0))
+        self.data = Signal(modbv(0)[xlen:])
+
+    @block
+    def csr_read(self,reg,debugCSRs,debugRegs):
+
+        upper = self.config.xlen
+        lower = self.config.ip_low
+
         @always_comb
         def comb():
-            word.next=0
-            word.next[32:28] = xdedebugver
-            word.next[15] = self.ebreakm
-            word.next[9:6] = self.cause
-            word.next[2] = self.step
-            word.next[2:0] = 3
+            self.valid.next = True
+            self.data.next = 0
+
+            if reg == CSRAdr.dcsr:
+                self.data.next[32:28] = xdedebugver
+                self.data.next[15] = debugCSRs.ebreakm
+                self.data.next[9:6] = debugCSRs.cause
+                self.data.next[2] = debugCSRs.step
+                self.data.next[2:0] = 3
+            elif reg == CSRAdr.dpc:
+                self.data.next[upper:lower] = debugRegs.dpc
+            else:
+                self.valid.next = False
 
         return instances()
 
@@ -49,6 +119,13 @@ class DebugRegisterBundle:
         self.xlen = xlen
 
         assert self.config.progbuf_size in range(1,3), "progbuf_size must be 1 or 2"
+        print("[rtl.debugModule] DebugRegisterBundle: xlen={} ip_low={} numdata={} progbuf_size={} dmi_adr_width={}".format(
+            config.xlen,
+            config.ip_low,
+            config.numdata,
+            config.progbuf_size,
+            config.dmi_adr_width,
+        ))
 
         self.hartState=Signal(t_debugHartState.running)
 
@@ -67,7 +144,6 @@ class DebugRegisterBundle:
         self.write = Signal(bool(0))
         self.regno = Signal(modbv(0)[5:])
         self.cmderr = Signal(modbv(0)[3:])
-        self.csrAccess = Signal(bool(0))
 
         #written by DMI
         self.dataRegs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
@@ -90,6 +166,11 @@ class DebugRegisterBundle:
 
         # resumeack bit, used for dmstatus all/any resumeack
         self.resumeack = Signal(bool(0))
+
+        # Internal core-to-debug signal. It marks that the currently accepted
+        # pipeline instruction reached the execute result/commit point.
+        self.instr_retired = Signal(bool(0))
+        self.instr_retire_dpc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
 
 
         assert config.numdata<=16, "maximum allowed debug Data Registers are 16"
@@ -132,8 +213,11 @@ class DMI:
         debugRegs: Debug RegisterBundle
 
         """
-
-        csr_mask = (0x7b0>>1) # We support dpc(0x7b0) and dcsr(0x7b1) currently. So comparing bits 15..1 with the base address shifted one bit to the rigt will match both addresses
+        print("[rtl.debugModule] DMI_interface: numdata={} progbuf_size={} dmi_adr_width={}".format(
+            self.config.numdata,
+            self.config.progbuf_size,
+            self.config.dmi_adr_width,
+        ))
 
         @always(clock.posedge)
         def seq():
@@ -259,10 +343,7 @@ class DMI:
                                 debugRegs.write.next = dtm.dbi[16]
                                 debugRegs.regno.next = dtm.dbi[5:0]
                                
-                                csrAccess =  dtm.dbi[16:1] == csr_mask 
-                                debugRegs.csrAccess.next = csrAccess
-                              
-                                if dtm.dbi[23:20]==2 and (dtm.dbi[16:5]==0x80 or csrAccess or not transfer): # Only support 32Bit transfers. When Transfer is not set, register number do not care
+                                if dtm.dbi[23:20]==2 and (dtm.dbi[16:5]==0x80 or not transfer): # Only support 32Bit transfers. When Transfer is not set, register number do not care
                                     debugRegs.abstractCommandNew.next = True
                                 else:
                                     debugRegs.cmderr.next = 2 # not supported
@@ -295,13 +376,6 @@ class DMI:
                                 debugRegs.abstractCommandNew.next = True
 
         return instances()
-
-
-
-
-
-
-
 
 
 

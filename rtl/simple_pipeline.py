@@ -52,7 +52,7 @@ class SimpleBackend:
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
         decode_inst = self.decode.decoder(clock,reset,debugRegisterBundle=debugRegisterBundle)
-        exec_inst = self.execute.SimpleExecute(self.decode, databus, debugport, clock,reset )
+        exec_inst = self.execute.SimpleExecute(self.decode, databus, debugport, clock,reset, debugRegisterBundle=debugRegisterBundle )
 
         d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
 
@@ -95,7 +95,7 @@ class SimpleBackend:
             def proc_out():
                 out.jump_o.next = self.execute.jump_o or debugRegisterBundle.dpc_jump
                 if debugRegisterBundle.dpc_jump:
-                    out.jump_dest_o.next[self.config.xlen:self.config.ip_low] = debugRegisterBundle.dpc
+                    out.jump_dest_o.next = concat(debugRegisterBundle.dpc, intbv(0)[self.config.ip_low:])
                 else:
                     out.jump_dest_o.next = self.execute.jump_dest_o
         else:

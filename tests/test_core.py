@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from rtl import config
 from tb import tb_core
 
 from .conftest import assert_monitor_pass, run_sim, waveform_config
@@ -93,14 +94,40 @@ def _paths_for_hex(repo_root: Path, request: pytest.FixtureRequest, hex_path: st
     return hex_rel, elf_rel, sig_rel
 
 
-def test_core(sim_env, capsys: pytest.CaptureFixture[str], request: pytest.FixtureRequest, hex_path: str):
+@pytest.mark.parametrize(
+    "enable_debug_module",
+    [False, True],
+    ids=["debug_off", "debug_on"],
+)
+def test_core(
+    sim_env,
+    capsys: pytest.CaptureFixture[str],
+    request: pytest.FixtureRequest,
+    hex_path: str,
+    enable_debug_module: bool,
+):
     repo_root = Path(__file__).resolve().parents[1]
     hex_file, elf_file, sig_file = _paths_for_hex(repo_root, request, hex_path)
 
     verbose = _opt_env("BONFIRE_CORE_VERBOSE") in ("1", "true", "yes", "on")
-    trace, filename = waveform_config(request, sim_env, "core_{}".format(Path(hex_path).stem))
+    debug_suffix = "debug_on" if enable_debug_module else "debug_off"
+    trace, filename = waveform_config(
+        request,
+        sim_env,
+        "core_{}_{}".format(Path(hex_path).stem, debug_suffix),
+    )
 
-    tb = tb_core.tb(hexFile=hex_file, elfFile=elf_file, sigFile=sig_file, ramsize=16384, verbose=verbose)
+    conf = config.BonfireConfig()
+    conf.enableDebugModule = enable_debug_module
+
+    tb = tb_core.tb(
+        config=conf,
+        hexFile=hex_file,
+        elfFile=elf_file,
+        sigFile=sig_file,
+        ramsize=16384,
+        verbose=verbose,
+    )
     run_sim(tb, trace=trace, filename=filename, duration=20_000, waveforms_dir=sim_env["waveforms_dir"])
 
     out = capsys.readouterr().out

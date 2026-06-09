@@ -21,6 +21,11 @@ class BonfireCoreSoCTestbench:
         led_sim = Signal(modbv(0)[num_leds:])
         uart0_txd = Signal(bool(1))
         uart0_rxd = Signal(bool(0))
+        jtag_tck = Signal(bool(0))
+        jtag_tms = Signal(bool(1))
+        jtag_tdi = Signal(bool(0))
+        jtag_tdo = Signal(bool(0))
+        jtag_trstn = Signal(bool(1))
 
         o_resetn = Signal(bool(1))
         i_locked = Signal(bool(0))
@@ -35,7 +40,18 @@ class BonfireCoreSoCTestbench:
         else:
             wb_master = None
 
-        soc_i = self.soc.bonfire_core_soc(sysclk, resetn, uart0_txd, uart0_rxd, led, o_resetn, i_locked, wb_master=wb_master)
+        if self.soc.enableJtagDebug:
+            soc_i = self.soc.bonfire_core_soc(
+                sysclk, resetn, uart0_txd, uart0_rxd, led, o_resetn, i_locked,
+                wb_master=wb_master,
+                jtag_tck=jtag_tck,
+                jtag_tms=jtag_tms,
+                jtag_tdi=jtag_tdi,
+                jtag_tdo=jtag_tdo,
+                jtag_trstn=jtag_trstn,
+            )
+        else:
+            soc_i = self.soc.bonfire_core_soc(sysclk, resetn, uart0_txd, uart0_rxd, led, o_resetn, i_locked, wb_master=wb_master)
 
         if self.soc.exposeWishboneMaster:
             wb_bfm = Wishbone_bfm()

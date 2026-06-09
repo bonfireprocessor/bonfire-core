@@ -6,6 +6,8 @@ from myhdl import *
 
 from rtl.bonfire_interfaces import DbusBundle, Wishbone_master_bundle
 from rtl.config import BonfireConfig
+from rtl.debugModule import AbstractDebugTransportBundle
+from rtl.jtag_dtm import JtagDTM
 from rtl.type_aliases import BitSignal
 from rtl.uncore import bonfire_core_ex, ram_dp
 from rtl.uncore.dbus_interconnect import AdrMask
@@ -30,6 +32,7 @@ class BonfireCoreSoC:
         self.ledActiveLow: bool = soc_config.get('ledActiveLow', True)
         self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
         self.exposeWishboneMaster: bool = soc_config.get('exposeWishboneMaster', False)
+        self.enableJtagDebug: bool = soc_config.get('enableJtagDebug', False)
         self.conversion: bool = False
         self.reset_signal: BitSignal | None = None
 
@@ -176,7 +179,12 @@ class BonfireCoreSoC:
     def bonfire_core_soc(self, sysclk: BitSignal, resetn: BitSignal, uart0_tx: BitSignal,
                          uart0_rx: BitSignal, led: Any, o_resetn: BitSignal,
                          i_locked: BitSignal,
-                         wb_master: Wishbone_master_bundle | None = None) -> Any:
+                         wb_master: Wishbone_master_bundle | None = None,
+                         jtag_tck: BitSignal | None = None,
+                         jtag_tms: BitSignal | None = None,
+                         jtag_tdi: BitSignal | None = None,
+                         jtag_tdo: BitSignal | None = None,
+                         jtag_trstn: BitSignal | None = None) -> Any:
         """
         sysclk : cpu clock
         resetn : reset button, active low
@@ -223,11 +231,24 @@ class BonfireCoreSoC:
         else:
             reset_i = self.reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
 
+        debug_transport: AbstractDebugTransportBundle | None = None
+        if self.enableJtagDebug:
+            assert jtag_tck is not None, "enableJtagDebug requires jtag_tck"
+            assert jtag_tms is not None, "enableJtagDebug requires jtag_tms"
+            assert jtag_tdi is not None, "enableJtagDebug requires jtag_tdi"
+            assert jtag_tdo is not None, "enableJtagDebug requires jtag_tdo"
+            assert jtag_trstn is not None, "enableJtagDebug requires jtag_trstn"
+            debug_transport = AbstractDebugTransportBundle(self.config)
+            jtag_i = JtagDTM(self.config).createInstance(
+                sysclk, reset, jtag_tck, jtag_tms, jtag_tdi, jtag_trstn,
+                jtag_tdo, debug_transport)
+
         core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master_local,dbus,bram_port_a,bram_port_b,
                                                               sysclk,reset,config=self.config,
                                                               wb_mask=self.wbMask,
                                                               db_mask=self.dbusMask,
-                                                              bram_mask=self.bramMask)
+                                                              bram_mask=self.bramMask,
+                                                              debugTransportBundle=debug_transport)
 
 
         return instances()
