@@ -51,6 +51,10 @@ The generator:
    `fusesoc-cores/templates/tb_soc.vhd`.
 4. Writes a generated `.core` file listing the generated VHDL files.
 
+The generator configuration now also accepts `enable_jtag_debug`, which maps to
+`enableJtagDebug` inside the MyHDL SoC and exposes a `JtagDTM` transport plus
+the corresponding JTAG pins on the generated entity.
+
 Generated files end up under `build/bonfire-core-soc_0/<target>/generator_cache/`.
 
 ## Simulation targets
@@ -66,6 +70,9 @@ pytest -vv tests/test_soc_myhdl.py
 ```bash
 fusesoc run --target=sim ::bonfire-core-soc:0
 ```
+
+The `sim` target enables JTAG debug so the generated MyHDL SoC testbench can
+exercise the debug path during conversion and GHDL smoke tests.
 
 ### Extended SoC VHDL simulation (GHDL via FuseSoC)
 
@@ -119,6 +126,12 @@ fusesoc --cores-root . run --target=ulx3s bonfire-core-soc
 ```bash
 fusesoc run --target=cmods7_extended ::bonfire-core-soc:0
 ```
+
+### IcePi Zero debug pins
+
+The non-extended `icepizero` target now forwards the JTAG debug interface from
+the generated SoC top-level to fixed Raspberry Pi GPIO header pins in
+`fusesoc-cores/fpga/icepizero/board.lpf`.
 
 ## Bonfire extended core (bonfire-library dependency)
 

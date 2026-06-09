@@ -104,7 +104,12 @@ BonfireCoreSoC.bonfire_core_soc(
     led,           # LED output vector
     o_resetn,      # reset output to board (driven high in normal mode)
     i_locked,      # PLL lock input
-    wb_master=None # optional Wishbone master (when exposeWishboneMaster=True)
+    wb_master=None,# optional Wishbone master (when exposeWishboneMaster=True)
+    jtag_tck=None, # optional JTAG debug clock
+    jtag_tms=None, # optional JTAG mode select
+    jtag_tdi=None, # optional JTAG data in
+    jtag_tdo=None, # optional JTAG data out
+    jtag_trstn=None,# optional JTAG reset
 )
 ```
 
@@ -116,6 +121,7 @@ It instantiates:
 - `wishbone_dummy` — dummy Wishbone target (when `exposeWishboneMaster=False`).
 - `uart_dummy` — UART loopback placeholder.
 - `reset_logic` or `no_reset_logic` — reset generation.
+- `JtagDTM` — optional JTAG debug transport when `enableJtagDebug=True`.
 
 ### Address map
 
@@ -224,6 +230,7 @@ test scenarios.
 | `ledActiveLow` | `True` | Invert LED output pins |
 | `UseVHDLMemory` | `False` | Currently unused |
 | `exposeWishboneMaster` | `False` | Expose Wishbone instead of using dummy |
+| `enableJtagDebug` | `False` | Expose JTAG pins, instantiate `JtagDTM`, and connect it to the core debug module |
 
 ### FuseSoC generation
 
@@ -240,10 +247,15 @@ Important FuseSoC parameters include:
 | `led_active_low` | `ledActiveLow` | LED polarity |
 | `extended_soc` | — | Generate the VHDL wrapper (Extended SoC path) |
 | `expose_wishbone_master` | `exposeWishboneMaster` | Expose Wishbone master directly |
+| `enable_jtag_debug` | `enableJtagDebug` | Expose a JTAG DTM and forward it to the core debug module |
 
 When `extended_soc` is true, `gen_soc.py` forces `exposeWishboneMaster=True` so
 that `fusesoc-cores/templates/soc_top.vhd` can attach VHDL peripherals to the
 Wishbone bus.
+
+The plain `sim` target and the non-extended `icepizero` target enable
+`enable_jtag_debug`, so the generated MyHDL SoC can exercise or expose the JTAG
+debug path without requiring the Extended SoC wrapper.
 
 ### MyHDL testbench
 
@@ -285,6 +297,8 @@ make -C code soc-all TARGET_PREFIX=riscv64-unknown-elf
   address bits.
 - `UseVHDLMemory` is present but unused.
 - Interrupt handling is not wired at the SoC level.
+- On IcePi Zero, the new JTAG pins increase timing pressure around the debug
+  `dpc` update path; this is tracked as a follow-up timing cleanup item.
 
 ---
 

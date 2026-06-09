@@ -73,6 +73,15 @@ and treats the run as PASS when the final monitor base write (`0x10000000`)
 equals `1`. The discovery directory can be overridden with
 `BONFIRE_CORE_HEX_DIR`.
 
+Every discovered HEX program is now run twice:
+
+- `debug_off` — normal core configuration,
+- `debug_on` — the same program with `BonfireConfig.enableDebugModule=True`.
+
+In the debug-enabled variant, `tb_core` instantiates a passive
+`AbstractDebugTransportBundle` so the debug module is present even though the
+test itself does not issue debug commands.
+
 ```bash
 pytest -vv tests/test_core.py
 # with monitor output
@@ -95,6 +104,24 @@ Via the runner:
 ```bash
 scripts/bonfire-core --integration
 ```
+
+### Debug module tests
+
+Purpose: validate the active debug module control path, CSR access rules, and
+JTAG transport.
+
+```bash
+pytest -vv tests/test_debug_module.py
+```
+
+Coverage includes:
+
+- DMI-driven halt/resume,
+- JTAG-driven halt/resume,
+- `dcsr`/`dpc` access through CSR instructions in the program buffer,
+- rejection of direct abstract-command access to debug CSRs,
+- `ebreakm` entry and single-step behavior, including stepping over a taken
+  jump.
 
 ### SoC integration tests
 
@@ -137,6 +164,25 @@ pytest -vv tests/test_openocd_remote_bitbang.py
     These tests require `openocd` to be installed. If it is not found, the
     tests are skipped. They also require
     `code/build/debug-tests/endless.hex` to be present.
+    The full RISC-V core-target smoke test uses a 20-second timeout because the
+    debug-enabled startup path can take longer than the simple scan-chain check.
+
+### VHDL conversion tests
+
+Purpose: verify that key MyHDL blocks still convert cleanly to VHDL and can be
+analyzed by GHDL.
+
+```bash
+pytest -vv tests/test_vhdl_conversion.py
+```
+
+The conversion coverage includes:
+
+- `BonfireCoreTop` with and without the debug module,
+- `JtagDTM`,
+- `BonfireCoreSoC` with and without JTAG debug enabled,
+- the generated SoC testbench, patched so converted `StopSimulation` becomes
+  `std.env.stop` for clean GHDL exits.
 
 ## Monitor port convention
 

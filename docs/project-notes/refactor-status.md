@@ -62,6 +62,11 @@ work, based on `RTL_SOC_REFACTOR_PLAN.md`.
 - The test verifies UART output, GPIO/LED activity, and UART capture summary.
 - `scripts/bonfire-core --integration` includes the MyHDL and Extended SoC
   regression tests.
+- Core integration now runs each discovered core-test HEX image with the debug
+  module both disabled and enabled.
+- Added dedicated debug-module regression coverage for DMI, JTAG, debug CSR
+  access, `ebreakm`, and single-step behavior.
+- Added VHDL conversion coverage for `JtagDTM` and JTAG-enabled SoC generation.
 
 ---
 
@@ -72,6 +77,8 @@ work, based on `RTL_SOC_REFACTOR_PLAN.md`.
   - split `generate_from_fusesoc()` into smaller orchestration helpers,
   - consider replacing the legacy `getopt` CLI compatibility mode with
     `argparse`.
+- Revisit the IcePi Zero timing path that now runs through load/store, execute,
+  and debug `dpc` update logic after JTAG debug enablement.
 - Consider whether the project should eventually move from top-level `rtl` and
   `tb` packages into a dedicated Python package namespace.
 
