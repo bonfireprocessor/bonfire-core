@@ -151,8 +151,45 @@ The debug transport (JTAG TAP, OpenOCD remote bitbang, etc.) connects through
 allows simulation-side or FPGA-side transports to plug in without changing the
 core RTL.
 
-The debug module can halt the hart, inject program-buffer instructions, and
-access registers via abstract commands.
+The debug module can:
+
+- halt and resume the hart through the DMI/JTAG transport,
+- inject program-buffer instructions while the hart is halted,
+- access general-purpose registers through abstract register commands,
+- access `dcsr` and `dpc` through real CSR instructions executed from the
+  program buffer,
+- enter debug mode on `haltreq`, `ebreakm`, and single-step retire events.
+
+### Debug controller split
+
+Decode-side debug control now lives in `rtl/debug_control.py`.
+
+- `DebugDecodeViewBundle` carries the decode-stage state observed by the debug
+  controller.
+- `DebugDecodeControlBundle` carries halt/kill/program-buffer control back into
+  decode.
+- The controller tracks program-buffer execution, `ebreakm`, and single-step
+  state independently from the main decode logic.
+
+### Debug CSRs
+
+`rtl/csr.py` now routes debug CSR accesses through dedicated read/write helpers
+from `rtl/debugModule.py`:
+
+- `dcsr` exposes at least `cause`, `ebreakm`, and `step`,
+- `dpc` stores the debug return PC using the internal instruction-pointer width,
+- normal CSR instructions can read and write these registers when the debug
+  module is enabled.
+
+Abstract register commands no longer provide a non-standard direct access path
+to `dcsr`/`dpc`; debug tools must use CSR instructions in the program buffer.
+
+### Debug entry timing
+
+Single-step and `ebreakm` handling now record the actual retired PC into `dpc`.
+For taken branches and jumps, the execute stage forwards the real retire
+destination instead of the sequential fetch PC, so stepping over a taken jump
+halts with the expected next-PC value.
 
 ## Cache (experimental)
 
@@ -176,6 +213,7 @@ work item.
 | `rtl/csr.py` | Control and status registers |
 | `rtl/trap.py` | Trap/exception handling |
 | `rtl/debugModule.py` | RISC-V debug module |
+| `rtl/debug_control.py` | Decode-side debug controller for halt, step, and program-buffer flow |
 | `rtl/config.py` | `BonfireConfig` dataclass |
 | `rtl/bonfire_interfaces.py` | `DbusBundle`, `ControlBundle`, `DebugOutputBundle`, `Wishbone_master_bundle` |
 | `rtl/pipeline_control.py` | Pipeline stall/valid handshake helpers |
