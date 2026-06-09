@@ -22,6 +22,9 @@ from openocd_bitbang.probe import RemoteBitbangClient, ScanResult
 from rtl.jtag_dtm import JTAG_IDCODE, JTAG_IR_WIDTH
 from .conftest import waveform_config
 
+OPENOCD_TIMEOUT_SECONDS = 10.0
+OPENOCD_CORE_TARGET_TIMEOUT_SECONDS = 20.0
+
 
 def _free_tcp_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -261,7 +264,7 @@ def test_openocd_remote_bitbang_scan_chain_reads_idcode(sim_env, tmp_path: Path,
             check=False,
             capture_output=True,
             text=True,
-            timeout=10.0,
+            timeout=OPENOCD_TIMEOUT_SECONDS,
         )
 
     print("[openocd stdout]\n{}".format(completed.stdout), end="")
@@ -289,7 +292,7 @@ def test_openocd_remote_bitbang_core_target_smoke(tmp_path: Path):
             check=False,
             capture_output=True,
             text=True,
-            timeout=20.0,
+            timeout=OPENOCD_CORE_TARGET_TIMEOUT_SECONDS,
         )
 
     print("[openocd stdout]\n{}".format(completed.stdout), end="")
