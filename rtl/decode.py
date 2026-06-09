@@ -11,6 +11,7 @@ from rtl.instructions import SystemFunct3
 from rtl.instructions import PrivFunct12
 from rtl.util import signed_resize
 from rtl.debugModule import *
+from rtl.debug_control import DebugDecodeControlBundle, DebugDecodeController, DebugDecodeViewBundle
 
 from rtl.pipeline_control import *
 
@@ -119,16 +120,22 @@ class DecodeBundle(PipelineControl):
 
         downstream_busy = Signal(bool(0))
 
-        dm_halt = Signal(bool(0))
-        dm_kill = Signal(bool(0))
-        dm_regwrite = Signal(bool(0))
-        dm_regno = Signal(modbv(0)[5:])
-        dm_data0 = Signal(modbv(0)[32:])
-        dm_exec = Signal(bool(0))
-        dm_break = Signal(bool(0))
-        dm_ebreak_halt_req = Signal(bool(0))
-        dm_step_armed = Signal(bool(0))
-        dm_step_halt_pending = Signal(bool(0))
+        debug_decode_view = DebugDecodeViewBundle(self.config)
+        debug_control = DebugDecodeControlBundle(self.config)
+
+        # Local names are Python aliases to the bundle Signal objects. They do
+        # not create extra logic; assignments to .next drive the original
+        # Signal in the corresponding debug bundle.
+        dm_halt = debug_control.halt
+        dm_kill = debug_control.kill
+        dm_regwrite = debug_control.regwrite
+        dm_regno = debug_control.regno
+        dm_data0 = debug_control.data0
+        dm_exec = debug_control.exec
+        dm_break = debug_decode_view.dm_break
+        dm_ebreak_halt_req = debug_control.ebreak_halt_req
+        dm_step_armed = debug_control.step_armed
+        dm_step_halt_pending = debug_control.step_halt_pending
 
         ins_word = Signal(modbv(0)[32:])
 
@@ -139,6 +146,14 @@ class DecodeBundle(PipelineControl):
 
         @always_comb
         def comb():
+            debug_decode_view.current_ip_i.next = self.current_ip_i
+            debug_decode_view.word_i.next = self.word_i
+            debug_decode_view.en_i.next = self.en_i
+            debug_decode_view.kill_i.next = self.kill_i
+            debug_decode_view.rs1_data_i.next = self.rs1_data_i
+            debug_decode_view.valid_o.next = self.valid_o
+            debug_decode_view.stall_i.next = self.stall_i
+            debug_decode_view.downstream_busy.next = downstream_busy
 
             if not downstream_busy:
                 self.rs2_adr_o.next = ins_word[25:20]
@@ -167,6 +182,7 @@ class DecodeBundle(PipelineControl):
 
             progbuf=Signal(modbv(0)[conf.xlen:])
             progbuf_pointer=Signal(modbv(0)[1:]) # only 1 bit needed to select between progbuf0 and progbuf1
+            progbuf_last = Signal(bool(0))
 
 
             if self.config.progbuf_size==2:
@@ -174,13 +190,16 @@ class DecodeBundle(PipelineControl):
                 def progbuf_mux():
                     if progbuf_pointer:
                         progbuf.next = debugRegisterBundle.progbuf1
+                        progbuf_last.next = True
                     else:
                         progbuf.next = debugRegisterBundle.progbuf0
+                        progbuf_last.next = False
 
             else:
                 @always_comb
                 def progbuf_mux():
-                    progbuf.next = debugRegisterBundle.progbuf0            
+                    progbuf.next = debugRegisterBundle.progbuf0
+                    progbuf_last.next = True
 
             @always_comb
             def comb2():
@@ -193,129 +212,41 @@ class DecodeBundle(PipelineControl):
                 ins_word.next = temp_instr
                 opcode.next = temp_instr[7:2]
 
-                dm_regwrite.next = False
-                dm_data0.next = debugRegisterBundle.dataRegs[0]
-                dm_regno.next = debugRegisterBundle.regno
-
                 if debugRegisterBundle.abstractCommandNew and \
                    debugRegisterBundle.abstractCommandState == t_abstractCommandState.none and \
                    debugRegisterBundle.commandType == t_abstractCommandType.access_reg:
-                    dm_regwrite.next = debugRegisterBundle.write
                     self.rs1_adr_o.next = debugRegisterBundle.regno
                 elif not downstream_busy:
                     self.rs1_adr_o.next = temp_instr[20:15]
                 else:
                     self.rs1_adr_o.next = rs1_adr_o_reg
 
-            @always_comb
-            def debug_event_comb():
-                dm_ebreak_halt_req.next = False
-                if not dm_halt and not downstream_busy and self.en_i and not self.kill_i:
-                    if self.debugCSRBundle.ebreakm and self.word_i[7:2] == op.RV32_SYSTEM and \
-                       self.word_i[15:12] == SystemFunct3.RV32_F3_PRIV and \
-                       self.word_i[32:20] == PrivFunct12.RV32_F12_EBREAK:
-                        dm_ebreak_halt_req.next = True
-
-            @always(clock.posedge)
-            def debug_module_seq():
-                debugRegisterBundle.reqAck.next = False
-                self.debugCSRUpdateBundle.we_dpc.next = False
-                self.debugCSRUpdateBundle.we_cause.next = False
-
-                if debugRegisterBundle.dpc_jump:
-                    debugRegisterBundle.dpc_jump.next = False
-
-                if dm_ebreak_halt_req:
-                    self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[conf.xlen:conf.ip_low]
-                    self.debugCSRUpdateBundle.we_dpc.next = True
-                    self.debugCSRUpdateBundle.cause.next = 1
-                    self.debugCSRUpdateBundle.we_cause.next = True
-                    dm_halt.next = True
-                    dm_step_armed.next = False
-                    dm_step_halt_pending.next = False
-
-                elif dm_step_halt_pending and debugRegisterBundle.instr_retired:
-                    self.debugCSRUpdateBundle.dpc.next = debugRegisterBundle.instr_retire_dpc
-                    self.debugCSRUpdateBundle.we_dpc.next = True
-                    self.debugCSRUpdateBundle.cause.next = 4
-                    self.debugCSRUpdateBundle.we_cause.next = True
-                    dm_halt.next = True
-                    dm_step_armed.next = False
-                    dm_step_halt_pending.next = False
-
-                if not dm_ebreak_halt_req and not dm_step_halt_pending and \
-                   not downstream_busy and not debugRegisterBundle.reqAck:
-                    if debugRegisterBundle.haltreq and self.en_i and not self.kill_i:
-                        debugRegisterBundle.reqAck.next = True
-                        self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[conf.xlen:conf.ip_low]
-                        self.debugCSRUpdateBundle.we_dpc.next = True
-                        self.debugCSRUpdateBundle.cause.next = 3
-                        self.debugCSRUpdateBundle.we_cause.next = True
-                        dm_halt.next = True
-                        dm_step_armed.next = False
-                    elif debugRegisterBundle.resumereq:
-                        debugRegisterBundle.reqAck.next = True
-                        dm_halt.next = False
-                        debugRegisterBundle.dpc_jump.next = True
-                        dm_step_armed.next = self.debugCSRBundle.step
-
-                if dm_step_armed and not dm_step_halt_pending and not dm_halt and \
-                   not dm_kill and not downstream_busy and self.en_i and not self.kill_i and \
-                   not dm_ebreak_halt_req:
-                    dm_step_halt_pending.next = True
-
-                if dm_halt:
-                    if debugRegisterBundle.abstractCommandState == t_abstractCommandState.none:
-                        if debugRegisterBundle.abstractCommandNew and \
-                           debugRegisterBundle.commandType == t_abstractCommandType.access_reg and \
-                           (debugRegisterBundle.transfer or debugRegisterBundle.postexec):
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.taken
-
-                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.taken:
-                        if debugRegisterBundle.transfer and debugRegisterBundle.write:
-                            if debugRegisterBundle.postexec:
-                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
-                            else:
-                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
-
-                        elif debugRegisterBundle.transfer:
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.regvalid
-                            debugRegisterBundle.abstractCommandResult.next = self.rs1_data_i
-
-                        elif debugRegisterBundle.postexec:
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
-
-                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.regvalid:
-                        if debugRegisterBundle.postexec:
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec
-                        else:
-                            debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
-                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec or debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec2:
-                        debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.wait_retire
-                    elif debugRegisterBundle.abstractCommandState == t_abstractCommandState.wait_retire:
-                        if not (self.valid_o or self.stall_i):
-                            if self.config.progbuf_size==2 and progbuf_pointer==0 and not dm_break: # Execute progbuf1 after progbuf0, in case there is no ebreak in progbuf0. 
-                                progbuf_pointer.next = 1
-                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.exec2
-                            else:
-                                debugRegisterBundle.abstractCommandState.next = t_abstractCommandState.none
-                                progbuf_pointer.next = 0
-
-            @always_comb
-            def dm_state():
-                dm_kill.next = debugRegisterBundle.dpc_jump
-                dm_exec.next = debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec or debugRegisterBundle.abstractCommandState == t_abstractCommandState.exec2
-
-                if dm_halt:
-                    debugRegisterBundle.hartState.next = t_debugHartState.halted
-                else:
-                    debugRegisterBundle.hartState.next = t_debugHartState.running
+            debug_decode_inst = DebugDecodeController(
+                self.config,
+                clock,
+                debugRegisterBundle,
+                self.debugCSRBundle,
+                self.debugCSRUpdateBundle,
+                debug_decode_view,
+                debug_control,
+                progbuf_pointer,
+                progbuf_last,
+            )
 
         else:
             @always_comb
             def comb2():
                 ins_word.next = self.word_i
                 opcode.next = self.word_i[7:2]
+                dm_halt.next = False
+                dm_kill.next = False
+                dm_regwrite.next = False
+                dm_regno.next = 0
+                dm_data0.next = 0
+                dm_exec.next = False
+                dm_ebreak_halt_req.next = False
+                dm_step_armed.next = False
+                dm_step_halt_pending.next = False
 
                 if not downstream_busy:
                     self.rs1_adr_o.next = self.word_i[20:15]
