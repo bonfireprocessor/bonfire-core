@@ -386,7 +386,8 @@ class DecodeBundle(PipelineControl):
                         cmd_seen = True
                         self.displacement_o.next = get_I_immediate(ins_word)
                     elif opcode==op.RV32_FENCE:
-                        pass
+                        # Treat FENCE/FENCE.I as a NOP in this core.
+                        cmd_seen = True
                     elif opcode==op.RV32_SYSTEM:
                         self.priv_funct_12.next = ins_word[32:20]
                         if ins_word[15:12]==SystemFunct3.RV32_F3_PRIV:
