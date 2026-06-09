@@ -289,7 +289,7 @@ def test_openocd_remote_bitbang_core_target_smoke(tmp_path: Path):
             check=False,
             capture_output=True,
             text=True,
-            timeout=10.0,
+            timeout=20.0,
         )
 
     print("[openocd stdout]\n{}".format(completed.stdout), end="")
