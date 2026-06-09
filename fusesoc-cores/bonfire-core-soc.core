@@ -103,6 +103,7 @@ targets:
       - soc_tb:
          hexfile: "../code/build/soc/sim/led.hex"
          expose_wishbone_master: false
+         enable_jtag_debug: true
          
     tools:
       ghdl:
@@ -284,6 +285,7 @@ targets:
         num_leds: 5
         led_active_low: false
         laned_memory: false
+        enable_jtag_debug: true
     toplevel: icepizero_top
 
   icepizero_extended:

@@ -14,6 +14,7 @@ from rtl import config
 from rtl import bonfire_interfaces
 from rtl.bonfire_interfaces import ControlBundle, DbusBundle, DebugOutputBundle, Wishbone_master_bundle
 from rtl.config import BonfireConfig
+from rtl.debugModule import AbstractDebugTransportBundle
 from rtl.type_aliases import BitSignal
 
 
@@ -28,7 +29,8 @@ def bonfireCoreExtendedInterface(wb_master: Wishbone_master_bundle, db_master: D
                                  config: BonfireConfig = config.BonfireConfig(),
                                  wb_mask: AdrMask = AdrMask(32,28,0x2),
                                  db_mask: AdrMask = AdrMask(32,28,0x1),
-                                 bram_mask: AdrMask = AdrMask(32,28,0)) -> Any:
+                                 bram_mask: AdrMask = AdrMask(32,28,0),
+                                 debugTransportBundle: AbstractDebugTransportBundle | None = None) -> Any:
     """
     wb_master: Wishbone_master_bundle mapped at address 0x02000000
     db_master: DbusBundle mapped at address 0x100000000
@@ -55,7 +57,9 @@ def bonfireCoreExtendedInterface(wb_master: Wishbone_master_bundle, db_master: D
 
 
     core=bonfire_core_top.BonfireCoreTop(config)
-    core_i = core.createInstance(ibus,dbus,control,clock,reset,debug,config)
+    core_i = core.createInstance(
+        ibus,dbus,control,clock,reset,debug,config,
+        debugTransportBundle=debugTransportBundle)
 
     wb_i = bonfire_interfaces.DbusToWishbone(db_master_wb,wb_master,clock,reset)
 

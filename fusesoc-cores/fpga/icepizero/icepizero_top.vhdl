@@ -6,7 +6,12 @@ entity icepizero_top is
         sysclk    : in  std_logic;
         uart0_tx  : out std_logic;
         uart0_rx  : in  std_logic;
-        led       : out std_logic_vector(4 downto 0)
+        led       : out std_logic_vector(4 downto 0);
+        jtag_tck  : in  std_logic;
+        jtag_tms  : in  std_logic;
+        jtag_tdi  : in  std_logic;
+        jtag_tdo  : out std_logic;
+        jtag_trstn: in  std_logic
        
     );
 end entity icepizero_top;
@@ -22,7 +27,12 @@ architecture rtl of icepizero_top is
             uart0_rx  : in  std_logic;
             led       : out std_logic_vector(4 downto 0);
             o_resetn  : out std_logic;
-            i_locked  : in  std_logic
+            i_locked  : in  std_logic;
+            jtag_tck  : in  std_logic;
+            jtag_tms  : in  std_logic;
+            jtag_tdi  : in  std_logic;
+            jtag_tdo  : out std_logic;
+            jtag_trstn: in  std_logic
         );
     end component;
 
@@ -40,7 +50,12 @@ begin
             uart0_rx  => uart0_rx,
             led       => led,
             o_resetn  => o_resetn,
-            i_locked  => i_locked
+            i_locked  => i_locked,
+            jtag_tck  => jtag_tck,
+            jtag_tms  => jtag_tms,
+            jtag_tdi  => jtag_tdi,
+            jtag_tdo  => jtag_tdo,
+            jtag_trstn=> jtag_trstn
         );
 
 end architecture rtl;

@@ -95,7 +95,7 @@ class SimpleBackend:
             def proc_out():
                 out.jump_o.next = self.execute.jump_o or debugRegisterBundle.dpc_jump
                 if debugRegisterBundle.dpc_jump:
-                    out.jump_dest_o.next[self.config.xlen:self.config.ip_low] = debugRegisterBundle.dpc
+                    out.jump_dest_o.next = concat(debugRegisterBundle.dpc, intbv(0)[self.config.ip_low:])
                 else:
                     out.jump_dest_o.next = self.execute.jump_dest_o
         else:

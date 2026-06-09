@@ -158,16 +158,27 @@ def test_jtag_dtm_vhdl_conversion(repo_root: Path):
     _assert_vhdl_file(output_dir, name)
 
 
-def test_soc_top_vhdl_conversion(repo_root: Path):
+@pytest.mark.parametrize(
+    ("enable_jtag_debug", "name"),
+    [
+        (False, "bonfire_core_soc_top"),
+        (True, "bonfire_core_soc_top_jtag"),
+    ],
+)
+def test_soc_top_vhdl_conversion(enable_jtag_debug: bool, name: str, repo_root: Path):
     hex_path = repo_root / "code" / "build" / "soc" / "sim" / "led.hex"
     if not hex_path.is_file():
         pytest.skip(f"SoC HEX file not found: {hex_path}")
 
     conf = config.BonfireConfig()
     conf.jump_bypass = False
-    soc = BonfireCoreSoC(conf, hexfile=str(hex_path), soc_config={"numLeds": 4})
+    conf.enableDebugModule = enable_jtag_debug
+    soc = BonfireCoreSoC(
+        conf,
+        hexfile=str(hex_path),
+        soc_config={"numLeds": 4, "enableJtagDebug": enable_jtag_debug},
+    )
 
-    name = "bonfire_core_soc_top"
     output_dir = _conversion_output_dir(repo_root, name)
     BonfireCoreSoCInstanceGenerator(soc).convert("VHDL", name, str(output_dir), handleWarnings="ignore")
 
@@ -175,16 +186,27 @@ def test_soc_top_vhdl_conversion(repo_root: Path):
     _analyze_with_ghdl(output_dir, vhdl_file)
 
 
-def test_soc_testbench_vhdl_conversion(repo_root: Path):
+@pytest.mark.parametrize(
+    ("enable_jtag_debug", "name"),
+    [
+        (False, "tb_bonfire_core_soc"),
+        (True, "tb_bonfire_core_soc_jtag"),
+    ],
+)
+def test_soc_testbench_vhdl_conversion(enable_jtag_debug: bool, name: str, repo_root: Path):
     hex_path = repo_root / "code" / "build" / "soc" / "sim" / "led.hex"
     if not hex_path.is_file():
         pytest.skip(f"SoC HEX file not found: {hex_path}")
 
     conf = config.BonfireConfig()
     conf.jump_bypass = False
-    soc = BonfireCoreSoC(conf, hexfile=str(hex_path), soc_config={"numLeds": 4})
+    conf.enableDebugModule = enable_jtag_debug
+    soc = BonfireCoreSoC(
+        conf,
+        hexfile=str(hex_path),
+        soc_config={"numLeds": 4, "enableJtagDebug": enable_jtag_debug},
+    )
 
-    name = "tb_bonfire_core_soc"
     output_dir = _conversion_output_dir(repo_root, name)
     BonfireCoreSoCTestbenchGenerator(soc).convert("VHDL", name, str(output_dir), handleWarnings="ignore")
 

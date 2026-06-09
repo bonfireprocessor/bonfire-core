@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from myhdl import Signal, modbv
@@ -25,6 +26,19 @@ class BonfireCoreSoCInstanceGenerator:
 
         o_resetn: BitSignal = Signal(bool(1))
         i_locked: BitSignal = Signal(bool(0))
+        jtag_tck: BitSignal | None = None
+        jtag_tms: BitSignal | None = None
+        jtag_tdi: BitSignal | None = None
+        jtag_tdo: BitSignal | None = None
+        jtag_trstn: BitSignal | None = None
+
+        if self.soc.enableJtagDebug:
+            get_diagnostics().detail("soc: exposing JTAG debug interface")
+            jtag_tck = Signal(bool(0))
+            jtag_tms = Signal(bool(1))
+            jtag_tdi = Signal(bool(0))
+            jtag_tdo = Signal(bool(0))
+            jtag_trstn = Signal(bool(1))
 
         if self.soc.exposeWishboneMaster:
             get_diagnostics().detail("soc: exposing Wishbone master interface")
@@ -33,6 +47,23 @@ class BonfireCoreSoCInstanceGenerator:
             wb_master = None
 
         try:
+            if self.soc.enableJtagDebug:
+                return self.soc.bonfire_core_soc(
+                    sysclk,
+                    resetn,
+                    uart0_txd,
+                    uart0_rxd,
+                    led,
+                    o_resetn,
+                    i_locked,
+                    wb_master=wb_master,
+                    jtag_tck=jtag_tck,
+                    jtag_tms=jtag_tms,
+                    jtag_tdi=jtag_tdi,
+                    jtag_tdo=jtag_tdo,
+                    jtag_trstn=jtag_trstn,
+                )
+
             return self.soc.bonfire_core_soc(
                 sysclk,
                 resetn,
@@ -96,3 +127,19 @@ class BonfireCoreSoCTestbenchGenerator:
                 get_diagnostics().with_quiet_level(CONVERSION_ELABORATION_QUIET_LEVEL)
             ):
                 inst.convert(hdl=hdl, std_logic_ports=True, initial_values=True, path=path, name=name)
+        if hdl.upper() == "VHDL":
+            self._patch_vhdl_stop_simulation(Path(path) / "{}.vhd".format(name))
+
+    def _patch_vhdl_stop_simulation(self, vhdl_file: Path) -> None:
+        """Make converted StopSimulation end GHDL runs with exit code 0."""
+
+        text = vhdl_file.read_text()
+        text = text.replace(
+            "use std.textio.all;\n",
+            "use std.textio.all;\nuse std.env.all;\n",
+        )
+        text = text.replace(
+            'assert False report "End of Simulation" severity Failure;',
+            'stop;',
+        )
+        vhdl_file.write_text(text)
