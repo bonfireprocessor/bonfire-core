@@ -115,11 +115,16 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
         if core.backend.execute.taken:
             t_ip = d.debug_current_ip_o
             if verbose:
-                print("@{}ns exc: {} : {} ".format(now(),t_ip,d.debug_word_o))
+                instr = int(d.debug_word_o)
+                asm, _ = disassemble(instr)
+                print("@{}ns exc: 0x{:08x}: 0x{:08x} {}".format(now(), int(t_ip), instr, asm))
            
         
         inv = d.en_i and d.invalid_opcode and not d.kill_i
-        assert not inv, "Invalid opcode @{}: pc:{} op:{} ".format(now(), d.current_ip_i,d.word_i)     
+        if inv:
+            instr = int(d.word_i)
+            asm, _ = disassemble(instr)
+            assert False, "Invalid opcode @{}: pc:0x{:08x} op:0x{:08x} {} ".format(now(), int(d.current_ip_i), instr, asm)
    
     return instances()
 

@@ -30,6 +30,7 @@ Server modes:
   --port N          Server TCP port (GDB default: first free port in 5500-5550,
                     OpenOCD bitbang default: 3335)
   --debug-trace     With --openocd-bitbang: print Debug Module/progbuf trace
+  --info-trace      With --openocd-bitbang: print compact hart/abstract-command trace
 
 Environment / venv:
   --install         Create/update ./.venv and install Python deps
@@ -184,6 +185,13 @@ Print Debug Module/progbuf trace output:
 
 ```bash
 scripts/bonfire-core --openocd-bitbang --port 3335 --debug-trace
+```
+
+For a shorter trace that only prints hart halt/resume transitions, abstract
+commands, and program-buffer execution:
+
+```bash
+scripts/bonfire-core --openocd-bitbang --port 3335 --info-trace
 ```
 
 Example OpenOCD configuration:

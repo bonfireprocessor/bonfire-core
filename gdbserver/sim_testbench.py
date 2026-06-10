@@ -8,6 +8,7 @@ from gdbserver.main import ServerControl, tcp_server
 from rtl import bonfire_core_top, bonfire_interfaces, config
 from rtl.debugModule import AbstractDebugTransportBundle
 from tb.ClkDriver import ClkDriver
+from tb.disassemble import disassemble
 from tb.sim_ram import sim_ram
 
 
@@ -97,6 +98,9 @@ class GDBServerTestbench:
         def sim_observe():
             d = core.backend.decode
             inv = d.en_i and d.invalid_opcode and not d.kill_i
-            assert not inv, "Invalid opcode @{}: pc:{} op:{} ".format(now(), d.current_ip_i, d.word_i)
+            if inv:
+                instr = int(d.word_i)
+                asm, _ = disassemble(instr)
+                assert False, "Invalid opcode @{}: pc:0x{:08x} op:0x{:08x} {} ".format(now(), int(d.current_ip_i), instr, asm)
 
         return instances()
