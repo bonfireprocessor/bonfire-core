@@ -17,6 +17,7 @@ from rtl import bonfire_core_top, bonfire_interfaces, config
 from rtl.debugModule import AbstractDebugTransportBundle, t_abstractCommandState, t_debugHartState
 from rtl.jtag_dtm import JtagDTM, t_tapState
 from tb.ClkDriver import ClkDriver
+from tb.disassemble import abi_name, disassemble
 from tb.sim_ram import sim_ram
 
 
@@ -50,6 +51,7 @@ class OpenOCDBitbangTestbench:
         verbose: bool = False,
         observe_jtag: bool = False,
         debug_trace: bool = False,
+        info_trace: bool = False,
         exit_on_client_quit: bool = False,
     ) -> None:
         self.config = config
@@ -61,6 +63,7 @@ class OpenOCDBitbangTestbench:
         self.verbose = verbose
         self.observe_jtag = observe_jtag
         self.debug_trace = debug_trace
+        self.info_trace = info_trace
         self.exit_on_client_quit = exit_on_client_quit
 
     def create_ram(self, progfile: str, ramsize: int) -> list[Any]:
@@ -163,6 +166,10 @@ class OpenOCDBitbangTestbench:
             if self.debug_trace:
                 print(line, flush=True)
 
+        def append_info(message: str) -> None:
+            if self.info_trace:
+                print("@{} [openocd-info] {}".format(now(), message), flush=True)
+
         def dump_trace(reason: str) -> None:
             print("@{} [openocd-debug] trace dump: {}".format(now(), reason), flush=True)
             for line in trace_history:
@@ -181,6 +188,49 @@ class OpenOCDBitbangTestbench:
                 (command_word >> 18) & 0x1,
                 command_word & 0xFFFF,
             )
+
+        def register_name(regno: int) -> str:
+            if regno >= 0x1000 and regno < 0x1020:
+                return abi_name(regno - 0x1000)
+            if regno == 0x7B0:
+                return "dcsr"
+            if regno == 0x7B1:
+                return "dpc"
+            if regno == 0x301:
+                return "misa"
+            return "reg[0x{:x}]".format(regno)
+
+        def command_flag_summary(command_word: int) -> str:
+            command_type = (command_word >> 24) & 0xFF
+            command_name = "access_reg" if command_type == 0 else "type_{}".format(command_type)
+            return (
+                "{} raw=0x{:08x} aarsize={} transfer={} write={} postexec={} reg={}"
+            ).format(
+                command_name,
+                command_word,
+                (command_word >> 20) & 0x7,
+                (command_word >> 17) & 0x1,
+                (command_word >> 16) & 0x1,
+                (command_word >> 18) & 0x1,
+                register_name(command_word & 0xFFFF),
+            )
+
+        def register_phase_summary(command_word: int) -> str:
+            transfer = (command_word >> 17) & 0x1
+            write = (command_word >> 16) & 0x1
+            regname = register_name(command_word & 0xFFFF)
+
+            if not transfer:
+                return "none"
+            if write:
+                return "data0 -> {} (0x{:08x})".format(regname, int(debug_regs.dataRegs[0]))
+            return "{} -> data0".format(regname)
+
+        def exec_phase_summary(command_word: int) -> str:
+            postexec = (command_word >> 18) & 0x1
+            if postexec:
+                return "progbuf"
+            return "none"
 
         def command_summary() -> str:
             return (
@@ -204,30 +254,8 @@ class OpenOCDBitbangTestbench:
             )
 
         def instruction_summary(instr: int) -> str:
-            opcode = instr & 0x7F
-            funct3 = (instr >> 12) & 0x7
-            rd = (instr >> 7) & 0x1F
-            rs1 = (instr >> 15) & 0x1F
-            imm_i = (instr >> 20) & 0xFFF
-            if imm_i & 0x800:
-                imm_i -= 0x1000
-
-            if opcode == 0x03:
-                names = {
-                    0x0: "lb",
-                    0x1: "lh",
-                    0x2: "lw",
-                    0x4: "lbu",
-                    0x5: "lhu",
-                }
-                return "{} x{}, {}(x{})".format(names.get(funct3, "load?"), rd, imm_i, rs1)
-            if opcode == 0x73 and instr == 0x00100073:
-                return "ebreak"
-            if opcode == 0x0F and instr == 0x0000000F:
-                return "fence"
-            if opcode == 0x0F and instr == 0x0000100F:
-                return "fence.i"
-            return "unknown"
+            text, _ = disassemble(instr)
+            return text
 
         @instance
         def monitor() -> Any:
@@ -236,6 +264,11 @@ class OpenOCDBitbangTestbench:
             last_progbuf0 = int(debug_regs.progbuf0)
             last_progbuf1 = int(debug_regs.progbuf1)
             trace_dumped = False
+            pending_dmi_read = False
+            pending_dmi_read_adr = 0
+            last_dmstatus_response = -1
+            last_command_word = 0
+            info_command_active = False
 
             while True:
                 yield clock.posedge
@@ -249,28 +282,49 @@ class OpenOCDBitbangTestbench:
 
                 if hart_state != last_hart_state:
                     append_trace("hart {} -> {} dpc=0x{:08x}".format(last_hart_state, hart_state, int(debug_regs.dpc) << self.config.ip_low))
+                    append_info("hart {} -> {} dpc=0x{:08x}".format(last_hart_state, hart_state, int(debug_regs.dpc) << self.config.ip_low))
 
                 if progbuf0 != last_progbuf0:
                     append_trace("progbuf0 <= 0x{:08x}".format(progbuf0))
                 if progbuf1 != last_progbuf1:
                     append_trace("progbuf1 <= 0x{:08x}".format(progbuf1))
 
+                if pending_dmi_read:
+                    read_data = int(dtm.dbo)
+                    # OpenOCD polls dmstatus heavily while waiting for hart
+                    # state changes. Log the first value and later changes only.
+                    log_read_response = True
+                    if pending_dmi_read_adr == 0x11:
+                        log_read_response = read_data != last_dmstatus_response
+                        last_dmstatus_response = read_data
+
+                    if log_read_response:
+                        append_trace(
+                            "DMI read response adr=0x{:02x} data=0x{:08x}".format(
+                                pending_dmi_read_adr,
+                                read_data,
+                            )
+                        )
+                    pending_dmi_read = False
+
                 if dtm.en:
                     if dtm.we:
                         append_trace("DMI write adr=0x{:02x} data=0x{:08x}".format(int(dtm.adr), int(dtm.dbi)))
                         if int(dtm.adr) == 0x17:
+                            last_command_word = int(dtm.dbi)
                             append_trace(
                                 "abstract command write: {} data0=0x{:08x} {}".format(
-                                    command_word_summary(int(dtm.dbi)),
+                                    command_word_summary(last_command_word),
                                     int(debug_regs.dataRegs[0]),
                                     progbuf_summary(),
                                 )
                             )
                     else:
-                        # OpenOCD polls dmstatus heavily while idle. Suppress the
-                        # all-zero idle reads so relevant progbuf/DMI traffic stays visible.
-                        if not (int(dtm.adr) == 0x11 and int(dtm.dbo) == 0):
-                            append_trace("DMI read adr=0x{:02x} data=0x{:08x}".format(int(dtm.adr), int(dtm.dbo)))
+                        read_adr = int(dtm.adr)
+                        pending_dmi_read = True
+                        pending_dmi_read_adr = read_adr
+                        if read_adr != 0x11:
+                            append_trace("DMI read request adr=0x{:02x}".format(read_adr))
 
                 if (dbus.ack_i or dbus.error_i) and debug_regs.hartState == t_debugHartState.halted:
                     if int(dbus.we_o) == 0:
@@ -294,13 +348,31 @@ class OpenOCDBitbangTestbench:
                 if state != last_state:
                     append_trace("abstract state {} -> {}".format(last_state, state))
 
-                    if last_state == t_abstractCommandState.taken and (
-                        state == t_abstractCommandState.exec or state == t_abstractCommandState.regvalid
-                    ):
+                    command_started = last_state == t_abstractCommandState.taken and (
+                        state == t_abstractCommandState.exec or
+                        state == t_abstractCommandState.regvalid or
+                        state == t_abstractCommandState.none
+                    )
+
+                    if command_started:
                         if debug_regs.postexec:
                             append_trace("Command Start: {} {}".format(command_summary(), progbuf_summary()))
                         else:
                             append_trace("Command Start: {}".format(command_summary()))
+                        info_command_active = True
+                        append_info("Command Start: {}".format(command_flag_summary(last_command_word)))
+                        append_info(
+                            "  Register phase: {}".format(register_phase_summary(last_command_word))
+                        )
+                        append_info(
+                            "  Exec phase: {}".format(exec_phase_summary(last_command_word))
+                        )
+                        append_info(
+                            "  Context: data0=0x{:08x} dpc=0x{:08x}".format(
+                                int(debug_regs.dataRegs[0]),
+                                int(debug_regs.dpc) << self.config.ip_low,
+                            )
+                        )
 
                     if last_state == t_abstractCommandState.exec and state == t_abstractCommandState.wait_retire:
                         instr = int(debug_regs.progbuf0)
@@ -311,6 +383,7 @@ class OpenOCDBitbangTestbench:
                                 instruction_summary(instr),
                             )
                         )
+                        append_info("Progbuf[0]: 0x{:08x} {}".format(instr, instruction_summary(instr)))
                     elif last_state == t_abstractCommandState.exec2 and state == t_abstractCommandState.wait_retire:
                         instr = int(debug_regs.progbuf1)
                         append_trace(
@@ -320,6 +393,7 @@ class OpenOCDBitbangTestbench:
                                 instruction_summary(instr),
                             )
                         )
+                        append_info("Progbuf[1]: 0x{:08x} {}".format(instr, instruction_summary(instr)))
 
                     if state == t_abstractCommandState.none:
                         append_trace(
@@ -329,22 +403,33 @@ class OpenOCDBitbangTestbench:
                                 int(debug_regs.dpc) << self.config.ip_low,
                             )
                         )
+                        if info_command_active:
+                            append_info(
+                                "Command Finish: data0=0x{:08x} cmderr={} dpc=0x{:08x}".format(
+                                    int(debug_regs.dataRegs[0]),
+                                    int(debug_regs.cmderr),
+                                    int(debug_regs.dpc) << self.config.ip_low,
+                                )
+                            )
+                            info_command_active = False
 
                 inv = decode.en_i and decode.invalid_opcode and not decode.kill_i
                 if inv and not trace_dumped:
                     trace_dumped = True
                     dump_trace(
-                        "invalid opcode pc=0x{:08x} op=0x{:08x} current_ip=0x{:08x}".format(
+                        "invalid opcode pc=0x{:08x} op=0x{:08x} {} current_ip=0x{:08x}".format(
                             int(decode.current_ip_i),
                             int(decode.word_i),
+                            instruction_summary(int(decode.word_i)),
                             int(decode.debug_current_ip_o),
                         )
                     )
                     raise AssertionError(
-                        "Invalid opcode @{}: pc:{:08x} op:{:08x}".format(
+                        "Invalid opcode @{}: pc:{:08x} op:{:08x} {}".format(
                             now(),
                             int(decode.current_ip_i),
                             int(decode.word_i),
+                            instruction_summary(int(decode.word_i)),
                         )
                     )
 

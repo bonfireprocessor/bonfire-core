@@ -8,6 +8,7 @@ from __future__ import print_function
 from myhdl import *
 from rtl.pipeline_control import *
 from rtl.instructions import CSRAdr
+from util.diagnostics import get_diagnostics
 
 t_debugHartState = enum('running','halted')
 t_abstractCommandType = enum('access_reg','quick_access')
@@ -119,7 +120,7 @@ class DebugRegisterBundle:
         self.xlen = xlen
 
         assert self.config.progbuf_size in range(1,3), "progbuf_size must be 1 or 2"
-        print("[rtl.debugModule] DebugRegisterBundle: xlen={} ip_low={} numdata={} progbuf_size={} dmi_adr_width={}".format(
+        get_diagnostics().detail("DebugRegisterBundle: xlen={} ip_low={} numdata={} progbuf_size={} dmi_adr_width={}".format(
             config.xlen,
             config.ip_low,
             config.numdata,
@@ -213,7 +214,7 @@ class DMI:
         debugRegs: Debug RegisterBundle
 
         """
-        print("[rtl.debugModule] DMI_interface: numdata={} progbuf_size={} dmi_adr_width={}".format(
+        get_diagnostics().detail("DMI_interface: numdata={} progbuf_size={} dmi_adr_width={}".format(
             self.config.numdata,
             self.config.progbuf_size,
             self.config.dmi_adr_width,
@@ -376,7 +377,6 @@ class DMI:
                                 debugRegs.abstractCommandNew.next = True
 
         return instances()
-
 
 
 

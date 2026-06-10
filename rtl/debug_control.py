@@ -10,6 +10,7 @@ from myhdl import *
 from rtl.debugModule import *
 from rtl.instructions import Opcodes as op
 from rtl.instructions import PrivFunct12, SystemFunct3
+from util.diagnostics import get_diagnostics
 
 
 class DebugDecodeViewBundle:
@@ -63,7 +64,7 @@ def DebugDecodeController(
     progbuf_pointer,
     progbuf_last,
 ):
-    print("[rtl.debug_control] DebugDecodeController: xlen={} ip_low={} progbuf_size={}".format(
+    get_diagnostics().detail("DebugDecodeController: xlen={} ip_low={} progbuf_size={}".format(
         config.xlen,
         config.ip_low,
         config.progbuf_size,
