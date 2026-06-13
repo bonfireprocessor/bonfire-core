@@ -14,8 +14,8 @@ from myhdl import *
 
 from openocd_bitbang.remote_bitbang import remote_bitbang_server
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debugModule import AbstractDebugTransportBundle, t_abstractCommandState, t_debugHartState
-from rtl.jtag_dtm import JtagDTM, t_tapState
+from rtl.debug import DmiBundle, t_abstract_command_state, t_debug_hart_state
+from rtl.debug.jtag_dtm import JtagDTM, t_tap_state
 from tb.ClkDriver import ClkDriver
 from tb.disassemble import abi_name, disassemble
 from tb.sim_ram import sim_ram
@@ -107,7 +107,7 @@ class OpenOCDBitbangTestbench:
                 tck_rise = current_tck and not last_tck
 
                 if current_state != last_state:
-                    if last_state == t_tapState.shift_ir or last_state == t_tapState.shift_dr:
+                    if last_state == t_tap_state.shift_ir or last_state == t_tap_state.shift_dr:
                         print(
                             "@{} [jtag-observer] end {} scan: TDI {} TDO {}".format(
                                 now(),
@@ -134,14 +134,14 @@ class OpenOCDBitbangTestbench:
                         flush=True,
                     )
 
-                    if current_state == t_tapState.shift_ir:
+                    if current_state == t_tap_state.shift_ir:
                         scan_kind = "IR"
                         print("@{} [jtag-observer] begin IR scan".format(now()), flush=True)
-                    elif current_state == t_tapState.shift_dr:
+                    elif current_state == t_tap_state.shift_dr:
                         scan_kind = "DR"
                         print("@{} [jtag-observer] begin DR scan".format(now()), flush=True)
 
-                if tck_rise and (current_state == t_tapState.shift_ir or current_state == t_tapState.shift_dr):
+                if tck_rise and (current_state == t_tap_state.shift_ir or current_state == t_tap_state.shift_dr):
                     tdi_bits.append(int(tdi))
                     tdo_bits.append(int(tdo))
 
@@ -223,7 +223,7 @@ class OpenOCDBitbangTestbench:
             if not transfer:
                 return "none"
             if write:
-                return "data0 -> {} (0x{:08x})".format(regname, int(debug_regs.dataRegs[0]))
+                return "data0 -> {} (0x{:08x})".format(regname, int(debug_regs.data_regs[0]))
             return "{} -> data0".format(regname)
 
         def exec_phase_summary(command_word: int) -> str:
@@ -237,13 +237,13 @@ class OpenOCDBitbangTestbench:
                 "cmd type={} aarsize={} write={} transfer={} postexec={} regno=0x{:x} "
                 "data0=0x{:08x} dpc=0x{:08x}"
             ).format(
-                debug_regs.commandType,
+                debug_regs.command_type,
                 int(debug_regs.aarsize),
                 int(debug_regs.write),
                 int(debug_regs.transfer),
                 int(debug_regs.postexec),
                 int(debug_regs.regno),
-                int(debug_regs.dataRegs[0]),
+                int(debug_regs.data_regs[0]),
                 int(debug_regs.dpc) << self.config.ip_low,
             )
 
@@ -259,8 +259,8 @@ class OpenOCDBitbangTestbench:
 
         @instance
         def monitor() -> Any:
-            last_state = debug_regs.abstractCommandState.val
-            last_hart_state = debug_regs.hartState.val
+            last_state = debug_regs.abstract_command_state.val
+            last_hart_state = debug_regs.hart_state.val
             last_progbuf0 = int(debug_regs.progbuf0)
             last_progbuf1 = int(debug_regs.progbuf1)
             trace_dumped = False
@@ -275,8 +275,8 @@ class OpenOCDBitbangTestbench:
                 yield delay(0)
 
                 decode = core.backend.decode
-                state = debug_regs.abstractCommandState.val
-                hart_state = debug_regs.hartState.val
+                state = debug_regs.abstract_command_state.val
+                hart_state = debug_regs.hart_state.val
                 progbuf0 = int(debug_regs.progbuf0)
                 progbuf1 = int(debug_regs.progbuf1)
 
@@ -315,7 +315,7 @@ class OpenOCDBitbangTestbench:
                             append_trace(
                                 "abstract command write: {} data0=0x{:08x} {}".format(
                                     command_word_summary(last_command_word),
-                                    int(debug_regs.dataRegs[0]),
+                                    int(debug_regs.data_regs[0]),
                                     progbuf_summary(),
                                 )
                             )
@@ -326,7 +326,7 @@ class OpenOCDBitbangTestbench:
                         if read_adr != 0x11:
                             append_trace("DMI read request adr=0x{:02x}".format(read_adr))
 
-                if (dbus.ack_i or dbus.error_i) and debug_regs.hartState == t_debugHartState.halted:
+                if (dbus.ack_i or dbus.error_i) and debug_regs.hart_state == t_debug_hart_state.halted:
                     if int(dbus.we_o) == 0:
                         append_trace(
                             "DBUS read adr=0x{:08x} data=0x{:08x} error={}".format(
@@ -348,10 +348,10 @@ class OpenOCDBitbangTestbench:
                 if state != last_state:
                     append_trace("abstract state {} -> {}".format(last_state, state))
 
-                    command_started = last_state == t_abstractCommandState.taken and (
-                        state == t_abstractCommandState.exec or
-                        state == t_abstractCommandState.regvalid or
-                        state == t_abstractCommandState.none
+                    command_started = last_state == t_abstract_command_state.taken and (
+                        state == t_abstract_command_state.exec or
+                        state == t_abstract_command_state.regvalid or
+                        state == t_abstract_command_state.none
                     )
 
                     if command_started:
@@ -369,12 +369,12 @@ class OpenOCDBitbangTestbench:
                         )
                         append_info(
                             "  Context: data0=0x{:08x} dpc=0x{:08x}".format(
-                                int(debug_regs.dataRegs[0]),
+                                int(debug_regs.data_regs[0]),
                                 int(debug_regs.dpc) << self.config.ip_low,
                             )
                         )
 
-                    if last_state == t_abstractCommandState.exec and state == t_abstractCommandState.wait_retire:
+                    if last_state == t_abstract_command_state.exec and state == t_abstract_command_state.wait_retire:
                         instr = int(debug_regs.progbuf0)
                         append_trace(
                             "Progbuf Exec slot=0 pc=0x{:08x} instr=0x{:08x} {}".format(
@@ -384,7 +384,7 @@ class OpenOCDBitbangTestbench:
                             )
                         )
                         append_info("Progbuf[0]: 0x{:08x} {}".format(instr, instruction_summary(instr)))
-                    elif last_state == t_abstractCommandState.exec2 and state == t_abstractCommandState.wait_retire:
+                    elif last_state == t_abstract_command_state.exec2 and state == t_abstract_command_state.wait_retire:
                         instr = int(debug_regs.progbuf1)
                         append_trace(
                             "Progbuf Exec slot=1 pc=0x{:08x} instr=0x{:08x} {}".format(
@@ -395,10 +395,10 @@ class OpenOCDBitbangTestbench:
                         )
                         append_info("Progbuf[1]: 0x{:08x} {}".format(instr, instruction_summary(instr)))
 
-                    if state == t_abstractCommandState.none:
+                    if state == t_abstract_command_state.none:
                         append_trace(
                             "Command Finish: data0=0x{:08x} cmderr={} dpc=0x{:08x}".format(
-                                int(debug_regs.dataRegs[0]),
+                                int(debug_regs.data_regs[0]),
                                 int(debug_regs.cmderr),
                                 int(debug_regs.dpc) << self.config.ip_low,
                             )
@@ -406,7 +406,7 @@ class OpenOCDBitbangTestbench:
                         if info_command_active:
                             append_info(
                                 "Command Finish: data0=0x{:08x} cmderr={} dpc=0x{:08x}".format(
-                                    int(debug_regs.dataRegs[0]),
+                                    int(debug_regs.data_regs[0]),
                                     int(debug_regs.cmderr),
                                     int(debug_regs.dpc) << self.config.ip_low,
                                 )
@@ -451,11 +451,11 @@ class OpenOCDBitbangTestbench:
         tms = Signal(bool(1))
         tdi = Signal(bool(0))
         tdo = Signal(bool(0))
-        tap_state = Signal(t_tapState.test_logic_reset)
+        tap_state = Signal(t_tap_state.test_logic_reset)
 
         local_config = self.config
         local_config.enableDebugModule = True
-        dtm = AbstractDebugTransportBundle(local_config)
+        dtm = DmiBundle(local_config)
         ram = self.create_ram(self.hexfile, self.ramsize)
 
         ibus = bonfire_interfaces.DbusBundle(local_config, readOnly=True)

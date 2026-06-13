@@ -10,8 +10,8 @@ from rtl.instructions import ArithmeticFunct3  as f3
 from rtl.instructions import SystemFunct3
 from rtl.instructions import PrivFunct12
 from rtl.util import signed_resize
-from rtl.debugModule import *
-from rtl.debug_control import DebugDecodeControlBundle, DebugDecodeController, DebugDecodeViewBundle
+from rtl.debug import *
+from rtl.debug.debug_module import DebugHartControlBundle, DebugModuleController, DebugHartViewBundle
 
 from rtl.pipeline_control import *
 
@@ -120,8 +120,8 @@ class DecodeBundle(PipelineControl):
 
         downstream_busy = Signal(bool(0))
 
-        debug_decode_view = DebugDecodeViewBundle(self.config)
-        debug_control = DebugDecodeControlBundle(self.config)
+        debug_decode_view = DebugHartViewBundle(self.config)
+        debug_control = DebugHartControlBundle(self.config)
 
         # Local names are Python aliases to the bundle Signal objects. They do
         # not create extra logic; assignments to .next drive the original
@@ -212,16 +212,16 @@ class DecodeBundle(PipelineControl):
                 ins_word.next = temp_instr
                 opcode.next = temp_instr[7:2]
 
-                if debugRegisterBundle.abstractCommandNew and \
-                   debugRegisterBundle.abstractCommandState == t_abstractCommandState.none and \
-                   debugRegisterBundle.commandType == t_abstractCommandType.access_reg:
+                if debugRegisterBundle.abstract_command_new and \
+                   debugRegisterBundle.abstract_command_state == t_abstract_command_state.none and \
+                   debugRegisterBundle.command_type == t_abstract_command_type.access_reg:
                     self.rs1_adr_o.next = debugRegisterBundle.regno
                 elif not downstream_busy:
                     self.rs1_adr_o.next = temp_instr[20:15]
                 else:
                     self.rs1_adr_o.next = rs1_adr_o_reg
 
-            debug_decode_inst = DebugDecodeController(
+            debug_decode_inst = DebugModuleController(
                 self.config,
                 clock,
                 debugRegisterBundle,

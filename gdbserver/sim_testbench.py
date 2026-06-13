@@ -6,7 +6,7 @@ from myhdl import *
 
 from gdbserver.main import ServerControl, tcp_server
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debugModule import AbstractDebugTransportBundle
+from rtl.debug import DmiBundle
 from tb.ClkDriver import ClkDriver
 from tb.disassemble import disassemble
 from tb.sim_ram import sim_ram
@@ -51,7 +51,7 @@ class GDBServerTestbench:
 
         local_config = self.config
         local_config.enableDebugModule = True
-        dtm = AbstractDebugTransportBundle(local_config)
+        dtm = DmiBundle(local_config)
 
         ram = self.create_ram(self.hexfile, self.ramsize)
 

@@ -9,7 +9,8 @@ from __future__ import print_function
 
 from myhdl import *
 
-from rtl import config, bonfire_core_top, bonfire_interfaces, debugModule
+from rtl import config, bonfire_core_top, bonfire_interfaces
+from rtl.debug import DmiBundle
 
 
 from tb.ClkDriver import *
@@ -68,7 +69,7 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
 
     core=bonfire_core_top.BonfireCoreTop(config)
     if config.enableDebugModule:
-        debug_transport = debugModule.AbstractDebugTransportBundle(config)
+        debug_transport = DmiBundle(config)
         dut = core.createInstance(
             ibus, dbus, control, clock, reset, debug, config,
             debugTransportBundle=debug_transport)

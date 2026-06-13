@@ -6,7 +6,7 @@ License: See LICENSE
 from myhdl import Signal, modbv, block, always, always_comb, instances
 
 from rtl.instructions import CSRAdr
-from rtl.debug.types import xdedebugver
+from rtl.debug.types import XDEBUGVER
 
 
 class DebugCSRUpdateBundle:
@@ -38,7 +38,7 @@ class DebugCSRBundle:
         adr : [8:] CSR Adr
         data: [32:] Input data to write
         update: DebugCSRUpdateBundle
-        debugRegs: DebugRegisterBundle
+        debugRegs: DebugModuleRegisterBundle
         clock: clock signal
         reset : reset signal
         """
@@ -90,7 +90,7 @@ class DebugCSRReadViewBundle:
             self.data.next = 0
 
             if reg == CSRAdr.dcsr:
-                self.data.next[32:28] = xdedebugver
+                self.data.next[32:28] = XDEBUGVER
                 self.data.next[15] = debugCSRs.ebreakm
                 self.data.next[9:6] = debugCSRs.cause
                 self.data.next[2] = debugCSRs.step

@@ -10,7 +10,7 @@ from rtl.pipeline_control import *
 
 from rtl.instructions import  CSRAdr
 from rtl.trap import CSR_ReadViewBundle
-from rtl.debugModule import DebugCSRReadViewBundle
+from rtl.debug import DebugCSRReadViewBundle
 
 
 class CSRUnitBundle(PipelineControl):

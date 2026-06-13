@@ -11,7 +11,7 @@ from typing import Any
 from myhdl import *
 
 from rtl.config import BonfireConfig
-from rtl.jtag_dtm import (
+from rtl.debug.jtag_dtm import (
     DTM_IDLE,
     DTM_VERSION,
     DMI_OP_READ,

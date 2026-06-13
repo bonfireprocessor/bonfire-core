@@ -6,21 +6,21 @@ License: See LICENSE
 from myhdl import Signal, modbv
 
 from rtl.debug.types import (
-    t_debugHartState,
-    t_abstractCommandType,
-    t_abstractCommandState,
+    t_debug_hart_state,
+    t_abstract_command_type,
+    t_abstract_command_state,
 )
 from util.diagnostics import get_diagnostics
 
 
-class DebugRegisterBundle:
+class DebugModuleRegisterBundle:
     def __init__(self, config):
         self.config = config
         xlen = config.xlen
         self.xlen = xlen
 
         assert self.config.progbuf_size in range(1, 3), "progbuf_size must be 1 or 2"
-        get_diagnostics().detail("DebugRegisterBundle: xlen={} ip_low={} numdata={} progbuf_size={} dmi_adr_width={}".format(
+        get_diagnostics().detail("DebugModuleRegisterBundle: xlen={} ip_low={} numdata={} progbuf_size={} dmi_adr_width={}".format(
             config.xlen,
             config.ip_low,
             config.numdata,
@@ -28,16 +28,16 @@ class DebugRegisterBundle:
             config.dmi_adr_width,
         ))
 
-        self.hartState = Signal(t_debugHartState.running)
+        self.hart_state = Signal(t_debug_hart_state.running)
 
         # Signals from DMI to debug core, written by DMI
         self.haltreq = Signal(bool(0))
         self.resumereq = Signal(bool(0))
-        self.hartReset = Signal(bool(0))
-        self.abstractCommandNew = Signal(bool(0))
+        self.hart_reset = Signal(bool(0))
+        self.abstract_command_new = Signal(bool(0))
 
         # Abstract Command access register fields written by DMI
-        self.commandType = Signal(t_abstractCommandType.access_reg)
+        self.command_type = Signal(t_abstract_command_type.access_reg)
         self.aarsize = Signal(modbv(0)[3:])
         self.aarpostincrement = Signal(bool(0))
         self.postexec = Signal(bool(0))
@@ -47,21 +47,21 @@ class DebugRegisterBundle:
         self.cmderr = Signal(modbv(0)[3:])
 
         # written by DMI
-        self.dataRegs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
+        self.data_regs = [Signal(modbv(0)[xlen:]) for ii in range(0, config.numdata)]
         self.progbuf0 = Signal(modbv(0)[xlen:])
         self.progbuf1 = Signal(modbv(0)[xlen:])  # will not be used when progbuf_size==1
         # abstractauto controls whether accesses to dataN/progbufN also launch
         # the currently configured abstract command. OpenOCD uses this for
         # repeated memory reads through data0 without rewriting command.
-        self.abstractAutoData = Signal(modbv(0)[config.numdata:])
-        self.abstractAutoProgbuf = Signal(modbv(0)[config.progbuf_size:])
+        self.abstract_auto_data = Signal(modbv(0)[config.numdata:])
+        self.abstract_auto_progbuf = Signal(modbv(0)[config.progbuf_size:])
 
         # Abstract Command execution state, written by debug core
-        self.abstractCommandState = Signal(t_abstractCommandState.none)
-        self.abstractCommandResult = Signal(modbv(0)[xlen:])
+        self.abstract_command_state = Signal(t_abstract_command_state.none)
+        self.abstract_command_result = Signal(modbv(0)[xlen:])
 
         # Ack Signal for halt or resume request, written by debug core
-        self.reqAck = Signal(bool(0))
+        self.req_ack = Signal(bool(0))
 
         # resumeack bit, used for dmstatus all/any resumeack
         self.resumeack = Signal(bool(0))
@@ -80,7 +80,7 @@ class DebugRegisterBundle:
         self.dpc_jump = Signal(bool(0))
 
 
-class AbstractDebugTransportBundle:
+class DmiBundle:
     def __init__(self, config):
         self.config = config
         xlen = config.xlen

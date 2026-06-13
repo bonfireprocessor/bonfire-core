@@ -55,11 +55,11 @@ class FetchUnit(PipelineControl):
         p_inst = self.pipeline_instance(busy,valid)
 
         if debugRegisterBundle:
-            from rtl.debugModule import t_debugHartState
+            from rtl.debug import t_debug_hart_state
 
             @always_comb
             def debug_reg_comb():
-                debug_halted.next = debugRegisterBundle.hartState == t_debugHartState.halted
+                debug_halted.next = debugRegisterBundle.hart_state == t_debug_hart_state.halted
 
         @always_comb
         def new_j():
