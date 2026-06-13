@@ -91,11 +91,19 @@ class SimpleBackend:
 
 
         if debugRegisterBundle:
+            debug_redirect_valid = Signal(bool(0))
+            debug_redirect_dest = Signal(intbv(0)[self.config.xlen:])
+
+            @always_seq(clock.posedge, reset=reset)
+            def debug_redirect_seq():
+                debug_redirect_valid.next = debugRegisterBundle.dpc_jump
+                debug_redirect_dest.next = concat(debugRegisterBundle.dpc, intbv(0)[self.config.ip_low:])
+
             @always_comb
             def proc_out():
-                out.jump_o.next = self.execute.jump_o or debugRegisterBundle.dpc_jump
-                if debugRegisterBundle.dpc_jump:
-                    out.jump_dest_o.next = concat(debugRegisterBundle.dpc, intbv(0)[self.config.ip_low:])
+                out.jump_o.next = self.execute.jump_o or debug_redirect_valid
+                if debug_redirect_valid:
+                    out.jump_dest_o.next = debug_redirect_dest
                 else:
                     out.jump_dest_o.next = self.execute.jump_dest_o
         else:
