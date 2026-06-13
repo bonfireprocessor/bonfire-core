@@ -32,5 +32,8 @@ fusesoc_libraries/
 temp/
 .venv
 
+# Generated site output
+site/
+
 piplist.txt
 *.bit
