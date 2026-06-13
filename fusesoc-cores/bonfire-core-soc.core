@@ -47,6 +47,12 @@ filesets:
     - "extended_soc? (fpga/icepizero/icepizero_top_ex.vhdl)"
     - "!extended_soc? (fpga/icepizero/icepizero_top.vhdl)"  
 
+  icepizero_jtag_top:
+    file_type: vhdlSource-2008
+    files:
+    - "extended_soc? (fpga/icepizero/icepizero_jtag_top_ex.vhdl)"
+    - "!extended_soc? (fpga/icepizero/icepizero_jtag_top.vhdl)"  
+
   cmods7_top:
     file_type: vhdlSource-2008
     files:
@@ -285,8 +291,20 @@ targets:
         num_leds: 5
         led_active_low: false
         laned_memory: false
-        enable_jtag_debug: true
+        enable_jtag_debug: false
     toplevel: icepizero_top
+
+  icepizero_jtag:
+    <<: *target_icepizero
+    filesets: [icepizero_lpf,icepizero_jtag_top, scripts]  
+    generate:
+    - soc_top:
+        hexfile: "../code/build/soc/icepizero/led.hex"
+        num_leds: 5
+        led_active_low: false
+        laned_memory: false
+        enable_jtag_debug: true
+    toplevel: icepizero_top  
 
   icepizero_extended:
     <<: *target_icepizero
