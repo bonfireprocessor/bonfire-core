@@ -157,6 +157,7 @@ class OpenOCDBitbangTestbench:
 
         trace_history: list[str] = []
         trace_history_limit = 96
+        ndmreset_command_active = [False]
 
         def append_trace(message: str) -> None:
             line = "@{} [openocd-debug] {}".format(now(), message)
@@ -170,10 +171,57 @@ class OpenOCDBitbangTestbench:
             if self.info_trace:
                 print("@{} [openocd-info] {}".format(now(), message), flush=True)
 
+        def append_trace_and_info(message: str) -> None:
+            append_trace(message)
+            append_info(message)
+
         def dump_trace(reason: str) -> None:
             print("@{} [openocd-debug] trace dump: {}".format(now(), reason), flush=True)
             for line in trace_history:
                 print(line, flush=True)
+
+        def dmi_register_name(adr: int) -> str:
+            if adr >= 0x04 and adr <= 0x04 + self.config.numdata - 1:
+                return "data{}".format(adr - 0x04)
+            names = {
+                0x10: "dmcontrol",
+                0x11: "dmstatus",
+                0x12: "hartinfo",
+                0x16: "abstractcs",
+                0x17: "command",
+                0x18: "abstractauto",
+                0x20: "progbuf0",
+            }
+            if self.config.progbuf_size == 2:
+                names[0x21] = "progbuf1"
+            return names.get(adr, "unknown")
+
+        def is_supported_dmi_register(adr: int) -> bool:
+            return dmi_register_name(adr) != "unknown"
+
+        def log_dmcontrol_write(data: int) -> None:
+            if data & 0x00000002:
+                append_trace_and_info(
+                    "DMI dmcontrol.ndmreset asserted data=0x{:08x} feature_enabled={}".format(
+                        data,
+                        self.config.enableDebugNdmreset,
+                    )
+                )
+                ndmreset_command_active[0] = True
+            else:
+                if ndmreset_command_active[0]:
+                    append_trace_and_info(
+                        "DMI dmcontrol.ndmreset cleared data=0x{:08x} feature_enabled={}".format(
+                            data,
+                            self.config.enableDebugNdmreset,
+                        )
+                    )
+                ndmreset_command_active[0] = False
+
+            if data & 0x20000000:
+                append_trace_and_info(
+                    "DMI unsupported dmcontrol.hartreset write data=0x{:08x}".format(data)
+                )
 
         def command_word_summary(command_word: int) -> str:
             command_type = (command_word >> 24) & 0xFF
@@ -308,9 +356,27 @@ class OpenOCDBitbangTestbench:
                     pending_dmi_read = False
 
                 if dtm.en:
+                    dmi_adr = int(dtm.adr)
                     if dtm.we:
-                        append_trace("DMI write adr=0x{:02x} data=0x{:08x}".format(int(dtm.adr), int(dtm.dbi)))
-                        if int(dtm.adr) == 0x17:
+                        dmi_data = int(dtm.dbi)
+                        append_trace(
+                            "DMI write adr=0x{:02x} ({}) data=0x{:08x}".format(
+                                dmi_adr,
+                                dmi_register_name(dmi_adr),
+                                dmi_data,
+                            )
+                        )
+                        if not is_supported_dmi_register(dmi_adr):
+                            append_trace_and_info(
+                                "DMI write to unsupported register adr=0x{:02x} data=0x{:08x}".format(
+                                    dmi_adr,
+                                    dmi_data,
+                                )
+                            )
+                        elif dmi_adr == 0x10:
+                            log_dmcontrol_write(dmi_data)
+
+                        if dmi_adr == 0x17:
                             last_command_word = int(dtm.dbi)
                             append_trace(
                                 "abstract command write: {} data0=0x{:08x} {}".format(
@@ -320,11 +386,20 @@ class OpenOCDBitbangTestbench:
                                 )
                             )
                     else:
-                        read_adr = int(dtm.adr)
+                        read_adr = dmi_adr
                         pending_dmi_read = True
                         pending_dmi_read_adr = read_adr
+                        if not is_supported_dmi_register(read_adr):
+                            append_trace_and_info(
+                                "DMI read from unsupported register adr=0x{:02x}".format(read_adr)
+                            )
                         if read_adr != 0x11:
-                            append_trace("DMI read request adr=0x{:02x}".format(read_adr))
+                            append_trace(
+                                "DMI read request adr=0x{:02x} ({})".format(
+                                    read_adr,
+                                    dmi_register_name(read_adr),
+                                )
+                            )
 
                 if (dbus.ack_i or dbus.error_i) and debug_regs.hart_state == t_debug_hart_state.halted:
                     if int(dbus.we_o) == 0:
@@ -445,7 +520,8 @@ class OpenOCDBitbangTestbench:
         assert self.server_socket is not None
 
         clock = Signal(bool(0))
-        reset = ResetSignal(0, active=1, isasync=False)
+        sys_reset = ResetSignal(0, active=1, isasync=False)
+        core_reset = ResetSignal(0, active=1, isasync=False)
         tck = Signal(bool(0))
         trstn = Signal(bool(1))
         tms = Signal(bool(1))
@@ -469,11 +545,11 @@ class OpenOCDBitbangTestbench:
         mem = sim_ram()
         mem.setLatency(1)
 
-        ibus_if = mem.ram_interface(ram, ibus, clock, reset, readOnly=True)
-        dbus_if = mem.ram_interface(ram, ram_dbus, clock, reset)
+        ibus_if = mem.ram_interface(ram, ibus, clock, core_reset, readOnly=True)
+        dbus_if = mem.ram_interface(ram, ram_dbus, clock, core_reset)
 
         clk_driver = ClkDriver(clock, period=10)
-        jtag_dtm = JtagDTM(local_config).createInstance(clock, reset, tck, tms, tdi, trstn, tdo, dtm, tap_state_o=tap_state)
+        jtag_dtm = JtagDTM(local_config).createInstance(clock, sys_reset, tck, tms, tdi, trstn, tdo, dtm, tap_state_o=tap_state)
         bitbang = remote_bitbang_server(
             clock,
             tck,
@@ -489,13 +565,22 @@ class OpenOCDBitbangTestbench:
             observer = self.jtag_observer(clock, tck, tms, tdi, tdo, tap_state)
 
         core = bonfire_core_top.BonfireCoreTop(local_config)
-        dut = core.createInstance(ibus, dbus, control, clock, reset, debug, debugTransportBundle=dtm)
+        if local_config.enableDebugNdmreset:
+            @always_comb
+            def core_reset_comb():
+                core_reset.next = sys_reset or dtm.ndmreset
+        else:
+            @always_comb
+            def core_reset_comb():
+                core_reset.next = sys_reset
+
+        dut = core.createInstance(ibus, dbus, control, clock, core_reset, debug, debugTransportBundle=dtm)
         debug_trace_i = self.debug_trace_monitor(clock, dtm, dbus, core)
 
         if self.ready_event is not None:
             self.ready_event.set()
 
-        @always_seq(clock.posedge, reset=reset)
+        @always_seq(clock.posedge, reset=core_reset)
         def slave_select() -> None:
             if ram_sel_r and ram_dbus.ack_i:
                 ram_sel_r.next = False
@@ -514,7 +599,7 @@ class OpenOCDBitbangTestbench:
             dbus.ack_i.next = ram_dbus.ack_i
             dbus.db_rd.next = ram_dbus.db_rd
 
-        @always_seq(clock.posedge, reset=reset)
+        @always_seq(clock.posedge, reset=core_reset)
         def sim_observe() -> None:
             pass
 

@@ -42,6 +42,7 @@ class BonfireCoreDebugTestbench:
         verbose: bool = False,
         debug_transport: str = "dmi",
         monitor_result: Any = None,
+        stimulus_mode: str = "full",
     ) -> None:
         self.config = config
         self.hexfile = hexfile
@@ -51,6 +52,7 @@ class BonfireCoreDebugTestbench:
         self.verbose = verbose
         self.debug_transport = debug_transport
         self.monitor_result = monitor_result
+        self.stimulus_mode = stimulus_mode
 
     def log(self, message: str) -> None:
         print("@{}ns [debug-tb] {}".format(now(), message))
@@ -442,9 +444,78 @@ class BonfireCoreDebugTestbench:
         return instances()
 
     @block
+    def ndmreset_stimulus(
+        self,
+        dtm_bundle: DmiBundle,
+        clock: Any,
+        tck: Any = None,
+        tms: Any = None,
+        tdi: Any = None,
+        tdo: Any = None,
+    ) -> Any:
+        """Focused stimulus for Debug Module ndmreset behavior."""
+
+        @instance
+        def test() -> Generator[Any, None, None]:
+            if self.debug_transport == "jtag":
+                assert tck is not None and tms is not None and tdi is not None and tdo is not None
+                api = JtagDebugAPISim(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
+                yield api.reset_tap()
+                yield api.read_idcode()
+                yield api.read_dtmcs()
+            else:
+                api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
+
+            for _ in range(0, 5):
+                yield clock.posedge
+
+            if not self.config.enableDebugNdmreset:
+                c = modbv(0)[32:]
+                c[1] = True
+                yield api.dmi_write(0x10, c)
+                yield api.dmi_read(0x10)
+                assert not api.result[1], "dmcontrol.ndmreset should read as 0 when disabled"
+                raise StopSimulation
+
+            yield api.halt()
+
+            non_reset_dpc = self.config.reset_address + 0x20
+            yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=non_reset_dpc)
+            yield self.check_dpc(api, non_reset_dpc, "patched dpc before ndmreset")
+
+            c = modbv(0)[32:]
+            c[1] = True
+            yield api.dmi_write(0x10, c)
+            for _ in range(0, 4):
+                yield clock.posedge
+            yield api.dmi_read(0x10)
+            assert api.result[1], "dmcontrol.ndmreset did not latch high"
+
+            c[1] = False
+            yield api.dmi_write(0x10, c)
+            for _ in range(0, 8):
+                yield clock.posedge
+            yield api.dmi_read(0x10)
+            assert not api.result[1], "dmcontrol.ndmreset did not clear"
+
+            yield api.check_halted()
+            assert api.halted, "hart did not remain halted after ndmreset"
+            yield self.check_dpc(api, self.config.reset_address, "dpc after ndmreset")
+
+            if self.debug_transport == "jtag":
+                yield api.read_dtmcs()
+                yield api.dmi_read(0x11)
+                assert (api.cmd_result() & 0x0F) == DEBUG_SPEC_VERSION, "dmstatus unavailable after JTAG ndmreset"
+
+            raise StopSimulation
+
+        return instances()
+
+    @block
     def testbench(self) -> Any:
         clock = Signal(bool(0))
         reset = ResetSignal(0, active=1, isasync=False)
+        system_reset = ResetSignal(0, active=1, isasync=False)
 
         local_config = self.config
         local_config.enableDebugModule = True
@@ -469,23 +540,37 @@ class BonfireCoreDebugTestbench:
         mem = sim_ram()
         mem.setLatency(1)
 
-        ibus_if = mem.ram_interface(ram, ibus, clock, reset, readOnly=True)
-        dbus_if = mem.ram_interface(ram, ram_dbus, clock, reset)
+        ibus_if = mem.ram_interface(ram, ibus, clock, system_reset, readOnly=True)
+        dbus_if = mem.ram_interface(ram, ram_dbus, clock, system_reset)
 
         clk_driver = ClkDriver(clock)
         tck_driver = ClkDriver(tck, period=73)
         mon_i = monitor_instance(ram, mon_dbus, clock, sigFile=self.sigFile, elfFile=self.elfFile, result=self.monitor_result)
-        stim = self.halt_resume_stimulus(dtm, clock, tck=tck, tms=tms, tdi=tdi, tdo=tdo)
+        if self.stimulus_mode == "ndmreset":
+            stim = self.ndmreset_stimulus(dtm, clock, tck=tck, tms=tms, tdi=tdi, tdo=tdo)
+        elif self.stimulus_mode == "full":
+            stim = self.halt_resume_stimulus(dtm, clock, tck=tck, tms=tms, tdi=tdi, tdo=tdo)
+        else:
+            raise ValueError("Unsupported stimulus_mode: {}".format(self.stimulus_mode))
         jtag_dtm = None
         if self.debug_transport == "jtag":
             jtag_dtm = JtagDTM(local_config).createInstance(clock, reset, tck, tms, tdi, trstn, tdo, dtm)
         elif self.debug_transport != "dmi":
             raise ValueError("Unsupported debug_transport: {}".format(self.debug_transport))
 
-        core = bonfire_core_top.BonfireCoreTop(local_config)
-        dut = core.createInstance(ibus, dbus, control, clock, reset, debug, debugTransportBundle=dtm)
+        if local_config.enableDebugNdmreset:
+            @always_comb
+            def system_reset_comb():
+                system_reset.next = reset or dtm.ndmreset
+        else:
+            @always_comb
+            def system_reset_comb():
+                system_reset.next = reset
 
-        @always_seq(clock.posedge, reset=reset)
+        core = bonfire_core_top.BonfireCoreTop(local_config)
+        dut = core.createInstance(ibus, dbus, control, clock, system_reset, debug, debugTransportBundle=dtm)
+
+        @always_seq(clock.posedge, reset=system_reset)
         def slave_select():
             if ram_sel_r and ram_dbus.ack_i:
                 ram_sel_r.next = False
@@ -514,7 +599,7 @@ class BonfireCoreDebugTestbench:
                 dbus.ack_i.next = mon_dbus.ack_i
                 dbus.db_rd.next = mon_dbus.db_rd
 
-        @always_seq(clock.posedge, reset=reset)
+        @always_seq(clock.posedge, reset=system_reset)
         def sim_observe():
             d = core.backend.decode
             if core.backend.execute.taken:

@@ -45,6 +45,7 @@ class DebugModuleInterface:
 
         @always(clock.posedge)
         def seq():
+            dtm.ndmreset.next = debugRegs.ndmreset
 
             if debugRegs.req_ack:
                 if debugRegs.resumereq:
@@ -73,7 +74,7 @@ class DebugModuleInterface:
                         dtm.dbo.next[7] = True  # authenticated
                         dtm.dbo.next[4:] = DEBUG_SPEC_VERSION  # version
                     elif dtm.adr == 0x10:  # dmcontrol
-                        dtm.dbo.next[1] = debugRegs.hart_reset  # ndmreset
+                        dtm.dbo.next[1] = self.config.enableDebugNdmreset and debugRegs.ndmreset
                         dtm.dbo.next[0] = True
                     elif dtm.adr == 0x12:  # hartinfo
                         dtm.dbo.next[24:20] = self.config.num_dscratch
@@ -129,7 +130,8 @@ class DebugModuleInterface:
                             debugRegs.resumereq.next = True
                             debugRegs.resumeack.next = False
 
-                        debugRegs.hart_reset.next = dtm.dbi[1]  # ndmreset
+                        if self.config.enableDebugNdmreset:
+                            debugRegs.ndmreset.next = dtm.dbi[1]
                     elif (dtm.adr >= 0x04) and (dtm.adr <= 0x04+self.config.numdata-1):  # data0 to dataN
                         data_index = dtm.adr - 0x04
                         debugRegs.data_regs[data_index].next = dtm.dbi

@@ -110,6 +110,7 @@ targets:
          hexfile: "../code/build/soc/sim/led.hex"
          expose_wishbone_master: false
          enable_jtag_debug: true
+         enable_debug_ndmreset: true
          
     tools:
       ghdl:
@@ -305,6 +306,7 @@ targets:
         led_active_low: false
         laned_memory: false
         enable_jtag_debug: true
+        enable_debug_ndmreset: true
         
 
   icepizero_extended:

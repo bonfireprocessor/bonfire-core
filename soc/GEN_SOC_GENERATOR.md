@@ -220,6 +220,8 @@ These FuseSoC parameters are converted into `soc_config`:
 | `num_spi` | `numSpi` | `1` |
 | `enable_gpio` | `enableGpio` | `true` |
 | `debug` | `debug` | `false` |
+| `enable_jtag_debug` | `enableJtagDebug` | `false` |
+| `enable_debug_ndmreset` | `enableDebugNdmreset` | `false` |
 | `inst_uart_only` | `instUartOnly` | `false` |
 | `uart_fifo_depth` | `uartFifoDepth` | `6` |
 

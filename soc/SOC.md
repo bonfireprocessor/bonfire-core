@@ -183,6 +183,8 @@ test scenarios.
 | `ledActiveLow` | `True` | invert LED output pins |
 | `UseVHDLMemory` | `False` | currently unused |
 | `exposeWishboneMaster` | `False` | expose Wishbone instead of using dummy |
+| `enableJtagDebug` | `False` | instantiate JTAG Debug Transport Module |
+| `enableDebugNdmreset` | `False` | allow Debug Module `dmcontrol.ndmreset` to reset the core/platform |
 
 FuseSoC parameters in `fusesoc-cores/bonfire-core-soc.core` are translated to
 these keys by `gen_soc.py`.
@@ -198,6 +200,8 @@ Important FuseSoC parameters include:
 - `laned_memory`: select lane-based RAM,
 - `num_leds`: LED vector width,
 - `led_active_low`: LED polarity,
+- `enable_jtag_debug`: expose JTAG debug pins and instantiate the debug transport,
+- `enable_debug_ndmreset`: allow Debug Module `ndmreset` core reset control,
 - `extended_soc`: generate the VHDL wrapper around the MyHDL SoC,
 - `expose_wishbone_master`: expose the Wishbone master directly.
 

@@ -60,6 +60,7 @@ class DebugCSRBundle:
 
         upper = self.config.xlen
         lower = self.config.ip_low
+        reset_dpc = self.config.reset_address >> lower
 
         @always(clock.posedge)
         def seq():
@@ -67,7 +68,7 @@ class DebugCSRBundle:
                 self.ebreakm.next = False
                 self.cause.next = 0
                 self.step.next = False
-                debugRegs.dpc.next = 0
+                debugRegs.dpc.next = reset_dpc
 
             elif we:
                 if adr == CSRAdr.dcsr:

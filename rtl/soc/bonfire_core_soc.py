@@ -33,6 +33,7 @@ class BonfireCoreSoC:
         self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
         self.exposeWishboneMaster: bool = soc_config.get('exposeWishboneMaster', False)
         self.enableJtagDebug: bool = soc_config.get('enableJtagDebug', False)
+        self.config.enableDebugNdmreset = bool(soc_config.get('enableDebugNdmreset', self.config.enableDebugNdmreset))
         self.conversion: bool = False
         self.reset_signal: BitSignal | None = None
 
@@ -197,8 +198,9 @@ class BonfireCoreSoC:
 
         self.config.reset_address=self.resetAdr
 
-        reset: BitSignal = ResetSignal(0,active=1,isasync=False)
-        self.reset_signal = reset
+        sys_reset: BitSignal = ResetSignal(0,active=1,isasync=False)
+        core_reset: BitSignal = ResetSignal(0,active=1,isasync=False)
+        self.reset_signal = core_reset
 
         dbus: DbusBundle = bonfire_interfaces.DbusBundle(config)
         if wb_master is None:
@@ -219,17 +221,17 @@ class BonfireCoreSoC:
 
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,sysclk)
 
-        led_out_i=self.led_out(sysclk,reset,led,dbus, ledactiveLow=self.ledActiveLow)
+        led_out_i=self.led_out(sysclk,core_reset,led,dbus, ledactiveLow=self.ledActiveLow)
 
         if not self.exposeWishboneMaster:
-            wb_i = self.wishbone_dummy(sysclk,reset,wb_master_local)
+            wb_i = self.wishbone_dummy(sysclk,core_reset,wb_master_local)
 
         uart_i = self.uart_dummy(uart0_tx,uart0_rx)
 
         if self.NoReset:
-            reset_i = self.no_reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
+            reset_i = self.no_reset_logic(sysclk,resetn,o_resetn,i_locked,sys_reset)
         else:
-            reset_i = self.reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
+            reset_i = self.reset_logic(sysclk,resetn,o_resetn,i_locked,sys_reset)
 
         debug_transport: DmiBundle | None = None
         if self.enableJtagDebug:
@@ -240,11 +242,20 @@ class BonfireCoreSoC:
             assert jtag_trstn is not None, "enableJtagDebug requires jtag_trstn"
             debug_transport = DmiBundle(self.config)
             jtag_i = JtagDTM(self.config).createInstance(
-                sysclk, reset, jtag_tck, jtag_tms, jtag_tdi, jtag_trstn,
+                sysclk, sys_reset, jtag_tck, jtag_tms, jtag_tdi, jtag_trstn,
                 jtag_tdo, debug_transport)
 
+        if self.config.enableDebugNdmreset and debug_transport is not None:
+            @always_comb
+            def core_reset_comb():
+                core_reset.next = sys_reset or debug_transport.ndmreset
+        else:
+            @always_comb
+            def core_reset_comb():
+                core_reset.next = sys_reset
+
         core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master_local,dbus,bram_port_a,bram_port_b,
-                                                              sysclk,reset,config=self.config,
+                                                              sysclk,core_reset,config=self.config,
                                                               wb_mask=self.wbMask,
                                                               db_mask=self.dbusMask,
                                                               bram_mask=self.bramMask,
