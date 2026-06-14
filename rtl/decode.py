@@ -138,9 +138,6 @@ class DecodeBundle(PipelineControl):
         dm_step_halt_pending = debug_control.step_halt_pending
 
         ins_word = Signal(modbv(0)[32:])
-        debug_ebreak_seen = Signal(bool(0))
-        debug_ebreak_current_ip = Signal(modbv(0)[self.xlen:])
-        debug_ebreakm = Signal(bool(0))
 
         @always_comb
         def busy_control():
@@ -157,8 +154,6 @@ class DecodeBundle(PipelineControl):
             debug_decode_view.valid_o.next = self.valid_o
             debug_decode_view.stall_i.next = self.stall_i
             debug_decode_view.downstream_busy.next = downstream_busy
-            debug_decode_view.ebreak_seen.next = debug_ebreak_seen
-            debug_decode_view.ebreak_current_ip.next = debug_ebreak_current_ip
 
             if not downstream_busy:
                 self.rs2_adr_o.next = ins_word[25:20]
@@ -184,7 +179,6 @@ class DecodeBundle(PipelineControl):
         if self.config.enableDebugModule:
             conf = self.config
             assert debugRegisterBundle is not None, "enableDebugModule requires a debugRegisterBundle"
-            debug_ebreakm = self.debugCSRBundle.ebreakm
 
             progbuf=Signal(modbv(0)[conf.xlen:])
             progbuf_pointer=Signal(modbv(0)[1:]) # only 1 bit needed to select between progbuf0 and progbuf1
@@ -268,8 +262,6 @@ class DecodeBundle(PipelineControl):
             While downstream_busy do nothing
             otherwise decode the next instruction when en_i is set
             """
-
-            debug_ebreak_seen.next = False
 
             if dm_halt and dm_regwrite:
                 self.valid_o.next = True
@@ -401,9 +393,6 @@ class DecodeBundle(PipelineControl):
                         if ins_word[15:12]==SystemFunct3.RV32_F3_PRIV:
                             if dm_exec and ins_word[32:20]==PrivFunct12.RV32_F12_EBREAK:
                                  dm_break_seen = True    
-                            elif debug_ebreakm and ins_word[32:20]==PrivFunct12.RV32_F12_EBREAK:
-                                debug_ebreak_seen.next = True
-                                debug_ebreak_current_ip.next = self.current_ip_i
                             else:     
                                 self.sys_cmd.next = True
                                 cmd_seen = True

@@ -12,6 +12,8 @@ from rtl.debug.types import (
     t_abstract_command_type,
     t_debug_hart_state,
 )
+from rtl.instructions import Opcodes as op
+from rtl.instructions import PrivFunct12, SystemFunct3
 from util.diagnostics import get_diagnostics
 
 
@@ -34,8 +36,6 @@ class DebugHartViewBundle:
         self.stall_i = Signal(bool(0))
         self.downstream_busy = Signal(bool(0))
         self.dm_break = Signal(bool(0))
-        self.ebreak_seen = Signal(bool(0))
-        self.ebreak_current_ip = Signal(modbv(0)[xlen:])
 
 
 class DebugHartControlBundle:
@@ -74,10 +74,7 @@ def DebugModuleController(
         config.progbuf_size,
     ))
 
-    pending_dpc_update = Signal(bool(0))
-    pending_dpc = Signal(modbv(0)[config.xlen:config.ip_low])
-    pending_cause = Signal(modbv(0)[3:])
-    step_arm_delay = Signal(modbv(0)[2:])
+    step_wait_first_instruction = Signal(bool(0))
 
     @always_comb
     def debug_event_comb():
@@ -91,8 +88,11 @@ def DebugModuleController(
            debugRegisterBundle.command_type == t_abstract_command_type.access_reg:
             debug_control.regwrite.next = debugRegisterBundle.write
 
-        if not debug_control.halt and debugCSRBundle.ebreakm and decode_view.ebreak_seen:
-            debug_control.ebreak_halt_req.next = True
+        if not debug_control.halt and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i:
+            if debugCSRBundle.ebreakm and decode_view.word_i[7:2] == op.RV32_SYSTEM and \
+               decode_view.word_i[15:12] == SystemFunct3.RV32_F3_PRIV and \
+               decode_view.word_i[32:20] == PrivFunct12.RV32_F12_EBREAK:
+                debug_control.ebreak_halt_req.next = True
 
     @always(clock.posedge)
     def debug_module_seq():
@@ -100,61 +100,61 @@ def DebugModuleController(
         debugCSRUpdateBundle.we_dpc.next = False
         debugCSRUpdateBundle.we_cause.next = False
 
-        if pending_dpc_update:
-            debugCSRUpdateBundle.dpc.next = pending_dpc
-            debugCSRUpdateBundle.we_dpc.next = True
-            debugCSRUpdateBundle.cause.next = pending_cause
-            debugCSRUpdateBundle.we_cause.next = True
-            pending_dpc_update.next = False
-
         if debugRegisterBundle.dpc_jump:
             debugRegisterBundle.dpc_jump.next = False
 
-        if step_arm_delay != 0:
-            step_arm_delay.next = step_arm_delay - 1
-            if step_arm_delay == 1:
-                debug_control.step_armed.next = True
-
+        # EBREAK entry is a decode-stage event: halt before executing the
+        # instruction, and report the EBREAK PC as DPC.
         if debug_control.ebreak_halt_req:
-            pending_dpc.next = decode_view.ebreak_current_ip[config.xlen:config.ip_low]
-            pending_cause.next = 1
-            pending_dpc_update.next = True
+            debugCSRUpdateBundle.dpc.next = decode_view.current_ip_i[config.xlen:config.ip_low]
+            debugCSRUpdateBundle.we_dpc.next = True
+            debugCSRUpdateBundle.cause.next = 1
+            debugCSRUpdateBundle.we_cause.next = True
             debug_control.halt.next = True
             debug_control.step_armed.next = False
-            step_arm_delay.next = 0
+            step_wait_first_instruction.next = False
             debug_control.step_halt_pending.next = False
 
+        # Single-step entry is retire-based: first let exactly one resumed
+        # instruction complete, then capture the registered retire DPC.
         elif debug_control.step_halt_pending and debugRegisterBundle.instr_retired:
-            pending_dpc.next = debugRegisterBundle.instr_retire_dpc
-            pending_cause.next = 4
-            pending_dpc_update.next = True
+            debugCSRUpdateBundle.dpc.next = debugRegisterBundle.instr_retire_dpc
+            debugCSRUpdateBundle.we_dpc.next = True
+            debugCSRUpdateBundle.cause.next = 4
+            debugCSRUpdateBundle.we_cause.next = True
             debug_control.halt.next = True
             debug_control.step_armed.next = False
-            step_arm_delay.next = 0
+            step_wait_first_instruction.next = False
             debug_control.step_halt_pending.next = False
 
         if not debug_control.ebreak_halt_req and not debug_control.step_halt_pending and \
            not decode_view.downstream_busy and not debugRegisterBundle.req_ack:
             if debugRegisterBundle.haltreq and decode_view.en_i and not decode_view.kill_i:
                 debugRegisterBundle.req_ack.next = True
-                pending_dpc.next = decode_view.current_ip_i[config.xlen:config.ip_low]
-                pending_cause.next = 3
-                pending_dpc_update.next = True
+                debugCSRUpdateBundle.dpc.next = decode_view.current_ip_i[config.xlen:config.ip_low]
+                debugCSRUpdateBundle.we_dpc.next = True
+                debugCSRUpdateBundle.cause.next = 3
+                debugCSRUpdateBundle.we_cause.next = True
                 debug_control.halt.next = True
                 debug_control.step_armed.next = False
-                step_arm_delay.next = 0
+                step_wait_first_instruction.next = False
             elif debugRegisterBundle.resumereq:
+                # When stepping, do not arm from a fixed cycle count. Wait
+                # until decode accepts the first real post-resume instruction.
                 debugRegisterBundle.req_ack.next = True
                 debug_control.halt.next = False
                 debugRegisterBundle.dpc_jump.next = True
                 debug_control.step_armed.next = False
-                if debugCSRBundle.step:
-                    step_arm_delay.next = 2
+                step_wait_first_instruction.next = debugCSRBundle.step
 
-        if debug_control.step_armed and not debug_control.step_halt_pending and not debug_control.halt and \
+        # This handshake makes single-step independent of fetch latency and
+        # redirect timing: a slow instruction fetch simply delays arming.
+        if step_wait_first_instruction and not debug_control.step_halt_pending and not debug_control.halt and \
            not debug_control.kill and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i and \
            not debug_control.ebreak_halt_req:
+            debug_control.step_armed.next = True
             debug_control.step_halt_pending.next = True
+            step_wait_first_instruction.next = False
 
         if debug_control.halt:
             if debugRegisterBundle.abstract_command_state == t_abstract_command_state.none:
