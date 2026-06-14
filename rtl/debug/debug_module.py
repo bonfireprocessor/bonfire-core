@@ -3,17 +3,21 @@ RISC-V debug module — decode-stage pipeline injection and control
 (c) 2026 The Bonfire Project
 License: See LICENSE
 """
+from __future__ import annotations
 from __future__ import print_function
+
+from typing import Any
 
 from myhdl import Signal, modbv, block, always, always_comb, instances
 
+from rtl.debug.debug_csrs import DebugCSRBundle, DebugCSRUpdateBundle
+from rtl.debug.dm_registers import DebugModuleRegisterBundle
 from rtl.debug.types import (
     t_abstract_command_state,
     t_abstract_command_type,
     t_debug_hart_state,
 )
-from rtl.instructions import Opcodes as op
-from rtl.instructions import PrivFunct12, SystemFunct3
+from rtl.type_aliases import BitSignal
 from util.diagnostics import get_diagnostics
 
 
@@ -24,7 +28,7 @@ class DebugHartViewBundle:
     produced by instruction decode and reported back here so the controller can
     finish program-buffer execution.
     """
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         xlen = config.xlen
 
         self.current_ip_i = Signal(modbv(0)[xlen:])
@@ -36,7 +40,7 @@ class DebugHartViewBundle:
         self.stall_i = Signal(bool(0))
         self.downstream_busy = Signal(bool(0))
         self.dm_break = Signal(bool(0))
-        self.ebreak_i=Signal(bool(0))
+        self.ebreak_i = Signal(bool(0))
 
 
 class DebugHartControlBundle:
@@ -45,7 +49,7 @@ class DebugHartControlBundle:
     These are the controller outputs used to halt, kill, inject program-buffer
     execution, and write register-file data during abstract commands.
     """
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.halt = Signal(bool(0))
         self.kill = Signal(bool(0))
         self.regwrite = Signal(bool(0))
@@ -59,16 +63,16 @@ class DebugHartControlBundle:
 
 @block
 def DebugModuleController(
-    config,
-    clock,
-    debugRegisterBundle,
-    debugCSRBundle,
-    debugCSRUpdateBundle,
-    decode_view,
-    debug_control,
-    progbuf_pointer,
-    progbuf_last,
-):
+    config: Any,
+    clock: BitSignal,
+    debugRegisterBundle: DebugModuleRegisterBundle,
+    debugCSRBundle: DebugCSRBundle,
+    debugCSRUpdateBundle: DebugCSRUpdateBundle,
+    decode_view: DebugHartViewBundle,
+    debug_control: DebugHartControlBundle,
+    progbuf_pointer: Any,
+    progbuf_last: BitSignal,
+) -> Any:
     get_diagnostics().detail("DebugModuleController: xlen={} ip_low={} progbuf_size={}".format(
         config.xlen,
         config.ip_low,
@@ -79,23 +83,20 @@ def DebugModuleController(
 
     @always_comb
     def debug_event_comb():
-        debug_control.regwrite.next = False
+      
         debug_control.regno.next = debugRegisterBundle.regno
         debug_control.data0.next = debugRegisterBundle.data_regs[0]
-        #debug_control.ebreak_halt_req.next = False
-
+       
         if debugRegisterBundle.abstract_command_new and \
            debugRegisterBundle.abstract_command_state == t_abstract_command_state.none and \
            debugRegisterBundle.command_type == t_abstract_command_type.access_reg:
             debug_control.regwrite.next = debugRegisterBundle.write
+        else:
+            debug_control.regwrite.next = False
 
         debug_control.ebreak_halt_req.next =  decode_view.ebreak_i and not debug_control.halt and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i and debugCSRBundle.ebreakm
 
-        # if not debug_control.halt and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i:
-        #     if debugCSRBundle.ebreakm and decode_view.ebreak_i:  #decode_view.word_i[7:2] == op.RV32_SYSTEM and \
-        #        #decode_view.word_i[15:12] == SystemFunct3.RV32_F3_PRIV and \
-        #        #decode_view.word_i[32:20] == PrivFunct12.RV32_F12_EBREAK:
-        #        debug_control.ebreak_halt_req.next = True
+       
     
     @always(clock.posedge)
     def debug_module_seq():

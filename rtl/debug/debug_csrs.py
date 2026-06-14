@@ -3,14 +3,20 @@ RISC-V debug module — debug CSR bundles and logic
 (c) 2023 The Bonfire Project
 License: See LICENSE
 """
+from __future__ import annotations
+
+from typing import Any
+
 from myhdl import Signal, modbv, block, always, always_comb, instances
 
+from rtl.debug.dm_registers import DebugModuleRegisterBundle
 from rtl.instructions import CSRAdr
 from rtl.debug.types import XDEBUGVER
+from rtl.type_aliases import BitSignal
 
 
 class DebugCSRUpdateBundle:
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.config = config
         self.xlen = config.xlen
         xlen = config.xlen
@@ -22,7 +28,7 @@ class DebugCSRUpdateBundle:
 
 
 class DebugCSRBundle:
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.config = config
         self.xlen = config.xlen
 
@@ -32,7 +38,16 @@ class DebugCSRBundle:
         self.step = Signal(bool(0))      # dcsr[2] single step mode
 
     @block
-    def csr_write(self, we, adr, data, update, debugRegs, clock, reset):
+    def csr_write(
+        self,
+        we: Any,
+        adr: Any,
+        data: Any,
+        update: DebugCSRUpdateBundle,
+        debugRegs: DebugModuleRegisterBundle,
+        clock: BitSignal,
+        reset: BitSignal,
+    ) -> Any:
         """
         we: bool Write Enable
         adr : [8:] CSR Adr
@@ -70,7 +85,7 @@ class DebugCSRBundle:
 
 
 class DebugCSRReadViewBundle:
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.config = config
         self.xlen = config.xlen
         xlen = config.xlen
@@ -79,7 +94,12 @@ class DebugCSRReadViewBundle:
         self.data = Signal(modbv(0)[xlen:])
 
     @block
-    def csr_read(self, reg, debugCSRs, debugRegs):
+    def csr_read(
+        self,
+        reg: Any,
+        debugCSRs: DebugCSRBundle,
+        debugRegs: DebugModuleRegisterBundle,
+    ) -> Any:
 
         upper = self.config.xlen
         lower = self.config.ip_low

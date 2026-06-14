@@ -3,6 +3,10 @@ RISC-V debug module — register bundles
 (c) 2023 The Bonfire Project
 License: See LICENSE
 """
+from __future__ import annotations
+
+from typing import Any
+
 from myhdl import Signal, modbv
 
 from rtl.debug.types import (
@@ -14,7 +18,7 @@ from util.diagnostics import get_diagnostics
 
 
 class DebugModuleRegisterBundle:
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.config = config
         xlen = config.xlen
         self.xlen = xlen
@@ -81,7 +85,7 @@ class DebugModuleRegisterBundle:
 
 
 class DmiBundle:
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.config = config
         xlen = config.xlen
         self.xlen = xlen

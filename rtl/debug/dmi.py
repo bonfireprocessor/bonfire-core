@@ -3,25 +3,36 @@ RISC-V debug module — DMI interface and abstract command protocol
 (c) 2023 The Bonfire Project
 License: See LICENSE
 """
+from __future__ import annotations
+
+from typing import Any
+
 from myhdl import block, always, instances
 
+from rtl.debug.dm_registers import DebugModuleRegisterBundle, DmiBundle
 from rtl.debug.types import (
     t_abstract_command_state,
     t_abstract_command_type,
     t_debug_hart_state,
     DEBUG_SPEC_VERSION,
 )
+from rtl.type_aliases import BitSignal
 from util.diagnostics import get_diagnostics
 
 
 class DebugModuleInterface:
-    def __init__(self, config):
+    def __init__(self, config: Any) -> None:
         self.config = config
         xlen = config.xlen
         self.xlen = xlen
 
     @block
-    def dmi_interface(self, dtm, debugRegs, clock):
+    def dmi_interface(
+        self,
+        dtm: DmiBundle,
+        debugRegs: DebugModuleRegisterBundle,
+        clock: BitSignal,
+    ) -> Any:
         """
         dtm: DmiBundle
         debugRegs: DebugModuleRegisterBundle
