@@ -154,6 +154,9 @@ class DecodeBundle(PipelineControl):
             debug_decode_view.valid_o.next = self.valid_o
             debug_decode_view.stall_i.next = self.stall_i
             debug_decode_view.downstream_busy.next = downstream_busy
+            debug_decode_view.ebreak_i.next =  ins_word[7:2] == op.RV32_SYSTEM and \
+                    ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
+                    ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK
 
             if not downstream_busy:
                 self.rs2_adr_o.next = ins_word[25:20]

@@ -36,6 +36,7 @@ class DebugHartViewBundle:
         self.stall_i = Signal(bool(0))
         self.downstream_busy = Signal(bool(0))
         self.dm_break = Signal(bool(0))
+        self.ebreak_i=Signal(bool(0))
 
 
 class DebugHartControlBundle:
@@ -81,19 +82,21 @@ def DebugModuleController(
         debug_control.regwrite.next = False
         debug_control.regno.next = debugRegisterBundle.regno
         debug_control.data0.next = debugRegisterBundle.data_regs[0]
-        debug_control.ebreak_halt_req.next = False
+        #debug_control.ebreak_halt_req.next = False
 
         if debugRegisterBundle.abstract_command_new and \
            debugRegisterBundle.abstract_command_state == t_abstract_command_state.none and \
            debugRegisterBundle.command_type == t_abstract_command_type.access_reg:
             debug_control.regwrite.next = debugRegisterBundle.write
 
-        if not debug_control.halt and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i:
-            if debugCSRBundle.ebreakm and decode_view.word_i[7:2] == op.RV32_SYSTEM and \
-               decode_view.word_i[15:12] == SystemFunct3.RV32_F3_PRIV and \
-               decode_view.word_i[32:20] == PrivFunct12.RV32_F12_EBREAK:
-                debug_control.ebreak_halt_req.next = True
+        debug_control.ebreak_halt_req.next =  decode_view.ebreak_i and not debug_control.halt and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i and debugCSRBundle.ebreakm
 
+        # if not debug_control.halt and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i:
+        #     if debugCSRBundle.ebreakm and decode_view.ebreak_i:  #decode_view.word_i[7:2] == op.RV32_SYSTEM and \
+        #        #decode_view.word_i[15:12] == SystemFunct3.RV32_F3_PRIV and \
+        #        #decode_view.word_i[32:20] == PrivFunct12.RV32_F12_EBREAK:
+        #        debug_control.ebreak_halt_req.next = True
+    
     @always(clock.posedge)
     def debug_module_seq():
         debugRegisterBundle.req_ack.next = False

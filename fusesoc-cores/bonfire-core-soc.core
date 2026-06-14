@@ -292,6 +292,7 @@ targets:
         led_active_low: false
         laned_memory: false
         enable_jtag_debug: false
+        jump_bypass: false
     toplevel: icepizero_top
 
   icepizero_jtag:
@@ -304,7 +305,7 @@ targets:
         led_active_low: false
         laned_memory: false
         enable_jtag_debug: true
-    toplevel: icepizero_top  
+        
 
   icepizero_extended:
     <<: *target_icepizero
@@ -320,3 +321,4 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+       
