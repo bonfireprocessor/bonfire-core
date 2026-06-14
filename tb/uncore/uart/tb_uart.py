@@ -22,7 +22,9 @@ UART_STATUS_TX_IN_PROGRESS = 0x00000004
 UART_CONTROL_ENABLE = 0x00010000
 UART_CONTROL_EXT_MODE = 0x00020000
 UART_IRQ_TX_ENABLE = 0x00000002
+UART_IRQ_RX_ENABLE = 0x00000001
 UART_IRQ_TX_PENDING = 0x00020000
+UART_IRQ_RX_PENDING = 0x00010000
 UART_STOP_MARK = 0x1A
 
 
@@ -224,6 +226,96 @@ def tb_uart_tx_capture():
         print("UART capture total_count: {}".format(result.total_count))
         print("UART capture framing_errors: {}".format(result.framing_errors))
         print("UART capture signature_ok: {}".format(result.signature_ok))
+        raise StopSimulation
+
+    return instances()
+
+
+@block
+def tb_uart_rx():
+    dbus, clock, reset, tx, rx, irq, enabled = _dbus_signals()
+    expected = [0x55, 0x00, 0xFF, 0xA5]
+    divisor = 3
+    bit_time = (divisor + 1) * CLK_PERIOD
+
+    clk_driver = ClkDriver(clock, period=CLK_PERIOD)
+    dut = bonfire_uart(dbus, clock, reset, tx, rx, irq, enabled, fifo_bits=5)
+
+    @instance
+    def stimulus():
+        _drive_idle(dbus)
+        rx.next = True
+        reset.next = True
+        yield clock.posedge
+        reset.next = False
+        yield clock.posedge
+
+        def write_reg(address, data):
+            _print_reg_write("UART[0x{:02X}]".format(address), data)
+            dbus.adr_o.next = address
+            dbus.db_wr.next = modbv(data)[32:]
+            dbus.we_o.next = 0xF
+            dbus.en_o.next = True
+            yield delay(1)
+            assert dbus.ack_i
+            yield clock.posedge
+            _drive_idle(dbus)
+            yield clock.posedge
+
+        def read_reg(address, target):
+            dbus.adr_o.next = address
+            dbus.we_o.next = 0
+            dbus.en_o.next = True
+            yield delay(1)
+            assert dbus.ack_i
+            target[0] = int(dbus.db_rd)
+            _print_reg_read("UART[0x{:02X}]".format(address), target[0])
+            yield clock.posedge
+            _drive_idle(dbus)
+            yield clock.posedge
+
+        def send_rx_byte(byte):
+            print("UART RX stimulus byte: 0x{:02X}".format(byte))
+            rx.next = False
+            yield delay(bit_time)
+            for bit in range(8):
+                rx.next = bool((byte >> bit) & 1)
+                yield delay(bit_time)
+            rx.next = True
+            yield delay(bit_time)
+
+        print("UART RX test: bit_time={} ns divisor={}".format(bit_time, divisor))
+        yield write_reg(UART_REG_EXT_CONTROL, divisor | UART_CONTROL_ENABLE | UART_CONTROL_EXT_MODE)
+        yield write_reg(UART_REG_INTERRUPT, UART_IRQ_RX_ENABLE)
+
+        status = [0]
+        data = [0]
+        received = []
+        for byte in expected:
+            yield send_rx_byte(byte)
+
+            timeout = 0
+            yield read_reg(UART_REG_STATUS_CONTROL, status)
+            while (status[0] & UART_STATUS_RX_READY) == 0:
+                yield read_reg(UART_REG_STATUS_CONTROL, status)
+                timeout += 1
+                assert timeout < 50
+
+            assert status[0] & UART_STATUS_RX_READY
+            yield read_reg(UART_REG_INTERRUPT, data)
+            assert data[0] & UART_IRQ_RX_ENABLE
+            assert data[0] & UART_IRQ_RX_PENDING
+            assert irq
+
+            yield read_reg(UART_REG_DATA, data)
+            received.append(data[0] & 0xFF)
+            assert data[0] & 0x80000000 == 0
+
+            yield read_reg(UART_REG_STATUS_CONTROL, status)
+            assert status[0] & UART_STATUS_RX_READY == 0
+
+        assert received == expected
+        print("UART RX received bytes: {}".format(" ".join("0x{:02X}".format(b) for b in received)))
         raise StopSimulation
 
     return instances()

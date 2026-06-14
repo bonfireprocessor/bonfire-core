@@ -2,8 +2,8 @@
 Bonfire DBus UART with zpuino-uart compatible registers.
 
 This is intentionally smaller than the original zpuino UART.  The first
-implementation provides the register surface and a divisor driven 8N1 TX path;
-RX is kept as a compatible empty stub.
+implementation provides the register surface, a divisor driven 8N1 TX path, and
+a one-byte RX holding register.  RX FIFO support is intentionally deferred.
 
 DBus register interface
 =======================
@@ -29,15 +29,17 @@ Transmit register, offset 0x00
 Receive register, offset 0x00
 -----------------------------
 
-RX is not implemented yet.  Reads currently return zero while preserving the
-zpuino-compatible register slot for the later RX FIFO implementation.
+| Bits  | Description                                                       |
+| ----- | ----------------------------------------------------------------- |
+| 7:0   | Last received byte.  A read clears RX ready.                      |
+| 31    | Framing error flag for the byte, valid in extended mode.          |
 
 Status register, offset 0x04
 ----------------------------
 
 | Bits  | Description                                                       |
 | ----- | ----------------------------------------------------------------- |
-| 0     | RX ready.  Always zero until RX is implemented.                   |
+| 0     | RX ready.  Set when the RX holding register contains a byte.      |
 | 1     | TX ready.  Set when the TX buffer can accept a byte.              |
 | 2     | TX in progress.  Set while an 8N1 frame is being shifted out.     |
 | 3     | RX FIFO nearly full.  Always zero until RX FIFO is implemented.   |
@@ -61,7 +63,7 @@ Interrupt register, offset 0x0c
 | 0     | RX interrupt enable.                                              |
 | 1     | TX interrupt enable.                                              |
 | 3     | RX FIFO nearly-full interrupt enable.                             |
-| 16    | RX interrupt pending.  Always zero until RX is implemented.       |
+| 16    | RX interrupt pending.  Level based: ``rx_int_en and rx_ready``.   |
 | 17    | TX interrupt pending.  Level based: ``tx_int_en and tx_ready``.   |
 | 19    | FIFO interrupt pending.  Always zero until RX FIFO is implemented. |
 """
@@ -91,6 +93,10 @@ def uart_registers(
     tx_buffer_valid: Any,
     tx_reg_write: Any,
     tx_reg_write_data: Any,
+    rx_data: Any,
+    rx_ready: Any,
+    rx_framing_error: Any,
+    rx_reg_read: Any,
     fifo_bits: int = 5,
 ) -> Any:
     rx_int_en = Signal(bool(0))
@@ -98,6 +104,7 @@ def uart_registers(
     fifo_int_en = Signal(bool(0))
 
     tx_ready = Signal(bool(1))
+    rx_pending = Signal(bool(0))
     tx_pending = Signal(bool(0))
     write_cycle = Signal(bool(0))
     read_data = Signal(modbv(0)[32:])
@@ -105,17 +112,19 @@ def uart_registers(
     @always_comb
     def status_signals():
         tx_ready.next = not tx_buffer_valid
+        rx_pending.next = rx_int_en and rx_ready
         tx_pending.next = tx_int_en and tx_ready
 
     @always_comb
     def outputs():
         enabled.next = enabled_q
-        irq.next = tx_pending
+        irq.next = rx_pending or tx_pending
         dbus.ack_i.next = dbus.en_o
         dbus.stall_i.next = False
         dbus.error_i.next = False
         dbus.db_rd.next = read_data
         write_cycle.next = dbus.en_o and (dbus.we_o != 0)
+        rx_reg_read.next = dbus.en_o and (dbus.we_o == 0) and (dbus.adr_o[4:2] == 0)
 
     @always_comb
     def write_decode():
@@ -128,9 +137,11 @@ def uart_registers(
         read_data.next = 0
 
         if dbus.adr_o[4:2] == 0:
-            read_data.next = 0
+            read_data.next[8:0] = rx_data
+            if ext_mode_en:
+                read_data.next[31] = rx_framing_error
         elif dbus.adr_o[4:2] == 1:
-            read_data.next[0] = False
+            read_data.next[0] = rx_ready
             read_data.next[1] = tx_ready
             read_data.next[2] = tx_busy
             if ext_mode_en:
@@ -146,7 +157,7 @@ def uart_registers(
             read_data.next[1] = tx_int_en
             read_data.next[3] = fifo_int_en
             if ext_mode_en:
-                read_data.next[16] = False
+                read_data.next[16] = rx_pending
                 read_data.next[17] = tx_pending
                 read_data.next[19] = False
 
@@ -162,6 +173,56 @@ def uart_registers(
                 rx_int_en.next = dbus.db_wr[0]
                 tx_int_en.next = dbus.db_wr[1]
                 fifo_int_en.next = dbus.db_wr[3]
+
+    return instances()
+
+
+@block
+def uart_rx_state_machine(
+    clock: BitSignal,
+    reset: BitSignal,
+    rx: BitSignal,
+    tx_divider: Any,
+    rx_data: Any,
+    rx_ready: Any,
+    rx_framing_error: Any,
+    rx_reg_read: Any,
+) -> Any:
+    rx_busy = Signal(bool(0))
+    rx_shift = Signal(modbv(0)[8:])
+    rx_bit_index = Signal(modbv(0)[4:])
+    rx_div_count = Signal(modbv(0)[16:])
+    rx_sync_1 = Signal(bool(1))
+    rx_sync_2 = Signal(bool(1))
+
+    @always_seq(clock.posedge, reset=reset)
+    def rx_fsm():
+        rx_sync_1.next = rx
+        rx_sync_2.next = rx_sync_1
+
+        if rx_reg_read:
+            rx_ready.next = False
+            rx_framing_error.next = False
+
+        if rx_busy:
+            if rx_div_count == 0:
+                rx_div_count.next = tx_divider
+                if rx_bit_index < 8:
+                    rx_shift.next[rx_bit_index] = rx_sync_2
+                    rx_bit_index.next = rx_bit_index + 1
+                else:
+                    rx_data.next = rx_shift
+                    rx_ready.next = True
+                    rx_framing_error.next = not rx_sync_2
+                    rx_busy.next = False
+                    rx_bit_index.next = 0
+            else:
+                rx_div_count.next = rx_div_count - 1
+        elif rx_sync_2 == 0:
+            # Start bit detected.  Sample first data bit at 1.5 bit times.
+            rx_busy.next = True
+            rx_bit_index.next = 0
+            rx_div_count.next = tx_divider + (tx_divider >> 1)
 
     return instances()
 
@@ -252,6 +313,10 @@ def bonfire_uart(
     tx_buffer_valid = Signal(bool(0))
     tx_reg_write = Signal(bool(0))
     tx_reg_write_data = Signal(modbv(0)[8:])
+    rx_data = Signal(modbv(0)[8:])
+    rx_ready = Signal(bool(0))
+    rx_framing_error = Signal(bool(0))
+    rx_reg_read = Signal(bool(0))
 
     register_i = uart_registers(
         dbus,
@@ -267,7 +332,21 @@ def bonfire_uart(
         tx_buffer_valid,
         tx_reg_write,
         tx_reg_write_data,
+        rx_data,
+        rx_ready,
+        rx_framing_error,
+        rx_reg_read,
         fifo_bits,
+    )
+    rx_i = uart_rx_state_machine(
+        clock,
+        reset,
+        rx,
+        tx_divider,
+        rx_data,
+        rx_ready,
+        rx_framing_error,
+        rx_reg_read,
     )
     tx_i = uart_tx_state_machine(
         clock,
