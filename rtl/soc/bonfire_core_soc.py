@@ -6,8 +6,8 @@ from myhdl import *
 
 from rtl.bonfire_interfaces import DbusBundle, Wishbone_master_bundle
 from rtl.config import BonfireConfig
-from rtl.debugModule import AbstractDebugTransportBundle
-from rtl.jtag_dtm import JtagDTM
+from rtl.debug import DmiBundle
+from rtl.debug.jtag_dtm import JtagDTM
 from rtl.type_aliases import BitSignal
 from rtl.uncore import bonfire_core_ex, ram_dp
 from rtl.uncore.dbus_interconnect import AdrMask
@@ -231,14 +231,14 @@ class BonfireCoreSoC:
         else:
             reset_i = self.reset_logic(sysclk,resetn,o_resetn,i_locked,reset)
 
-        debug_transport: AbstractDebugTransportBundle | None = None
+        debug_transport: DmiBundle | None = None
         if self.enableJtagDebug:
             assert jtag_tck is not None, "enableJtagDebug requires jtag_tck"
             assert jtag_tms is not None, "enableJtagDebug requires jtag_tms"
             assert jtag_tdi is not None, "enableJtagDebug requires jtag_tdi"
             assert jtag_tdo is not None, "enableJtagDebug requires jtag_tdo"
             assert jtag_trstn is not None, "enableJtagDebug requires jtag_trstn"
-            debug_transport = AbstractDebugTransportBundle(self.config)
+            debug_transport = DmiBundle(self.config)
             jtag_i = JtagDTM(self.config).createInstance(
                 sysclk, reset, jtag_tck, jtag_tms, jtag_tdi, jtag_trstn,
                 jtag_tdo, debug_transport)

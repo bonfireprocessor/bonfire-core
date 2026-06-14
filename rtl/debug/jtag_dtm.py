@@ -4,15 +4,15 @@ JTAG Debug Transport Module for the Bonfire debug module.
 License: See LICENSE
 
 This implements a small RISC-V debug compatible TAP with IDCODE, DTMCS, DMI
-and BYPASS instructions. The DMI scan register drives the existing
-AbstractDebugTransportBundle used by rtl.debugModule.DMI.
+and BYPASS instructions. The DMI scan register drives the DmiBundle consumed
+by the Debug Module Interface.
 """
 from __future__ import annotations
 
 from typing import Any
 
 from myhdl import *
-from rtl.debugModule import AbstractDebugTransportBundle
+from rtl.debug import DmiBundle
 from rtl.type_aliases import BitSignal
 
 
@@ -35,7 +35,7 @@ DMI_OP_READ = 1
 DMI_OP_WRITE = 2
 DMI_OP_SUCCESS = 0
 
-t_tapState = enum(
+t_tap_state = enum(
     'test_logic_reset',
     'run_test_idle',
     'select_dr_scan',
@@ -71,7 +71,7 @@ class JtagDTM:
         tdi_i: BitSignal,
         trstn_i: BitSignal,
         tdo_o: BitSignal,
-        dtm: AbstractDebugTransportBundle,
+        dtm: DmiBundle,
         tap_state_o: Any = None,
     ) -> Any:
         """Create a JTAG DTM instance.
@@ -84,7 +84,7 @@ class JtagDTM:
         dmi_width = self.dmi_width
         dr_width = dmi_width
 
-        tap_state = Signal(t_tapState.test_logic_reset)
+        tap_state = Signal(t_tap_state.test_logic_reset)
         instruction = Signal(modbv(JTAG_INSTR_IDCODE)[JTAG_IR_WIDTH:])
         ir_shift = Signal(modbv(0)[JTAG_IR_WIDTH:])
         dr_shift = Signal(modbv(0)[dr_width:])
@@ -129,9 +129,9 @@ class JtagDTM:
             if not trstn_sync:
                 tdo_o.next = False
             elif tck_fall:
-                if tap_state == t_tapState.shift_ir:
+                if tap_state == t_tap_state.shift_ir:
                     tdo_o.next = ir_shift[0]
-                elif tap_state == t_tapState.shift_dr:
+                elif tap_state == t_tap_state.shift_dr:
                     if instruction == JTAG_INSTR_BYPASS:
                         tdo_o.next = bypass
                     else:
@@ -147,88 +147,88 @@ class JtagDTM:
         @always_seq(clock.posedge, reset=reset)
         def tap_state_transition():
             if not trstn_sync:
-                tap_state.next = t_tapState.test_logic_reset
+                tap_state.next = t_tap_state.test_logic_reset
             elif tck_rise:
-                if tap_state == t_tapState.test_logic_reset:
+                if tap_state == t_tap_state.test_logic_reset:
                     if tms_sync:
-                        tap_state.next = t_tapState.test_logic_reset
+                        tap_state.next = t_tap_state.test_logic_reset
                     else:
-                        tap_state.next = t_tapState.run_test_idle
-                elif tap_state == t_tapState.run_test_idle:
+                        tap_state.next = t_tap_state.run_test_idle
+                elif tap_state == t_tap_state.run_test_idle:
                     if tms_sync:
-                        tap_state.next = t_tapState.select_dr_scan
+                        tap_state.next = t_tap_state.select_dr_scan
                     else:
-                        tap_state.next = t_tapState.run_test_idle
-                elif tap_state == t_tapState.select_dr_scan:
+                        tap_state.next = t_tap_state.run_test_idle
+                elif tap_state == t_tap_state.select_dr_scan:
                     if tms_sync:
-                        tap_state.next = t_tapState.select_ir_scan
+                        tap_state.next = t_tap_state.select_ir_scan
                     else:
-                        tap_state.next = t_tapState.capture_dr
-                elif tap_state == t_tapState.capture_dr:
+                        tap_state.next = t_tap_state.capture_dr
+                elif tap_state == t_tap_state.capture_dr:
                     if tms_sync:
-                        tap_state.next = t_tapState.exit1_dr
+                        tap_state.next = t_tap_state.exit1_dr
                     else:
-                        tap_state.next = t_tapState.shift_dr
-                elif tap_state == t_tapState.shift_dr:
+                        tap_state.next = t_tap_state.shift_dr
+                elif tap_state == t_tap_state.shift_dr:
                     if tms_sync:
-                        tap_state.next = t_tapState.exit1_dr
+                        tap_state.next = t_tap_state.exit1_dr
                     else:
-                        tap_state.next = t_tapState.shift_dr
-                elif tap_state == t_tapState.exit1_dr:
+                        tap_state.next = t_tap_state.shift_dr
+                elif tap_state == t_tap_state.exit1_dr:
                     if tms_sync:
-                        tap_state.next = t_tapState.update_dr
+                        tap_state.next = t_tap_state.update_dr
                     else:
-                        tap_state.next = t_tapState.pause_dr
-                elif tap_state == t_tapState.pause_dr:
+                        tap_state.next = t_tap_state.pause_dr
+                elif tap_state == t_tap_state.pause_dr:
                     if tms_sync:
-                        tap_state.next = t_tapState.exit2_dr
+                        tap_state.next = t_tap_state.exit2_dr
                     else:
-                        tap_state.next = t_tapState.pause_dr
-                elif tap_state == t_tapState.exit2_dr:
+                        tap_state.next = t_tap_state.pause_dr
+                elif tap_state == t_tap_state.exit2_dr:
                     if tms_sync:
-                        tap_state.next = t_tapState.update_dr
+                        tap_state.next = t_tap_state.update_dr
                     else:
-                        tap_state.next = t_tapState.shift_dr
-                elif tap_state == t_tapState.update_dr:
+                        tap_state.next = t_tap_state.shift_dr
+                elif tap_state == t_tap_state.update_dr:
                     if tms_sync:
-                        tap_state.next = t_tapState.select_dr_scan
+                        tap_state.next = t_tap_state.select_dr_scan
                     else:
-                        tap_state.next = t_tapState.run_test_idle
-                elif tap_state == t_tapState.select_ir_scan:
+                        tap_state.next = t_tap_state.run_test_idle
+                elif tap_state == t_tap_state.select_ir_scan:
                     if tms_sync:
-                        tap_state.next = t_tapState.test_logic_reset
+                        tap_state.next = t_tap_state.test_logic_reset
                     else:
-                        tap_state.next = t_tapState.capture_ir
-                elif tap_state == t_tapState.capture_ir:
+                        tap_state.next = t_tap_state.capture_ir
+                elif tap_state == t_tap_state.capture_ir:
                     if tms_sync:
-                        tap_state.next = t_tapState.exit1_ir
+                        tap_state.next = t_tap_state.exit1_ir
                     else:
-                        tap_state.next = t_tapState.shift_ir
-                elif tap_state == t_tapState.shift_ir:
+                        tap_state.next = t_tap_state.shift_ir
+                elif tap_state == t_tap_state.shift_ir:
                     if tms_sync:
-                        tap_state.next = t_tapState.exit1_ir
+                        tap_state.next = t_tap_state.exit1_ir
                     else:
-                        tap_state.next = t_tapState.shift_ir
-                elif tap_state == t_tapState.exit1_ir:
+                        tap_state.next = t_tap_state.shift_ir
+                elif tap_state == t_tap_state.exit1_ir:
                     if tms_sync:
-                        tap_state.next = t_tapState.update_ir
+                        tap_state.next = t_tap_state.update_ir
                     else:
-                        tap_state.next = t_tapState.pause_ir
-                elif tap_state == t_tapState.pause_ir:
+                        tap_state.next = t_tap_state.pause_ir
+                elif tap_state == t_tap_state.pause_ir:
                     if tms_sync:
-                        tap_state.next = t_tapState.exit2_ir
+                        tap_state.next = t_tap_state.exit2_ir
                     else:
-                        tap_state.next = t_tapState.pause_ir
-                elif tap_state == t_tapState.exit2_ir:
+                        tap_state.next = t_tap_state.pause_ir
+                elif tap_state == t_tap_state.exit2_ir:
                     if tms_sync:
-                        tap_state.next = t_tapState.update_ir
+                        tap_state.next = t_tap_state.update_ir
                     else:
-                        tap_state.next = t_tapState.shift_ir
+                        tap_state.next = t_tap_state.shift_ir
                 else:
                     if tms_sync:
-                        tap_state.next = t_tapState.select_dr_scan
+                        tap_state.next = t_tap_state.select_dr_scan
                     else:
-                        tap_state.next = t_tapState.run_test_idle
+                        tap_state.next = t_tap_state.run_test_idle
 
         @always_seq(clock.posedge, reset=reset)
         def tap_actions():
@@ -257,18 +257,18 @@ class JtagDTM:
                 dmi_read_capture.next = False
 
             if trstn_sync and tck_rise:
-                if tap_state == t_tapState.test_logic_reset and tms_sync:
+                if tap_state == t_tap_state.test_logic_reset and tms_sync:
                     instruction.next = JTAG_INSTR_IDCODE
 
-                if tap_state == t_tapState.capture_ir:
+                if tap_state == t_tap_state.capture_ir:
                     ir_shift.next = 0x01
-                elif tap_state == t_tapState.shift_ir:
+                elif tap_state == t_tap_state.shift_ir:
                     ir_shift.next[JTAG_IR_WIDTH - 1] = tdi_sync
                     ir_shift.next[JTAG_IR_WIDTH - 1:0] = ir_shift[JTAG_IR_WIDTH:1]
-                elif tap_state == t_tapState.update_ir:
+                elif tap_state == t_tap_state.update_ir:
                     instruction.next = ir_shift
 
-                if tap_state == t_tapState.capture_dr:
+                if tap_state == t_tap_state.capture_dr:
                     if instruction == JTAG_INSTR_IDCODE:
                         dr_shift.next = JTAG_IDCODE
                     elif instruction == JTAG_INSTR_DTMCS:
@@ -284,7 +284,7 @@ class JtagDTM:
                         bypass.next = False
                     else:
                         bypass.next = False
-                elif tap_state == t_tapState.shift_dr:
+                elif tap_state == t_tap_state.shift_dr:
                     if instruction == JTAG_INSTR_BYPASS:
                         bypass.next = tdi_sync
                     elif instruction == JTAG_INSTR_IDCODE or instruction == JTAG_INSTR_DTMCS:
@@ -293,7 +293,7 @@ class JtagDTM:
                     else:
                         dr_shift.next[dr_width - 1] = tdi_sync
                         dr_shift.next[dr_width - 1:0] = dr_shift[dr_width:1]
-                elif tap_state == t_tapState.update_dr:
+                elif tap_state == t_tap_state.update_dr:
                     if instruction == JTAG_INSTR_DTMCS:
                         if dr_shift[DTMCS_DMIRESET_BIT]:
                             dmistat.next = DTM_DMI_STATUS_OK

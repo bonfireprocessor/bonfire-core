@@ -12,11 +12,10 @@ from myhdl import *
 
 from rtl.simple_pipeline import *
 from rtl.fetch import FetchUnit
-from rtl import config 
-from rtl import debugModule
+from rtl import config
 from rtl.bonfire_interfaces import ControlBundle, DbusBundle, DebugOutputBundle
 from rtl.config import BonfireConfig
-from rtl.debugModule import AbstractDebugTransportBundle, DebugRegisterBundle, DMI
+from rtl.debug import DmiBundle, DebugModuleInterface, DebugModuleRegisterBundle
 from rtl.type_aliases import BitSignal
 
 class BonfireCoreTop:
@@ -27,8 +26,8 @@ class BonfireCoreTop:
         self.backend_fetch_output: BackendOutputBundle = BackendOutputBundle(config=config)
         self.backend: SimpleBackend = SimpleBackend(config=config)
         if config.enableDebugModule:
-            self.dmi: DMI = debugModule.DMI(config)
-            self.debugRegs: DebugRegisterBundle | None = debugModule.DebugRegisterBundle(config)
+            self.dmi: DebugModuleInterface = DebugModuleInterface(config)
+            self.debugRegs: DebugModuleRegisterBundle | None = DebugModuleRegisterBundle(config)
         else:
             self.debugRegs = None
 
@@ -37,7 +36,7 @@ class BonfireCoreTop:
     def createInstance(self, ibus: DbusBundle, dbus: DbusBundle, control: ControlBundle,
                        clock: BitSignal, reset: BitSignal, debug: DebugOutputBundle,
                        config: BonfireConfig | None = None,
-                       debugTransportBundle: AbstractDebugTransportBundle | None = None) -> Any:
+                       debugTransportBundle: DmiBundle | None = None) -> Any:
         """
         ibus:  DbusBundle for Instruction Bus (read only)
         dbus:  DbusBundle for Data bus
@@ -59,7 +58,7 @@ class BonfireCoreTop:
 
         if self.config.enableDebugModule:
             assert debugTransportBundle is not None, "enableDebugModule requires debugTransportBundle"
-            i_dmi = self.dmi.DMI_interface(
+            i_dmi = self.dmi.dmi_interface(
                 dtm=debugTransportBundle,
                 debugRegs=self.debugRegs,
                 clock=clock)

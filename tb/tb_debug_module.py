@@ -13,9 +13,9 @@ from typing import Any
 from myhdl import *
 
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debugModule import AbstractDebugTransportBundle, debugSpecVersion
+from rtl.debug import DmiBundle, DEBUG_SPEC_VERSION
 from rtl.instructions import CSRAdr
-from rtl.jtag_dtm import JtagDTM
+from rtl.debug.jtag_dtm import JtagDTM
 from tb.ClkDriver import ClkDriver
 from tb.debug_api import DebugAPI, DebugAPISim, JtagDebugAPISim
 from tb.disassemble import abi_name, disassemble
@@ -227,7 +227,7 @@ class BonfireCoreDebugTestbench:
     @block
     def halt_resume_stimulus(
         self,
-        dtm_bundle: AbstractDebugTransportBundle,
+        dtm_bundle: DmiBundle,
         clock: Any,
         tck: Any = None,
         tms: Any = None,
@@ -269,7 +269,7 @@ class BonfireCoreDebugTestbench:
             dmstatus = api.cmd_result()
             dm_version = dmstatus & 0x0F
             self.log("dmstatus = {} version={}".format(hex(dmstatus), dm_version))
-            assert dm_version == debugSpecVersion, "Debug Module version: {} expected {}".format(dm_version, debugSpecVersion)
+            assert dm_version == DEBUG_SPEC_VERSION, "Debug Module version: {} expected {}".format(dm_version, DEBUG_SPEC_VERSION)
 
             self.log("starting debug module smoke/integration test")
             mark("waiting initial cycles")
@@ -448,7 +448,7 @@ class BonfireCoreDebugTestbench:
 
         local_config = self.config
         local_config.enableDebugModule = True
-        dtm = AbstractDebugTransportBundle(local_config)
+        dtm = DmiBundle(local_config)
         tms = Signal(bool(1))
         tdi = Signal(bool(0))
         tdo = Signal(bool(0))

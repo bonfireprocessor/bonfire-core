@@ -14,7 +14,7 @@ from rtl import config
 from rtl import bonfire_interfaces
 from rtl.bonfire_interfaces import ControlBundle, DbusBundle, DebugOutputBundle, Wishbone_master_bundle
 from rtl.config import BonfireConfig
-from rtl.debugModule import AbstractDebugTransportBundle
+from rtl.debug import DmiBundle
 from rtl.type_aliases import BitSignal
 
 
@@ -30,7 +30,7 @@ def bonfireCoreExtendedInterface(wb_master: Wishbone_master_bundle, db_master: D
                                  wb_mask: AdrMask = AdrMask(32,28,0x2),
                                  db_mask: AdrMask = AdrMask(32,28,0x1),
                                  bram_mask: AdrMask = AdrMask(32,28,0),
-                                 debugTransportBundle: AbstractDebugTransportBundle | None = None) -> Any:
+                                 debugTransportBundle: DmiBundle | None = None) -> Any:
     """
     wb_master: Wishbone_master_bundle mapped at address 0x02000000
     db_master: DbusBundle mapped at address 0x100000000

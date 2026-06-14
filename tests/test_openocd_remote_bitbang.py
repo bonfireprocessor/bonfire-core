@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from openocd_bitbang.probe import RemoteBitbangClient, ScanResult
-from rtl.jtag_dtm import JTAG_IDCODE, JTAG_IR_WIDTH
+from rtl.debug.jtag_dtm import JTAG_IDCODE, JTAG_IR_WIDTH
 from .conftest import waveform_config
 
 OPENOCD_TIMEOUT_SECONDS = 10.0

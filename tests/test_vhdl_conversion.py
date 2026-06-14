@@ -12,9 +12,9 @@ import pytest
 from myhdl import ResetSignal, Signal, ToVHDLWarning, always_comb, block, instances, intbv
 
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debugModule import AbstractDebugTransportBundle
+from rtl.debug import DmiBundle
 from rtl.divider import DividerBundle
-from rtl.jtag_dtm import JtagDTM
+from rtl.debug.jtag_dtm import JtagDTM
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
 from rtl.soc.bonfire_core_soc_generator import (
     BonfireCoreSoCInstanceGenerator,
@@ -84,7 +84,7 @@ def test_core_vhdl_conversion(enable_debug: bool, name: str, repo_root: Path):
     dbus = bonfire_interfaces.DbusBundle(conf)
     control = bonfire_interfaces.ControlBundle(conf)
     debug = bonfire_interfaces.DebugOutputBundle(conf)
-    dtm = AbstractDebugTransportBundle(conf) if enable_debug else None
+    dtm = DmiBundle(conf) if enable_debug else None
 
     core = bonfire_core_top.BonfireCoreTop(conf)
     dut = core.createInstance(ibus, dbus, control, clock, reset, debug, debugTransportBundle=dtm)
@@ -150,7 +150,7 @@ def test_jtag_dtm_vhdl_conversion(repo_root: Path):
     tms = Signal(bool(0))
     tdi = Signal(bool(0))
     tdo = Signal(bool(0))
-    dtm = AbstractDebugTransportBundle(conf)
+    dtm = DmiBundle(conf)
 
     dut = JtagDTM(conf).createInstance(clock, reset, tck, tms, tdi, trstn, tdo, dtm)
     dut.convert(hdl="VHDL", path=str(output_dir), name=name)

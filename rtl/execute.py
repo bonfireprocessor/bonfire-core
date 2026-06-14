@@ -68,6 +68,8 @@ class ExecuteBundle(PipelineControl):
         jump_busy = Signal(bool(0)) # Only used when not config.jump_bypass
 
         jump_we = Signal(bool(0)) # rd write enable on jal/jalr
+        debug_control_flow_r = Signal(bool(0))
+        debug_redirect_kill = Signal(bool(0))
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
@@ -84,23 +86,29 @@ class ExecuteBundle(PipelineControl):
         p_inst = self.pipeline_instance(busy,valid)
 
         if self.config.enableDebugModule:
-            @always_comb
-            def debug_retire_comb():
+            @always_seq(clock.posedge, reset=reset)
+            def debug_retire_seq():
+                debug_redirect_kill.next = debugRegisterBundle.dpc_jump
                 debugRegisterBundle.instr_retired.next = valid
-                debugRegisterBundle.instr_retire_dpc.next = decode.next_ip_o[self.config.xlen:self.config.ip_low]
-                if self.taken and (decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd) and jump:
-                    debugRegisterBundle.instr_retire_dpc.next = jump_dest[self.config.xlen:self.config.ip_low]
+                if valid:
+                    debugRegisterBundle.instr_retire_dpc.next = decode.next_ip_o[self.config.xlen:self.config.ip_low]
+                    if decode.jump_cmd:
+                        debugRegisterBundle.instr_retire_dpc.next = decode.jump_dest_o[self.config.xlen:self.config.ip_low]
+                    elif debug_control_flow_r and jump_r:
+                        debugRegisterBundle.instr_retire_dpc.next = jump_dest_r[self.config.xlen:self.config.ip_low]
 
 
         @always_seq(clock.posedge,reset=reset)
         def seq():
 
             jump_busy.next = False
+            debug_control_flow_r.next = False
             if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
                 jump_busy.next = jump and not self.config.jump_bypass
+                debug_control_flow_r.next = decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd
 
 
                 # # Debug code
@@ -133,9 +141,15 @@ class ExecuteBundle(PipelineControl):
             valid.next = self.alu.valid_o or self.ls.valid_o  or self.csr.valid_o  or jump_we
 
             if self.config.jump_bypass:
-                decode.kill_i.next =  self.taken and jump
+                if self.config.enableDebugModule:
+                    decode.kill_i.next = (self.taken and jump) or debug_redirect_kill
+                else:
+                    decode.kill_i.next = self.taken and jump
             else:
-                decode.kill_i.next = jump_busy
+                if self.config.enableDebugModule:
+                    decode.kill_i.next = jump_busy or debug_redirect_kill
+                else:
+                    decode.kill_i.next = jump_busy
 
 
             # Functional Unit selection

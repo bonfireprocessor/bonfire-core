@@ -11,10 +11,10 @@ from typing import Any
 from myhdl import *
 
 from rtl.config import BonfireConfig
-from rtl.debugModule import AbstractDebugTransportBundle
+from rtl.debug import DmiBundle
 from rtl.type_aliases import BitSignal
 from tb.ClkDriver import ClkDriver
-from rtl.jtag_dtm import (
+from rtl.debug.jtag_dtm import (
     DTM_IDLE,
     DMI_OP_READ,
     DMI_OP_WRITE,
@@ -25,7 +25,7 @@ from rtl.jtag_dtm import (
     JTAG_INSTR_IDCODE,
     JTAG_IR_WIDTH,
     JtagDTM,
-    t_tapState,
+    t_tap_state,
 )
 
 
@@ -125,41 +125,41 @@ class JtagBFM:
 
 
 TAP_STATE_PATHS = (
-    (t_tapState.test_logic_reset, (1, 1, 1)),
-    (t_tapState.run_test_idle, ()),
-    (t_tapState.select_dr_scan, (1,)),
-    (t_tapState.capture_dr, (1, 0)),
-    (t_tapState.shift_dr, (1, 0, 0)),
-    (t_tapState.exit1_dr, (1, 0, 0, 1)),
-    (t_tapState.pause_dr, (1, 0, 0, 1, 0)),
-    (t_tapState.exit2_dr, (1, 0, 0, 1, 0, 1)),
-    (t_tapState.update_dr, (1, 0, 0, 1, 1)),
-    (t_tapState.select_ir_scan, (1, 1)),
-    (t_tapState.capture_ir, (1, 1, 0)),
-    (t_tapState.shift_ir, (1, 1, 0, 0)),
-    (t_tapState.exit1_ir, (1, 1, 0, 0, 1)),
-    (t_tapState.pause_ir, (1, 1, 0, 0, 1, 0)),
-    (t_tapState.exit2_ir, (1, 1, 0, 0, 1, 0, 1)),
-    (t_tapState.update_ir, (1, 1, 0, 0, 1, 1)),
+    (t_tap_state.test_logic_reset, (1, 1, 1)),
+    (t_tap_state.run_test_idle, ()),
+    (t_tap_state.select_dr_scan, (1,)),
+    (t_tap_state.capture_dr, (1, 0)),
+    (t_tap_state.shift_dr, (1, 0, 0)),
+    (t_tap_state.exit1_dr, (1, 0, 0, 1)),
+    (t_tap_state.pause_dr, (1, 0, 0, 1, 0)),
+    (t_tap_state.exit2_dr, (1, 0, 0, 1, 0, 1)),
+    (t_tap_state.update_dr, (1, 0, 0, 1, 1)),
+    (t_tap_state.select_ir_scan, (1, 1)),
+    (t_tap_state.capture_ir, (1, 1, 0)),
+    (t_tap_state.shift_ir, (1, 1, 0, 0)),
+    (t_tap_state.exit1_ir, (1, 1, 0, 0, 1)),
+    (t_tap_state.pause_ir, (1, 1, 0, 0, 1, 0)),
+    (t_tap_state.exit2_ir, (1, 1, 0, 0, 1, 0, 1)),
+    (t_tap_state.update_ir, (1, 1, 0, 0, 1, 1)),
 )
 
 TAP_TRANSITIONS = (
-    (t_tapState.test_logic_reset, t_tapState.run_test_idle, t_tapState.test_logic_reset),
-    (t_tapState.run_test_idle, t_tapState.run_test_idle, t_tapState.select_dr_scan),
-    (t_tapState.select_dr_scan, t_tapState.capture_dr, t_tapState.select_ir_scan),
-    (t_tapState.capture_dr, t_tapState.shift_dr, t_tapState.exit1_dr),
-    (t_tapState.shift_dr, t_tapState.shift_dr, t_tapState.exit1_dr),
-    (t_tapState.exit1_dr, t_tapState.pause_dr, t_tapState.update_dr),
-    (t_tapState.pause_dr, t_tapState.pause_dr, t_tapState.exit2_dr),
-    (t_tapState.exit2_dr, t_tapState.shift_dr, t_tapState.update_dr),
-    (t_tapState.update_dr, t_tapState.run_test_idle, t_tapState.select_dr_scan),
-    (t_tapState.select_ir_scan, t_tapState.capture_ir, t_tapState.test_logic_reset),
-    (t_tapState.capture_ir, t_tapState.shift_ir, t_tapState.exit1_ir),
-    (t_tapState.shift_ir, t_tapState.shift_ir, t_tapState.exit1_ir),
-    (t_tapState.exit1_ir, t_tapState.pause_ir, t_tapState.update_ir),
-    (t_tapState.pause_ir, t_tapState.pause_ir, t_tapState.exit2_ir),
-    (t_tapState.exit2_ir, t_tapState.shift_ir, t_tapState.update_ir),
-    (t_tapState.update_ir, t_tapState.run_test_idle, t_tapState.select_dr_scan),
+    (t_tap_state.test_logic_reset, t_tap_state.run_test_idle, t_tap_state.test_logic_reset),
+    (t_tap_state.run_test_idle, t_tap_state.run_test_idle, t_tap_state.select_dr_scan),
+    (t_tap_state.select_dr_scan, t_tap_state.capture_dr, t_tap_state.select_ir_scan),
+    (t_tap_state.capture_dr, t_tap_state.shift_dr, t_tap_state.exit1_dr),
+    (t_tap_state.shift_dr, t_tap_state.shift_dr, t_tap_state.exit1_dr),
+    (t_tap_state.exit1_dr, t_tap_state.pause_dr, t_tap_state.update_dr),
+    (t_tap_state.pause_dr, t_tap_state.pause_dr, t_tap_state.exit2_dr),
+    (t_tap_state.exit2_dr, t_tap_state.shift_dr, t_tap_state.update_dr),
+    (t_tap_state.update_dr, t_tap_state.run_test_idle, t_tap_state.select_dr_scan),
+    (t_tap_state.select_ir_scan, t_tap_state.capture_ir, t_tap_state.test_logic_reset),
+    (t_tap_state.capture_ir, t_tap_state.shift_ir, t_tap_state.exit1_ir),
+    (t_tap_state.shift_ir, t_tap_state.shift_ir, t_tap_state.exit1_ir),
+    (t_tap_state.exit1_ir, t_tap_state.pause_ir, t_tap_state.update_ir),
+    (t_tap_state.pause_ir, t_tap_state.pause_ir, t_tap_state.exit2_ir),
+    (t_tap_state.exit2_ir, t_tap_state.shift_ir, t_tap_state.update_ir),
+    (t_tap_state.update_ir, t_tap_state.run_test_idle, t_tap_state.select_dr_scan),
 )
 
 
@@ -173,8 +173,8 @@ def jtag_dtm_testbench(verbose: bool = True):
     tms = Signal(bool(1))
     tdi = Signal(bool(0))
     tdo = Signal(bool(0))
-    dtm = AbstractDebugTransportBundle(conf)
-    tap_state = Signal(t_tapState.test_logic_reset)
+    dtm = DmiBundle(conf)
+    tap_state = Signal(t_tap_state.test_logic_reset)
     last_scan = Signal(modbv(0)[conf.dmi_adr_width + 34:])
     regs = [Signal(modbv(0)[32:]) for _ in range(2**conf.dmi_adr_width)]
 
@@ -206,7 +206,7 @@ def jtag_dtm_testbench(verbose: bool = True):
 
         def go_to_run_test_idle() -> Generator[Any, None, None]:
             yield bfm.reset()
-            check_state(t_tapState.run_test_idle, "reset path to Run-Test/Idle")
+            check_state(t_tap_state.run_test_idle, "reset path to Run-Test/Idle")
 
         def go_to_state(target: Any) -> Generator[Any, None, None]:
             yield go_to_run_test_idle()
@@ -241,7 +241,7 @@ def jtag_dtm_testbench(verbose: bool = True):
         print("@{}ns [jtag-tb] deassert TRST#".format(now()))
         yield delay(50)
         yield bfm.reset()
-        check_state(t_tapState.run_test_idle, "initial TAP reset")
+        check_state(t_tap_state.run_test_idle, "initial TAP reset")
 
         yield test_tap_state_machine()
         yield bfm.reset()
