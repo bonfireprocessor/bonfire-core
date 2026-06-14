@@ -92,6 +92,7 @@ class SoCGenerationConfigBuilder:
         "enable_gpio": True,
         "debug": False,
         "enable_jtag_debug": False,
+        "enable_debug_ndmreset": False,
         "inst_uart_only": False,
         "uart_fifo_depth": 6,
     }

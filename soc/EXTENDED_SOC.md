@@ -88,6 +88,8 @@ Common parameters:
 | `num_leds` | `numLeds` | Width of the LED output |
 | `led_active_low` | `ledActiveLow` | LED output polarity |
 | `expose_wishbone_master` | `exposeWishboneMaster` | Expose Wishbone instead of using internal dummy |
+| `enable_jtag_debug` | `enableJtagDebug` | Enable the JTAG debug transport |
+| `enable_debug_ndmreset` | `enableDebugNdmreset` | Enable Debug Module `ndmreset` reset control |
 | `top_entity_name` | `topEntityName` | Public generated entity name |
 
 Extended-wrapper-only parameters:

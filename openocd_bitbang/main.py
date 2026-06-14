@@ -46,6 +46,7 @@ def serve_openocd_bitbang(
     observe_jtag: bool = False,
     debug_trace: bool = False,
     info_trace: bool = False,
+    enable_ndmreset: bool = True,
     exit_on_client_quit: bool = False,
 ) -> int:
     control = OpenOCDBitbangControl(host=host, port=port)
@@ -53,8 +54,11 @@ def serve_openocd_bitbang(
     control.port = server_socket.getsockname()[1]
     print("OpenOCD remote_bitbang listening on {}:{}".format(control.host, control.port), flush=True)
 
+    bonfire_config = BonfireConfig()
+    bonfire_config.enableDebugNdmreset = enable_ndmreset
+
     tb = OpenOCDBitbangTestbench(
-        BonfireConfig(),
+        bonfire_config,
         hexfile=str(hexfile),
         ramsize=ramsize,
         server_socket=server_socket,
@@ -115,6 +119,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--observe-jtag", action="store_true", help="Print decoded TAP state and scan activity")
     parser.add_argument("--debug-trace", action="store_true", help="Print Debug Module and progbuf execution trace")
     parser.add_argument("--info-trace", action="store_true", help="Print compact hart and abstract-command trace")
+    parser.add_argument("--disable-ndmreset", action="store_true", help="Disable Debug Module ndmreset handling")
     parser.add_argument("--exit-on-client-quit", action="store_true", help="Exit after the remote_bitbang client sends Q")
     parser.add_argument("--vcd", type=Path, default=None, help="Optional VCD output filename base")
     return parser.parse_args()
@@ -137,6 +142,7 @@ def main() -> int:
         observe_jtag=args.observe_jtag,
         debug_trace=args.debug_trace,
         info_trace=args.info_trace,
+        enable_ndmreset=not args.disable_ndmreset,
         exit_on_client_quit=args.exit_on_client_quit,
     )
 

@@ -11,6 +11,7 @@ class BonfireConfig:
         self.reset_address=0x0
         self.mcause_max = 64 # Highest mcause reason
         self.enableDebugModule=False # Enable RISC-V Debug Module
+        self.enableDebugNdmreset=False # Enable Debug Module non-debug-module reset control
         self.num_dscratch = 1 # Number of dscratch registers
         self.numdata = 1 # Number of Debug Data Registers
         self.dm_maxregno=0x101f

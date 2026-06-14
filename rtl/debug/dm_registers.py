@@ -38,6 +38,7 @@ class DebugModuleRegisterBundle:
         self.haltreq = Signal(bool(0))
         self.resumereq = Signal(bool(0))
         self.hart_reset = Signal(bool(0))
+        self.ndmreset = Signal(bool(0))
         self.abstract_command_new = Signal(bool(0))
 
         # Abstract Command access register fields written by DMI
@@ -95,3 +96,4 @@ class DmiBundle:
         self.we = Signal(bool(0))
         self.dbi = Signal(modbv(0)[32:])
         self.dbo = Signal(modbv(0)[32:])
+        self.ndmreset = Signal(bool(0))
