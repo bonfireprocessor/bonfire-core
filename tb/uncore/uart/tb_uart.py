@@ -4,7 +4,7 @@ from myhdl import ResetSignal, Signal, StopSimulation, block, delay, instance, i
 
 from rtl import config
 from rtl.bonfire_interfaces import DbusBundle
-from rtl.uncore.uart import bonfire_uart
+from rtl.uncore.uart import BonfireUart
 from tb.ClkDriver import ClkDriver
 from tb.uncore.uart.uart_capture import UartCaptureResult, uart_tx_capture
 
@@ -60,7 +60,8 @@ def tb_uart_registers():
     dbus, clock, reset, tx, rx, irq, enabled = _dbus_signals()
 
     clk_driver = ClkDriver(clock, period=CLK_PERIOD)
-    dut = bonfire_uart(dbus, clock, reset, tx, rx, irq, enabled, fifo_bits=5)
+    uart = BonfireUart(fifo_bits=5)
+    dut = uart.createInstance(dbus, clock, reset, tx, rx, irq, enabled)
 
     @instance
     def stimulus():
@@ -144,7 +145,8 @@ def tb_uart_tx_capture():
     bit_time = (divisor + 1) * CLK_PERIOD
 
     clk_driver = ClkDriver(clock, period=CLK_PERIOD)
-    dut = bonfire_uart(dbus, clock, reset, tx, rx, irq, enabled, fifo_bits=5)
+    uart = BonfireUart(fifo_bits=5)
+    dut = uart.createInstance(dbus, clock, reset, tx, rx, irq, enabled)
     capture = uart_tx_capture(
         tx,
         bit_time,
@@ -239,7 +241,8 @@ def tb_uart_rx():
     bit_time = (divisor + 1) * CLK_PERIOD
 
     clk_driver = ClkDriver(clock, period=CLK_PERIOD)
-    dut = bonfire_uart(dbus, clock, reset, tx, rx, irq, enabled, fifo_bits=5)
+    uart = BonfireUart(fifo_bits=5)
+    dut = uart.createInstance(dbus, clock, reset, tx, rx, irq, enabled)
 
     @instance
     def stimulus():

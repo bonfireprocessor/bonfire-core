@@ -1,3 +1,3 @@
-from rtl.uncore.uart.uart import bonfire_uart
+from rtl.uncore.uart.uart import BonfireUart
 
-__all__ = ["bonfire_uart"]
+__all__ = ["BonfireUart"]

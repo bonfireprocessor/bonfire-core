@@ -6,7 +6,7 @@ from myhdl import ResetSignal, Signal, ToVHDLWarning
 
 from rtl import config
 from rtl.bonfire_interfaces import DbusBundle
-from rtl.uncore.uart import bonfire_uart
+from rtl.uncore.uart import BonfireUart
 from tb.uncore.uart import tb_uart
 
 from .conftest import run_sim, waveform_config
@@ -58,7 +58,8 @@ def test_uart_vhdl_conversion(repo_root):
     irq = Signal(bool(0))
     enabled = Signal(bool(0))
 
-    dut = bonfire_uart(dbus, clock, reset, tx, rx, irq, enabled, fifo_bits=5)
+    uart = BonfireUart(fifo_bits=5)
+    dut = uart.createInstance(dbus, clock, reset, tx, rx, irq, enabled)
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", ToVHDLWarning)
