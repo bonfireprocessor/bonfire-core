@@ -63,7 +63,7 @@ def gen_extended_core(config,hdl,name,path,bram_adr_base=0,bramAdrWidth=12,handl
     soc_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master,dbus,
             bram_port_a,bram_port_b,clock,reset,config=config,
             bram_mask=AdrMask(32,28,bram_adr_base),
-            wb_mask=AdrMask(32,28,0),
+            wb_mask=AdrMask(32,28,2),
             db_mask=AdrMask(32,28,1))
 
     with warnings.catch_warnings():
