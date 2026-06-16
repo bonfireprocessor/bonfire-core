@@ -12,6 +12,7 @@ from myhdl import *
 
 from rtl.bonfire_interfaces import DbusBundle
 from rtl.type_aliases import BitSignal
+from util.diagnostics import get_diagnostics
 
 class AdrMask:
     def __init__(self, upper: int, lower: int, value: int) -> None:
@@ -19,9 +20,87 @@ class AdrMask:
         self.lower: int = lower
         self.mask: int = value
 
+    def base_address(self, xlen: int = 32) -> int:
+        return self.mask << self.lower
+
+    def address_mask(self, xlen: int = 32) -> int:
+        width = self.upper - self.lower
+        field_mask = ((1 << width) - 1) << self.lower
+        return field_mask & ((1 << xlen) - 1)
+
+    def mapped_range(self, xlen: int = 32) -> tuple[int, int]:
+        address_mask = self.address_mask(xlen)
+        base = self.base_address(xlen)
+        full_mask = (1 << xlen) - 1
+        return base, base | (full_mask ^ address_mask)
+
 
 
 class DbusInterConnects:
+
+    @staticmethod
+    def _validate_adrmask(adrmask: AdrMask, xlen: int, label: str) -> None:
+        assert 0 <= adrmask.lower < adrmask.upper <= xlen, (
+            "{} invalid address mask bit range: upper={} lower={} xlen={}".format(
+                label, adrmask.upper, adrmask.lower, xlen))
+        width = adrmask.upper - adrmask.lower
+        assert 0 <= adrmask.mask < (1 << width), (
+            "{} invalid address mask value: mask=0x{:x} does not fit in {} bits".format(
+                label, adrmask.mask, width))
+
+    @staticmethod
+    def _adrmasks_overlap(a: AdrMask, b: AdrMask, xlen: int) -> bool:
+        common_lower = min(a.lower, b.lower)
+        common_upper = max(a.upper, b.upper)
+        width = common_upper - common_lower
+        a_value = (a.base_address(xlen) >> common_lower) & ((1 << width) - 1)
+        b_value = (b.base_address(xlen) >> common_lower) & ((1 << width) - 1)
+        a_mask = a.address_mask(xlen) >> common_lower
+        b_mask = b.address_mask(xlen) >> common_lower
+        return (a_value & b_mask) == (b_value & a_mask)
+
+    @staticmethod
+    def _validate_and_log_mapping(slaves: Sequence[DbusBundle],
+                                  adrmasks: Sequence[AdrMask],
+                                  names: Sequence[str],
+                                  xlen: int,
+                                  interconnect_name: str) -> None:
+        active: list[tuple[int, DbusBundle, AdrMask, str]] = []
+        assert len(slaves) == len(adrmasks)
+        assert len(slaves) == len(names)
+
+        diagnostics = get_diagnostics()
+        diagnostics.detail("{}: DBUS address map".format(interconnect_name))
+        for i, slave in enumerate(slaves):
+            if slave is None:
+                assert adrmasks[i] is None, (
+                    "{} slot {} {} is disabled but has an address mask".format(
+                        interconnect_name, i, names[i]))
+                diagnostics.detail("{}:   slot {} {} disabled".format(interconnect_name, i, names[i]))
+                continue
+
+            adrmask = adrmasks[i]
+            assert adrmask is not None, (
+                "{} slot {} {} has a slave but no address mask".format(
+                    interconnect_name, i, names[i]))
+            DbusInterConnects._validate_adrmask(
+                adrmask, xlen, "{} slot {} {}".format(interconnect_name, i, names[i]))
+            base, end = adrmask.mapped_range(xlen)
+            address_mask = adrmask.address_mask(xlen)
+            diagnostics.detail(
+                "{}:   slot {} {} active: bits [{}:{}] == 0x{:x}, "
+                "base=0x{:08x}, addr_mask=0x{:08x}, range=0x{:08x}..0x{:08x}".format(
+                    interconnect_name, i, names[i], adrmask.upper - 1, adrmask.lower,
+                    adrmask.mask, base, address_mask, base, end))
+            active.append((i, slave, adrmask, names[i]))
+
+        for a_index, _, a_mask, a_name in active:
+            for b_index, _, b_mask, b_name in active:
+                if b_index <= a_index:
+                    continue
+                assert not DbusInterConnects._adrmasks_overlap(a_mask, b_mask, xlen), (
+                    "{} slots {} {} and {} {} have overlapping address decode".format(
+                        interconnect_name, a_index, a_name, b_index, b_name))
 
     @staticmethod
     @block
@@ -153,6 +232,65 @@ class DbusInterConnects:
             master_ack_i.next = t_ack
             ack.next = t_ack
             master_stall_i.next = stall
+
+        return instances()
+
+    @staticmethod
+    @block
+    def Master8Slaves(master: DbusBundle, clock: BitSignal, reset: BitSignal,
+                      slave0: DbusBundle | None = None,
+                      slave1: DbusBundle | None = None,
+                      slave2: DbusBundle | None = None,
+                      slave3: DbusBundle | None = None,
+                      slave4: DbusBundle | None = None,
+                      slave5: DbusBundle | None = None,
+                      slave6: DbusBundle | None = None,
+                      slave7: DbusBundle | None = None,
+                      adrmask0: AdrMask | None = None,
+                      adrmask1: AdrMask | None = None,
+                      adrmask2: AdrMask | None = None,
+                      adrmask3: AdrMask | None = None,
+                      adrmask4: AdrMask | None = None,
+                      adrmask5: AdrMask | None = None,
+                      adrmask6: AdrMask | None = None,
+                      adrmask7: AdrMask | None = None) -> Any:
+        slots = (slave0, slave1, slave2, slave3, slave4, slave5, slave6, slave7)
+        masks = (adrmask0, adrmask1, adrmask2, adrmask3, adrmask4, adrmask5, adrmask6, adrmask7)
+        names = ("slave0", "slave1", "slave2", "slave3", "slave4", "slave5", "slave6", "slave7")
+
+        DbusInterConnects._validate_and_log_mapping(
+            slots, masks, names, master.xlen, "Master8Slaves")
+
+        active_slaves = []
+        active_masks = []
+        for i, slave in enumerate(slots):
+            if slave is not None:
+                active_slaves.append(slave)
+                active_masks.append(masks[i])
+
+        if active_slaves:
+            slave_port_en_o = tuple(slave.en_o for slave in active_slaves)
+            slave_port_adr_o = tuple(slave.adr_o for slave in active_slaves)
+            slave_port_we_o = tuple(slave.we_o for slave in active_slaves)
+            slave_port_db_wr = tuple(slave.db_wr for slave in active_slaves)
+            slave_port_ack_i = tuple(slave.ack_i for slave in active_slaves)
+            slave_port_error_i = tuple(slave.error_i for slave in active_slaves)
+            slave_port_stall_i = tuple(slave.stall_i for slave in active_slaves)
+            slave_port_db_rd = tuple(slave.db_rd for slave in active_slaves)
+
+            ic = DbusInterConnects.MasterNSlaveSignals(
+                master.en_o, master.adr_o, master.we_o, master.db_wr,
+                master.ack_i, master.error_i, master.stall_i, master.db_rd,
+                slave_port_en_o, slave_port_adr_o, slave_port_we_o, slave_port_db_wr,
+                slave_port_ack_i, slave_port_error_i, slave_port_stall_i, slave_port_db_rd,
+                clock, reset, active_masks)
+        else:
+            @always_comb
+            def no_slaves():
+                master.ack_i.next = False
+                master.error_i.next = master.en_o
+                master.stall_i.next = False
+                master.db_rd.next = 0
 
         return instances()
 
