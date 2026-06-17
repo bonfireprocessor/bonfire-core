@@ -92,6 +92,8 @@ class BonfireUart:
         irq: BitSignal,
         enabled: BitSignal,
         tx_divider: Any,
+        rx_start_qual_ticks: Any,
+        rx_start_sample_ticks: Any,
         ext_mode_en: Any,
         enabled_q: Any,
         fifo_threshold: Any,
@@ -171,6 +173,22 @@ class BonfireUart:
             if write_cycle:
                 if dbus.adr_o[4:2] == 2:
                     tx_divider.next = dbus.db_wr[16:0]
+                    # Precompute RX timing from the programmed bit divider so the
+                    # receive FSM only consumes buffered values.  The start-bit
+                    # qualifier uses a shift/add approximation of 13/16 bit time
+                    # (~81.25%), and the remaining delay to the first data-bit
+                    # sample uses 11/16 bit time.  This avoids synthesizing a
+                    # divide-by-5 datapath in the active RX logic.
+                    rx_start_qual_ticks.next = (
+                        (dbus.db_wr[16:0] >> 1)
+                        + (dbus.db_wr[16:0] >> 2)
+                        + (dbus.db_wr[16:0] >> 4)
+                    )
+                    rx_start_sample_ticks.next = (
+                        (dbus.db_wr[16:0] >> 1)
+                        + (dbus.db_wr[16:0] >> 3)
+                        + (dbus.db_wr[16:0] >> 4)
+                    )
                     enabled_q.next = dbus.db_wr[16]
                     ext_mode_en.next = dbus.db_wr[17]
                     fifo_threshold.next = dbus.db_wr[18 + self.fifo_bits:18]
@@ -188,46 +206,93 @@ class BonfireUart:
         reset: BitSignal,
         rx: BitSignal,
         tx_divider: Any,
+        rx_start_qual_ticks: Any,
+        rx_start_sample_ticks: Any,
         rx_data: Any,
         rx_ready: Any,
         rx_framing_error: Any,
         rx_reg_read: Any,
     ) -> Any:
         rx_busy = Signal(bool(0))
+        start_candidate = Signal(bool(0))
+        stop_bit = Signal(bool(0))
         rx_shift = Signal(modbv(0)[8:])
         rx_bit_index = Signal(modbv(0)[4:])
         rx_div_count = Signal(modbv(0)[16:])
+        start_ticks = Signal(modbv(0)[16:])
+        rx_sample_phase = Signal(modbv(0)[2:])
+        rx_sample_ones = Signal(modbv(0)[3:])
         rx_sync_1 = Signal(bool(1))
         rx_sync_2 = Signal(bool(1))
+        rx_prev = Signal(bool(1))
 
         @always_seq(clock.posedge, reset=reset)
         def rx_fsm():
             rx_sync_1.next = rx
             rx_sync_2.next = rx_sync_1
+            rx_prev.next = rx_sync_2
 
             if rx_reg_read:
                 rx_ready.next = False
                 rx_framing_error.next = False
 
-            if rx_busy:
+            if start_candidate:
+                if rx_sync_2:
+                    start_candidate.next = False
+                    start_ticks.next = 0
+                elif start_ticks == rx_start_qual_ticks:
+                    # Reject short low pulses and only accept a start bit after it
+                    # stayed low for roughly 13/16 of one bit time (~81.25%).
+                    # The qualification threshold and the follow-up delay to the
+                    # first data-bit sample are precomputed when the divisor is written.
+                    start_candidate.next = False
+                    start_ticks.next = 0
+                    rx_busy.next = True
+                    stop_bit.next = False
+                    rx_bit_index.next = 0
+                    rx_sample_phase.next = 0
+                    rx_sample_ones.next = 0
+                    rx_div_count.next = rx_start_sample_ticks
+                else:
+                    start_ticks.next = start_ticks + 1
+
+            elif rx_busy:
                 if rx_div_count == 0:
-                    rx_div_count.next = tx_divider
-                    if rx_bit_index < 8:
-                        rx_shift.next[rx_bit_index] = rx_sync_2
-                        rx_bit_index.next = rx_bit_index + 1
+                    if rx_sync_2:
+                        rx_sample_ones.next = rx_sample_ones + 1
+
+                    if rx_sample_phase == 2:
+                        if stop_bit:
+                            rx_data.next = rx_shift
+                            rx_ready.next = True
+                            rx_framing_error.next = not (
+                                (rx_sample_ones == 2)
+                                or ((rx_sample_ones == 1) and rx_sync_2)
+                            )
+                            rx_busy.next = False
+                            stop_bit.next = False
+                            rx_bit_index.next = 0
+                        else:
+                            rx_shift.next[rx_bit_index] = (
+                                (rx_sample_ones == 2)
+                                or ((rx_sample_ones == 1) and rx_sync_2)
+                            )
+                            if rx_bit_index == 7:
+                                stop_bit.next = True
+                            else:
+                                rx_bit_index.next = rx_bit_index + 1
+
+                        rx_sample_phase.next = 0
+                        rx_sample_ones.next = 0
+                        rx_div_count.next = tx_divider - 2
                     else:
-                        rx_data.next = rx_shift
-                        rx_ready.next = True
-                        rx_framing_error.next = not rx_sync_2
-                        rx_busy.next = False
-                        rx_bit_index.next = 0
+                        rx_sample_phase.next = rx_sample_phase + 1
+                        rx_div_count.next = 0
                 else:
                     rx_div_count.next = rx_div_count - 1
-            elif rx_sync_2 == 0:
-                # Start bit detected.  Sample first data bit at 1.5 bit times.
-                rx_busy.next = True
-                rx_bit_index.next = 0
-                rx_div_count.next = tx_divider + (tx_divider >> 1)
+            elif rx_prev and not rx_sync_2:
+                start_candidate.next = True
+                start_ticks.next = 0
 
         return instances()
 
@@ -308,6 +373,8 @@ class BonfireUart:
         assert dbus.xlen == 32, "BonfireUart currently supports a 32-bit DBus"
 
         tx_divider = Signal(modbv(0xFFFF)[16:])
+        rx_start_qual_ticks = Signal(modbv((0xFFFF >> 1) + (0xFFFF >> 2) + (0xFFFF >> 4))[16:])
+        rx_start_sample_ticks = Signal(modbv((0xFFFF >> 1) + (0xFFFF >> 3) + (0xFFFF >> 4))[16:])
         ext_mode_en = Signal(bool(0))
         enabled_q = Signal(bool(0))
         fifo_threshold = Signal(modbv(0)[self.fifo_bits:])
@@ -328,6 +395,8 @@ class BonfireUart:
             irq,
             enabled,
             tx_divider,
+            rx_start_qual_ticks,
+            rx_start_sample_ticks,
             ext_mode_en,
             enabled_q,
             fifo_threshold,
@@ -345,6 +414,8 @@ class BonfireUart:
             reset,
             rx,
             tx_divider,
+            rx_start_qual_ticks,
+            rx_start_sample_ticks,
             rx_data,
             rx_ready,
             rx_framing_error,
