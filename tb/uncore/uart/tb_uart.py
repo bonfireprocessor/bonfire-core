@@ -237,7 +237,7 @@ def tb_uart_tx_capture():
 def tb_uart_rx():
     dbus, clock, reset, tx, rx, irq, enabled = _dbus_signals()
     expected = [0x55, 0x00, 0xFF, 0xA5]
-    divisor = 3
+    divisor = 49
     bit_time = (divisor + 1) * CLK_PERIOD
 
     clk_driver = ClkDriver(clock, period=CLK_PERIOD)
@@ -277,15 +277,30 @@ def tb_uart_rx():
             _drive_idle(dbus)
             yield clock.posedge
 
-        def send_rx_byte(byte):
+        def send_rx_byte(byte, glitch_bit=None, glitch_width=0):
             print("UART RX stimulus byte: 0x{:02X}".format(byte))
             rx.next = False
             yield delay(bit_time)
             for bit in range(8):
-                rx.next = bool((byte >> bit) & 1)
-                yield delay(bit_time)
+                nominal = bool((byte >> bit) & 1)
+                rx.next = nominal
+                if glitch_bit == bit and glitch_width > 0:
+                    yield delay(bit_time // 2)
+                    rx.next = not nominal
+                    yield delay(glitch_width)
+                    rx.next = nominal
+                    yield delay(bit_time - (bit_time // 2) - glitch_width)
+                else:
+                    yield delay(bit_time)
             rx.next = True
             yield delay(bit_time)
+
+        def send_short_start_pulse(width):
+            print("UART RX short start pulse: {} ns".format(width))
+            rx.next = False
+            yield delay(width)
+            rx.next = True
+            yield delay(bit_time * 4)
 
         print("UART RX test: bit_time={} ns divisor={}".format(bit_time, divisor))
         yield write_reg(UART_REG_EXT_CONTROL, divisor | UART_CONTROL_ENABLE | UART_CONTROL_EXT_MODE)
@@ -294,8 +309,16 @@ def tb_uart_rx():
         status = [0]
         data = [0]
         received = []
-        for byte in expected:
-            yield send_rx_byte(byte)
+
+        yield send_short_start_pulse((bit_time * 3) // 5)
+        yield read_reg(UART_REG_STATUS_CONTROL, status)
+        assert status[0] & UART_STATUS_RX_READY == 0
+
+        for index, byte in enumerate(expected):
+            if index == 0:
+                yield send_rx_byte(byte, glitch_bit=3, glitch_width=bit_time // 5)
+            else:
+                yield send_rx_byte(byte)
 
             timeout = 0
             yield read_reg(UART_REG_STATUS_CONTROL, status)
