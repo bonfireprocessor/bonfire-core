@@ -3,6 +3,7 @@ from __future__ import annotations
 import subprocess
 import warnings
 from pathlib import Path
+from textwrap import dedent, indent
 
 import pytest
 from myhdl import (
@@ -25,7 +26,7 @@ from rtl.bonfire_interfaces import DbusBundle
 from rtl.uncore.dbus_interconnect import AdrMask, DbusInterConnects
 from tb.ClkDriver import ClkDriver
 from tests.conftest import run_sim, waveform_config
-from tests.toolchain import fusesoc_command, ghdl_command
+from tests.toolchain import fusesoc_command
 
 
 CLK_PERIOD = 10
@@ -779,146 +780,36 @@ def test_dbus_interconnect_master8_rejects_overlapping_masks():
             adrmask1=AdrMask(31, 28, 0x0))
 
 
-def test_dbus_interconnect_signal_array_vhdl_conversion(repo_root: Path):
-    # Conversion smoke test: MyHDL must emit VHDL that GHDL can analyze.
-    output_dir = repo_root / "vhdl_gen" / "dbus_interconnect_signal_array"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    clock = Signal(bool(0))
-    reset = ResetSignal(0, active=1, isasync=False)
-    adr = Signal(modbv(0)[32:])
-    db_wr = Signal(modbv(0)[32:])
-    we = Signal(modbv(0)[4:])
-    en = Signal(bool(0))
-    ack = Signal(bool(0))
-    error = Signal(bool(0))
-    stall = Signal(bool(0))
-    db_rd = Signal(modbv(0)[32:])
-
-    dut = dbus_interconnect_signal_array_wrapper(clock, reset, adr, db_wr, we, en, ack, error, stall, db_rd)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", ToVHDLWarning)
-        dut.convert(hdl="VHDL", path=str(output_dir), name="dbus_interconnect_signal_array")
-
-    vhdl_file = output_dir / "dbus_interconnect_signal_array.vhd"
-    assert vhdl_file.exists()
-    assert vhdl_file.stat().st_size > 0
-
-    vhdl_inputs = sorted(output_dir.glob("pck_myhdl_*.vhd")) + [vhdl_file]
-    invocation = ghdl_command(
-        "-a",
-        "--std=08",
-        "--ieee=synopsys",
-        "-frelaxed-rules",
-        *[str(path.relative_to(output_dir)) for path in vhdl_inputs],
-    )
-    result = subprocess.run(
-        invocation.command,
-        check=False,
-        cwd=output_dir,
-        env=invocation.env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, (result.stderr or result.stdout)
-
-def test_dbus_interconnect_master8_vhdl_conversion(repo_root: Path):
-    # Conversion smoke test for Master8Slaves with sparse active slots.
-    output_dir = repo_root / "vhdl_gen" / "dbus_interconnect_master8"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    clock = Signal(bool(0))
-    reset = ResetSignal(0, active=1, isasync=False)
-    adr = Signal(modbv(0)[32:])
-    db_wr = Signal(modbv(0)[32:])
-    we = Signal(modbv(0)[4:])
-    en = Signal(bool(0))
-    ack = Signal(bool(0))
-    error = Signal(bool(0))
-    stall = Signal(bool(0))
-    db_rd = Signal(modbv(0)[32:])
-
-    dut = dbus_interconnect_master8_wrapper(clock, reset, adr, db_wr, we, en, ack, error, stall, db_rd)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", ToVHDLWarning)
-        dut.convert(hdl="VHDL", path=str(output_dir), name="dbus_interconnect_master8")
-
-    vhdl_file = output_dir / "dbus_interconnect_master8.vhd"
-    assert vhdl_file.exists()
-    assert vhdl_file.stat().st_size > 0
-
-    vhdl_inputs = sorted(output_dir.glob("pck_myhdl_*.vhd")) + [vhdl_file]
-    invocation = ghdl_command(
-        "-a",
-        "--std=08",
-        "--ieee=synopsys",
-        "-frelaxed-rules",
-        *[str(path.relative_to(output_dir)) for path in vhdl_inputs],
-    )
-    result = subprocess.run(
-        invocation.command,
-        check=False,
-        cwd=output_dir,
-        env=invocation.env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, (result.stderr or result.stdout)
-
-
-def test_dbus_interconnect_master3_vhdl_conversion(repo_root: Path):
-    # Conversion smoke test for the public Master3Slaves wrapper.
-    output_dir = repo_root / "vhdl_gen" / "dbus_interconnect_master3"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    clock = Signal(bool(0))
-    reset = ResetSignal(0, active=1, isasync=False)
-    adr = Signal(modbv(0)[32:])
-    db_wr = Signal(modbv(0)[32:])
-    we = Signal(modbv(0)[4:])
-    en = Signal(bool(0))
-    ack = Signal(bool(0))
-    error = Signal(bool(0))
-    stall = Signal(bool(0))
-    db_rd = Signal(modbv(0)[32:])
-
-    dut = dbus_interconnect_master3_wrapper(clock, reset, adr, db_wr, we, en, ack, error, stall, db_rd)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", ToVHDLWarning)
-        dut.convert(hdl="VHDL", path=str(output_dir), name="dbus_interconnect_master3")
-
-    vhdl_file = output_dir / "dbus_interconnect_master3.vhd"
-    assert vhdl_file.exists()
-    assert vhdl_file.stat().st_size > 0
-
-    vhdl_inputs = sorted(output_dir.glob("pck_myhdl_*.vhd")) + [vhdl_file]
-    invocation = ghdl_command(
-        "-a",
-        "--std=08",
-        "--ieee=synopsys",
-        "-frelaxed-rules",
-        *[str(path.relative_to(output_dir)) for path in vhdl_inputs],
-    )
-    result = subprocess.run(
-        invocation.command,
-        check=False,
-        cwd=output_dir,
-        env=invocation.env,
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0, (result.stderr or result.stdout)
-
-
 def _dbus_tb_log_lines(text: str, marker: str = "DBUS_TB:") -> list[str]:
     lines = []
     for line in text.splitlines():
         if marker in line:
             lines.append(line[line.index(marker):].strip())
     return lines
+
+
+def _render_fusesoc_core(name: str, vhdl_inputs: list[Path]) -> str:
+    files = indent("\n".join(f"- {path.name}" for path in vhdl_inputs), "      ")
+    return dedent(
+        """\
+        CAPI=2:
+        name: ::{name}:0
+        filesets:
+          rtl:
+            file_type: vhdlSource-2008
+            files:
+        {files}
+        targets:
+          sim:
+            default_tool: ghdl
+            filesets: [rtl]
+            tools:
+              ghdl:
+                analyze_options: [--ieee=synopsys, -frelaxed-rules]
+                run_options: [--stop-time=500ns]
+            toplevel: {name}
+        """
+    ).format(name=name, files=files)
 
 
 def _run_converted_vhdl_testbench(dut, name: str, output_dir: Path) -> str:
@@ -935,24 +826,7 @@ def _run_converted_vhdl_testbench(dut, name: str, output_dir: Path) -> str:
 
     vhdl_inputs = sorted(output_dir.glob("pck_myhdl_*.vhd")) + [vhdl_file]
     core_file = output_dir / f"{name}.core"
-    core_file.write_text(
-        "CAPI=2:\n"
-        f"name: ::{name}:0\n"
-        "filesets:\n"
-        "  rtl:\n"
-        "    file_type: vhdlSource-2008\n"
-        "    files:\n"
-        + "".join(f"      - {path.name}\n" for path in vhdl_inputs)
-        + "targets:\n"
-        "  sim:\n"
-        "    default_tool: ghdl\n"
-        "    filesets: [rtl]\n"
-        "    tools:\n"
-        "      ghdl:\n"
-        "        analyze_options: [--ieee=synopsys, -frelaxed-rules]\n"
-        "        run_options: [--stop-time=500ns]\n"
-        f"    toplevel: {name}\n"
-    )
+    core_file.write_text(_render_fusesoc_core(name, vhdl_inputs))
 
     invocation = fusesoc_command(
         "--cores-root", str(output_dir), "run", "--target=sim", f"::{name}:0")
