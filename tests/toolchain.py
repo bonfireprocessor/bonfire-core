@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -68,8 +69,14 @@ def fusesoc_command(*args: str) -> CommandInvocation:
     env_script = _oss_cad_suite_env_script()
     if env_script is not None:
         command = " ".join(["fusesoc", *[shlex.quote(arg) for arg in args]])
+        python_bin = shlex.quote(str(Path(sys.executable).parent))
         return CommandInvocation(
-            ["bash", "-lc", f"source {shlex.quote(str(env_script))} && {command}"],
+            [
+                "bash",
+                "-lc",
+                f"source {shlex.quote(str(env_script))} && "
+                f"export PATH={python_bin}:$PATH && {command}",
+            ],
             os.environ.copy(),
         )
 

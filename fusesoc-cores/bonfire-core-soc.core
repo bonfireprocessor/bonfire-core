@@ -10,6 +10,13 @@ generators:
 
 filesets:
 
+  soc_uart_sim:
+    depend:
+     - ::bonfire-util:0
+    file_type: vhdlSource-2008
+    files:
+     - tb/tb_bonfire_core_soc_uart.vhd
+
   soc_io:
     depend:
      - '>=::bonfire-soc-io:0'
@@ -87,9 +94,9 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       top_entity_name: 'bonfire_core_soc_top'
-      #hexfile: "../code/build/soc/sim/led.hex"
 
   soc_tb:
+    # Generates a testbench by conversion of the myhdl testbench. This is very limited (no UART Capture for example)
     generator: gen_bonfire_core_soc
     parameters:
       gentb: true
@@ -97,25 +104,39 @@ generate:
       bram_adr_width: 11
       conversion_warnings: 'ignore'
       top_entity_name: 'tb_bonfire_core_soc'
-      #hexfile: "../code/build/soc/sim/led.hex"
+      hexfile: "../code/build/soc/sim/led.hex"
+      enable_jtag_debug: true
+      enable_debug_ndmreset: true
 
 
 targets:
 
-  sim:
+  sim_converted:
+    # Run the GHDL Simulation of the myHDL testbench converted to VHDL.
     default_tool: ghdl
-    #filesets: [ sim ]
-    generate: 
-      - soc_tb:
-         hexfile: "../code/build/soc/sim/led.hex"
-         expose_wishbone_master: false
-         enable_jtag_debug: true
-         enable_debug_ndmreset: true
-         
+    generate: [ soc_tb ]
     tools:
       ghdl:
         analyze_options: [ --ieee=synopsys,  -frelaxed-rules ]
         run_options: [ --ieee-asserts=disable, --stop-time=20000ns, --wave=cpu.ghw ]
+      xsim:
+        xelab_options: [ "--debug typical" ]
+    toplevel: tb_bonfire_core_soc
+
+  sim:
+    default_tool: ghdl
+    filesets: [ soc_uart_sim ]
+    generate: 
+      - soc_top:
+         hexfile: "../code/build/soc/sim/uart_echo.hex"
+         num_leds: 4
+         led_active_low: false
+         expose_wishbone_master: false
+         
+    tools:
+      ghdl:
+        analyze_options: [ --ieee=synopsys,  -frelaxed-rules ]
+        run_options: [ --ieee-asserts=disable, --stop-time=60000ns, --wave=cpu.ghw ]
       xsim:
         xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core_soc

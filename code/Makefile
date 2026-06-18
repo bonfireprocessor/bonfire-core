@@ -45,7 +45,7 @@ OBJDUMP_FLAGS := -d -S
 CORE_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -g
 SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Og -g -ffreestanding -fno-builtin -Wall -Wextra
 
-SOC_APPS := led wishbone hello monitor
+SOC_APPS := led wishbone hello monitor uart_echo
 SOC_PLATFORMS := sim fireant icepizero ulx3s cmods7
 SOC_PLATFORM_DEFINES_sim := BONFIRE_PLATFORM_SIM
 SOC_PLATFORM_DEFINES_fireant := BONFIRE_PLATFORM_FIREANT

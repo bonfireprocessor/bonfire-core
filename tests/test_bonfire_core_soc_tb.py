@@ -6,9 +6,22 @@ import pytest
 
 from rtl import config
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
+from rtl.uncore.dbus_interconnect import DbusInterConnects
 from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
 
 from .conftest import run_sim, waveform_config
+
+
+def test_soc_native_io_address_map():
+    soc = BonfireCoreSoC(config.BonfireConfig())
+
+    assert soc.ledMask.mapped_range() == (0x80000000, 0x8000FFFF)
+    assert soc.uartMask.mapped_range() == (0x80010000, 0x8001FFFF)
+    assert not DbusInterConnects._adrmasks_overlap(soc.ledMask, soc.uartMask, 32)
+
+    unmapped_address = 0x80020000
+    for address_mask in (soc.ledMask, soc.uartMask):
+        assert unmapped_address & address_mask.address_mask() != address_mask.base_address()
 
 
 @pytest.mark.parametrize(
@@ -58,3 +71,31 @@ def test_myhdl_soc(
     assert ": f" in out.lower()
     if expose_wishbone:
         assert "wb cyc. trm." in out.lower()
+
+
+def test_myhdl_soc_uart_echo(sim_env, request: pytest.FixtureRequest, repo_root: Path):
+    hex_path = repo_root / "code" / "build" / "soc" / "sim" / "uart_echo.hex"
+    if not hex_path.is_file():
+        pytest.skip(f"SoC UART echo HEX file not found: {hex_path}")
+
+    conf = config.BonfireConfig()
+    conf.jump_bypass = False
+    soc = BonfireCoreSoC(conf, hexfile=str(hex_path), soc_config={
+        "numLeds": 4,
+        "ledActiveLow": False,
+        "uartLoopback": True,
+        "uartCapture": True,
+        "uartCaptureBitTime": 80,
+        "uartCaptureExpected": (0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x1A),
+        "uartCaptureRequireLedSuccess": True,
+    })
+    tb = BonfireCoreSoCTestbench(soc).testbench()
+    trace, filename = waveform_config(request, sim_env, "soc_uart_echo")
+
+    run_sim(
+        tb,
+        trace=trace,
+        filename=filename,
+        duration=50_000,
+        waveforms_dir=sim_env["waveforms_dir"],
+    )

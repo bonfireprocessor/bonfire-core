@@ -76,6 +76,7 @@ from myhdl import Signal, always_comb, always_seq, block, instances, modbv
 
 from rtl.bonfire_interfaces import DbusBundle
 from rtl.type_aliases import BitSignal
+from util.diagnostics import get_diagnostics
 
 
 class BonfireUart:
@@ -371,6 +372,14 @@ class BonfireUart:
         enabled: BitSignal,
     ) -> Any:
         assert dbus.xlen == 32, "BonfireUart currently supports a 32-bit DBus"
+
+        diagnostics = get_diagnostics()
+        diagnostics.detail("BonfireUart: DBus UART")
+        diagnostics.detail("BonfireUart:   data register: offset 0x00")
+        diagnostics.detail("BonfireUart:   status register: offset 0x04")
+        diagnostics.detail("BonfireUart:   control register: offset 0x08")
+        diagnostics.detail("BonfireUart:   interrupt register: offset 0x0c")
+        diagnostics.detail("BonfireUart:   fifo_bits: {}".format(self.fifo_bits))
 
         tx_divider = Signal(modbv(0xFFFF)[16:])
         rx_start_qual_ticks = Signal(modbv((0xFFFF >> 1) + (0xFFFF >> 2) + (0xFFFF >> 4))[16:])

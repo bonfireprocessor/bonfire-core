@@ -52,8 +52,8 @@ It instantiates these blocks:
 - `bonfireCoreExtendedInterface`: CPU core plus bus interconnect.
 - `DualportedRamLaned` or `DualportedRam`: instruction/data memory.
 - `led_out`: native DBus LED register.
+- `BonfireUart`: native DBus UART0 peripheral.
 - `wishbone_dummy`: dummy Wishbone target when no external Wishbone is exposed.
-- `uart_dummy`: UART loopback placeholder.
 - `reset_logic` or `no_reset_logic`: reset generation.
 
 The CPU core itself is instantiated by `BonfireCoreTop.createInstance()` inside
@@ -66,13 +66,22 @@ Address decoding uses bits `[31:28]` of the CPU data address.
 | Region | Mask | Address range | Target |
 | --- | ---: | --- | --- |
 | Wishbone | `0x4` | `0x40000000` - `0x4fffffff` | Wishbone bridge |
-| Native DBus | `0x8` | `0x80000000` - `0x8fffffff` | LED register |
+| Native DBus | `0x8` | `0x80000000` - `0x8fffffff` | native peripheral interconnect |
 | BRAM | `0xc` | `0xc0000000` - `0xcfffffff` | data RAM port |
 
 The instruction bus is connected directly to the read-only RAM port. The data
 bus reaches the RAM through the interconnect at the BRAM address window.
 
-Addresses not matching one of these three windows return a DBus error.
+The native peripheral interconnect applies a second decode using bits
+`[31:16]`:
+
+| Peripheral | Address range |
+| --- | --- |
+| LED | `0x80000000` - `0x8000ffff` |
+| UART0 | `0x80010000` - `0x8001ffff` |
+
+Addresses not matching a top-level window, or not assigned inside the native
+peripheral window, return a DBus error.
 
 ## Memory
 
@@ -95,11 +104,7 @@ writes.
 
 ## LED Register
 
-The LED register is currently the only native MyHDL MMIO peripheral.
-
-It is mapped through the native DBus window at `0x80000000` and responds to any
-address selected by that top-nibble decode. The implementation does not decode
-lower address bits.
+The LED register is mapped at `0x80000000` with a 64 KiB decode window.
 
 Behavior:
 
@@ -129,18 +134,13 @@ When `exposeWishboneMaster=True`, the Wishbone master bundle is exposed through
 the generated MyHDL/VHDL top-level and no dummy is instantiated. This mode is
 used by the extended VHDL wrapper.
 
-## UART Status
+## UART
 
-The MyHDL SoC does not implement a real UART yet.
-
-`uart_dummy()` currently connects:
-
-```python
-uart_tx = uart_rx
-```
-
-This is only a loopback placeholder. Software cannot yet use this MyHDL UART as
-a real serial peripheral.
+The native MyHDL UART0 is mapped at `0x80010000` and drives the top-level
+`uart0_tx`/`uart0_rx` pins. It provides the zpuino-compatible register offsets
+`0x00` (TX/RX data), `0x04` (status), `0x08` (extended control), and `0x0c`
+(interrupt control/status). The UART interrupt and enabled outputs are currently
+terminated inside the SoC; CPU interrupt routing is not implemented yet.
 
 For extended SoC generation, `gen_soc.py` can wrap the MyHDL core with
 `fusesoc-cores/templates/soc_top.vhd`. That VHDL wrapper exposes the MyHDL
@@ -151,8 +151,9 @@ either:
 - `zpuino_uart`, or
 - `bonfire_soc_io`, which is intended to provide UART/GPIO/SPI functionality.
 
-This wrapper path is separate from the `uart_dummy()` placeholder in
-`bonfire_core_soc.py`.
+The extended wrapper currently leaves the native UART pins open and connects
+the external VHDL UART to the board pins. This temporary duplication will be
+removed when the extended wrapper switches to the native UART.
 
 ## Reset Logic
 
@@ -238,11 +239,22 @@ live in `code/soc/linker`.
 ## MyHDL Testbench
 
 The pure MyHDL testbench lives in `tb/soc/bonfire_core_soc_tb.py`. It can run the
-SoC in two modes:
+SoC in three modes:
 
 - internal Wishbone dummy, used by the LED firmware test,
 - exposed Wishbone master connected to `Wishbone_bfm`, used by the Wishbone
   bridge firmware test.
+- native UART loopback firmware, used in both MyHDL and GHDL simulation. The
+  MyHDL run uses the shared Python `uart_tx_capture` helper for decoded output
+  and optional signature checking. The FuseSoC/GHDL testbench instantiates the
+  existing VHDL `tb_uart_capture_tx` from `bonfire-util`; the directly converted
+  MyHDL testbench relies on the firmware's loopback check and LED indication.
+
+Run the generated-SoC GHDL test through FuseSoC with:
+
+```sh
+fusesoc run --target=sim ::bonfire-core-soc:0
+```
 
 The older `uncore/tb_soc.py` testbench for `bonfireCoreExtendedInterface` has
 been removed; `bonfireCoreExtendedInterface` remains an implementation block
@@ -250,10 +262,6 @@ used by `BonfireCoreSoC`.
 
 ## Current Limitations
 
-- UART is not implemented in the MyHDL SoC; only a loopback dummy exists.
-- The LED register is the only native MyHDL peripheral.
-- The LED register uses only the top-nibble DBus decode and ignores lower
-  address bits.
 - `UseVHDLMemory` is present but unused.
 - Interrupt handling is not wired at the SoC level.
 - The external VHDL wrapper contains the more complete I/O direction, but this
@@ -263,11 +271,8 @@ used by `BonfireCoreSoC`.
 
 ## Suggested Next Steps
 
-1. Define a precise MMIO map for LED, UART, GPIO, SPI, timer, and interrupt
-   controller.
-2. Replace `uart_dummy()` with a real UART DBus or Wishbone peripheral.
-3. Decide whether peripherals should live primarily in MyHDL, VHDL, or behind a
+1. Extend the MMIO map for GPIO, SPI, timer, and an interrupt controller.
+2. Route native peripheral interrupts to the CPU.
+3. Decide whether remaining peripherals should live primarily in MyHDL, VHDL, or behind a
    stable Wishbone boundary.
-4. Add lower-address decoding for native DBus peripherals.
-5. Document software-visible register layouts once the MMIO map is stable.
-6. Add integration tests that exercise SoC MMIO from RISC-V software.
+4. Remove the external VHDL UART from the extended wrapper.

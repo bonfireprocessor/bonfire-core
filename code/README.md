@@ -26,6 +26,8 @@ Small C programs for the MyHDL SoC live under `soc/apps/`:
   Extended SoC simulation.
 - `soc/apps/monitor/main.c`: minimal interactive UART monitor with `I` info
   and `D [addr]` memory dump commands.
+- `soc/apps/uart_echo/main.c`: native UART TX/RX echo integration test used by
+  the MyHDL and converted-VHDL SoC testbenches.
 
 They use the local platform headers in `soc/platforms/` and do not depend on
 the external `bonfire-software` repository.
