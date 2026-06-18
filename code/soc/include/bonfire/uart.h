@@ -7,6 +7,7 @@
 #include <bonfire/platform.h>
 
 #define BONFIRE_UART_TX 0x00u
+#define BONFIRE_UART_RX BONFIRE_UART_TX
 #define BONFIRE_UART_STATUS 0x04u
 #define BONFIRE_UART_CONTROL 0x08u
 

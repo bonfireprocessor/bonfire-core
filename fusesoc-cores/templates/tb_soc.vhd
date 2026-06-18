@@ -194,16 +194,26 @@ begin
 
 
 
-    gpio_pads: for i in gpio_io'range generate
-      pad : entity work.gpio_pad
+    gpio_enabled: if ENABLE_GPIO generate
+      gpio_pads: for i in gpio_io'range generate
+        pad : entity work.gpio_pad
+        port map (
+           O => gpio_i(i),     -- Buffer output
+           IO => gpio_io(i),   -- Buffer inout port
+           I => gpio_o(i),     -- Buffer input
+           T => gpio_t(i)      -- 3-state enable input, high=input, low=output
+        );
+      end generate;
 
-      port map (
-         O => gpio_i(i),   -- Buffer output
-         IO => gpio_io(i),    -- Buffer inout port
-         I => gpio_o(i),   -- Buffer input
-         T => gpio_t(i)    -- 3-state enable input, high=input, low=output
-      );
+      gpio_capture: process
+      begin
+        wait on gpio_io;
+        print("IO Pads:" & str(gpio_io) & "(" & hstr(gpio_io) & ")");
+      end process;
+    end generate;
 
+    gpio_disabled: if not ENABLE_GPIO generate
+      gpio_i <= (others => '0');
     end generate;
 
 
@@ -221,14 +231,6 @@ begin
             framing_errors => framing_errors(0),
             total_count =>total_count(0)
         );
-
--- Write Changes to gpio to console        
-process
-    begin
-      wait on gpio_io;
-      print("IO Pads:" & str(gpio_io) & "(" & hstr(gpio_io) & ")");
-
-end process;
 
 -- Write Chages to LED to console
 process
@@ -272,8 +274,15 @@ end process;
     -- EDIT: Check that sysclk is really your main clock signal
     sysclk <= TbClock;
 
-    -- SPI Loopback
-    spi_miso <= spi_mosi;
+    spi_loopback_enabled: if ENABLE_SPI generate
+      spi_loopback_ports: for i in spi_miso'range generate
+        spi_miso(i) <= spi_mosi(i);
+      end generate;
+    end generate;
+
+    spi_loopback_disabled: if not ENABLE_SPI generate
+      spi_miso <= (others => '0');
+    end generate;
 
 
 

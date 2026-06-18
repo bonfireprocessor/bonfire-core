@@ -22,10 +22,15 @@ Small C programs for the MyHDL SoC live under `soc/apps/`:
 - `soc/apps/led/main.c`: LED counter smoke test.
 - `soc/apps/wishbone/main.c`: Wishbone bridge smoke test that reports success
   through the LED register.
-- `soc/apps/hello/main.c`: Extended SoC UART/GPIO smoke test used by the VHDL
-  Extended SoC simulation.
+- `soc/apps/hello/main.c`: UART/GPIO smoke test used by board targets.
+- `soc/apps/hello_io/main.c`: Extended SoC simulation test for UART output,
+  GPIO input/output readback, and SPI port-0 loopback.
 - `soc/apps/monitor/main.c`: minimal interactive UART monitor with `I` info
-  and `D [addr]` memory dump commands.
+  and `D [addr]` memory dump commands, `R addr`/`W addr value` 32-bit memory
+  access, plus `G` GPIO and `S` SPI-loopback peripheral tests. Addresses and
+  values are hexadecimal, optionally with a `0x` prefix.
+- `soc/apps/uart_echo/main.c`: native UART TX/RX echo integration test used by
+  the MyHDL and converted-VHDL SoC testbenches.
 
 They use the local platform headers in `soc/platforms/` and do not depend on
 the external `bonfire-software` repository.
@@ -43,6 +48,7 @@ Build one SoC program:
 make soc SOC_APP=led SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=wishbone SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=hello SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
+make soc SOC_APP=hello_io SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=monitor SOC_PLATFORM=sim TARGET_PREFIX=riscv64-unknown-elf
 make soc SOC_APP=led SOC_PLATFORM=icepizero TARGET_PREFIX=riscv64-unknown-elf
 ```

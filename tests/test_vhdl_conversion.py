@@ -96,7 +96,6 @@ def test_core_vhdl_conversion(enable_debug: bool, name: str, repo_root: Path):
     vhdl_file = _assert_vhdl_file(output_dir, name)
     _analyze_with_ghdl(output_dir, vhdl_file)
 
-
 def test_divider_vhdl_conversion(repo_root: Path):
     name = "divider"
     output_dir = _conversion_output_dir(repo_root, name)

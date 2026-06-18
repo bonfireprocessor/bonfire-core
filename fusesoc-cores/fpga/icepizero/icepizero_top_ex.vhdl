@@ -50,11 +50,17 @@ architecture rtl of icepizero_top is
 
     signal resetn : std_logic := '1';
 
+    signal mosi, miso : std_logic_vector(0 downto 0);
+
 begin
+
+   miso <= mosi; -- Loopback
 
     soc_inst: bonfire_core_soc_top
     generic map (
-        INST_UART_ONLY => true
+        INST_UART_ONLY => false,
+        ENABLE_SPI => true,
+        ENABLE_GPIO => true
     )
     port map (
         sysclk    => sysclk,
@@ -69,8 +75,8 @@ begin
 
         spi_cs    => open,
         spi_clk   => open,
-        spi_mosi  => open,
-        spi_miso  => (others => '1'),
+        spi_mosi  => mosi,
+        spi_miso  => miso,
 
         gpio_o    => open,
         gpio_i    => (others => '0'),

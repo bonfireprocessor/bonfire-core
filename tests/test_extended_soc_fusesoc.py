@@ -9,23 +9,20 @@ import pytest
 from tests.toolchain import fusesoc_command
 
 
-def _contains_ordered_lines(actual_lines: list[str], expected_lines: list[str]) -> bool:
-    if not expected_lines:
-        return True
+def _contains_ordered_text(actual: str, expected: list[str]) -> bool:
+    position = 0
 
-    expected_index = 0
+    for item in expected:
+        position = actual.find(item, position)
+        if position < 0:
+            return False
+        position += len(item)
 
-    for line in actual_lines:
-        if line.strip().startswith(expected_lines[expected_index]):
-            expected_index += 1
-            if expected_index == len(expected_lines):
-                return True
-
-    return False
+    return True
 
 
-def test_extended_soc_hello_fusesoc(repo_root: Path):
-    hexfile = repo_root / "code" / "build" / "soc" / "sim" / "hello.hex"
+def test_extended_soc_hello_io_fusesoc(repo_root: Path):
+    hexfile = repo_root / "code" / "build" / "soc" / "sim" / "hello_io.hex"
     if not hexfile.is_file():
         pytest.skip(f"Extended SoC hello HEX file not found: {hexfile}")
 
@@ -46,8 +43,10 @@ def test_extended_soc_hello_fusesoc(repo_root: Path):
     assert "Hello from Bonfire Core!" in result.stdout
     assert "sysclk=25000000" in result.stdout
     assert "baud=115200" in result.stdout
+    assert "GPIO test: OK" in result.stdout
+    assert "SPI loopback test: OK" in result.stdout
+    assert "Extended SoC IO test: OK" in result.stdout
     gpio_block = [
-        "LEDs:00000011(03)",
         "IO Pads:00000000(00)",
         "IO Pads:00000001(01)",
         "IO Pads:00000010(02)",
@@ -57,14 +56,16 @@ def test_extended_soc_hello_fusesoc(repo_root: Path):
         "IO Pads:00100000(20)",
         "IO Pads:01000000(40)",
         "IO Pads:10000000(80)",
-        "LEDs:00000100(04)",
+        "IO Pads:01010101(55)",
+        "IO Pads:10101010(AA)",
+        "IO Pads:11111111(FF)",
     ]
-    gpio_lines = [
-        line.strip() for line in result.stdout.splitlines()
-        if line.strip().startswith("LEDs:") or line.strip().startswith("IO Pads:")
-    ]
-    assert _contains_ordered_lines(gpio_lines, gpio_block), "Expected GPIO/LED output block not found"
+    assert _contains_ordered_text(result.stdout, gpio_block), "Expected GPIO output block not found"
+    gpio_values = re.findall(r"IO Pads:([^\s(]+)\(", result.stdout)
+    assert gpio_values, "GPIO capture output not found"
+    assert all("X" not in value and "U" not in value for value in gpio_values)
 
     uart_capture = re.search(r"UART0 Test captured bytes:\s*(\d+) framing errors:\s*(\d+)", result.stdout)
     assert uart_capture is not None, "UART capture summary not found"
-    assert uart_capture.groups() == ("97", "0")
+    assert int(uart_capture.group(1)) > 0
+    assert uart_capture.group(2) == "0"

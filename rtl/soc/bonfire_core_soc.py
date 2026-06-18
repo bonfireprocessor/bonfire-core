@@ -10,7 +10,8 @@ from rtl.debug import DmiBundle
 from rtl.debug.jtag_dtm import JtagDTM
 from rtl.type_aliases import BitSignal
 from rtl.uncore import bonfire_core_ex, ram_dp
-from rtl.uncore.dbus_interconnect import AdrMask
+from rtl.uncore.dbus_interconnect import AdrMask, DbusInterConnects
+from rtl.uncore.uart import BonfireUart
 from rtl import bonfire_interfaces,config
 from util.diagnostics import get_diagnostics
 
@@ -23,6 +24,8 @@ class BonfireCoreSoC:
         self.hexfile: str = hexfile
         self.bramMask: AdrMask = AdrMask(32,28,0xc)
         self.dbusMask: AdrMask = AdrMask(32,28,0x8)
+        self.ledMask: AdrMask = AdrMask(32,16,0x8000)
+        self.uartMask: AdrMask = AdrMask(32,16,0x8001)
         self.wbMask: AdrMask = AdrMask(32,28,0x4)
         self.resetAdr: int = soc_config.get('resetAdr', 0xc0000000)
         self.bramAdrWidth: int = soc_config.get('bramAdrWidth', 11)
@@ -33,6 +36,11 @@ class BonfireCoreSoC:
         self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
         self.exposeWishboneMaster: bool = soc_config.get('exposeWishboneMaster', False)
         self.enableJtagDebug: bool = soc_config.get('enableJtagDebug', False)
+        self.uartLoopback: bool = soc_config.get('uartLoopback', False)
+        self.uartCapture: bool = soc_config.get('uartCapture', False)
+        self.uartCaptureBitTime: int = soc_config.get('uartCaptureBitTime', 2170)
+        self.uartCaptureExpected: tuple[int, ...] | None = soc_config.get('uartCaptureExpected', None)
+        self.uartCaptureRequireLedSuccess: bool = soc_config.get('uartCaptureRequireLedSuccess', False)
         self.config.enableDebugNdmreset = bool(soc_config.get('enableDebugNdmreset', self.config.enableDebugNdmreset))
         self.conversion: bool = False
         self.reset_signal: BitSignal | None = None
@@ -67,6 +75,7 @@ class BonfireCoreSoC:
         @always_comb
         def comb():
             dbus.ack_i.next = dbus.en_o
+            dbus.error_i.next = False
             dbus.stall_i.next = False
             dbus.db_rd.next = 0
             if dbus.en_o:
@@ -111,16 +120,6 @@ class BonfireCoreSoC:
                     diagnostics.detail("  stb_o: 0b{:b}".format(int(wb_bundle.wbm_stb_o)))
                     diagnostics.detail("  we_o: 0b{:b}".format(int(wb_bundle.wbm_we_o)))
                     diagnostics.detail("  sel_o: 0b{:b}".format(int(wb_bundle.wbm_sel_o)))
-
-
-        return instances()
-
-    @block
-    def uart_dummy(self, uart_tx: BitSignal, uart_rx: BitSignal) -> Any:
-
-        @always_comb
-        def loopback():
-            uart_tx.next = uart_rx
 
 
         return instances()
@@ -202,7 +201,9 @@ class BonfireCoreSoC:
         core_reset: BitSignal = ResetSignal(0,active=1,isasync=False)
         self.reset_signal = core_reset
 
-        dbus: DbusBundle = bonfire_interfaces.DbusBundle(config)
+        native_dbus: DbusBundle = bonfire_interfaces.DbusBundle(config)
+        led_dbus: DbusBundle = bonfire_interfaces.DbusBundle(config)
+        uart_dbus: DbusBundle = bonfire_interfaces.DbusBundle(config)
         if wb_master is None:
             wb_master_local: Wishbone_master_bundle = bonfire_interfaces.Wishbone_master_bundle()
         else:
@@ -221,12 +222,26 @@ class BonfireCoreSoC:
 
         ram_i = ram.ram_instance(bram_port_a,bram_port_b,sysclk)
 
-        led_out_i=self.led_out(sysclk,core_reset,led,dbus, ledactiveLow=self.ledActiveLow)
+        native_io_i = DbusInterConnects.Master8Slaves(
+            native_dbus,
+            sysclk,
+            core_reset,
+            slave0=led_dbus,
+            slave1=uart_dbus,
+            adrmask0=self.ledMask,
+            adrmask1=self.uartMask,
+        )
+
+        led_out_i=self.led_out(sysclk,core_reset,led,led_dbus, ledactiveLow=self.ledActiveLow)
 
         if not self.exposeWishboneMaster:
             wb_i = self.wishbone_dummy(sysclk,core_reset,wb_master_local)
 
-        uart_i = self.uart_dummy(uart0_tx,uart0_rx)
+        uart_irq = Signal(bool(0))
+        uart_enabled = Signal(bool(0))
+        uart_i = BonfireUart().createInstance(
+            uart_dbus, sysclk, core_reset, uart0_tx, uart0_rx,
+            uart_irq, uart_enabled)
 
         if self.NoReset:
             reset_i = self.no_reset_logic(sysclk,resetn,o_resetn,i_locked,sys_reset)
@@ -254,7 +269,7 @@ class BonfireCoreSoC:
             def core_reset_comb():
                 core_reset.next = sys_reset
 
-        core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master_local,dbus,bram_port_a,bram_port_b,
+        core_i = bonfire_core_ex.bonfireCoreExtendedInterface(wb_master_local,native_dbus,bram_port_a,bram_port_b,
                                                               sysclk,core_reset,config=self.config,
                                                               wb_mask=self.wbMask,
                                                               db_mask=self.dbusMask,
