@@ -66,33 +66,6 @@ def _analyze_with_ghdl(output_dir: Path, vhdl_file: Path) -> None:
         pytest.fail(f"ghdl -a failed for {vhdl_file.name}\n{error_text}", pytrace=False)
 
 
-def _run_with_ghdl(output_dir: Path, name: str) -> None:
-    for arguments in (("-e", name), ("-r", name, "--assert-level=error", "--stop-time=200us")):
-        invocation = ghdl_command(
-            arguments[0],
-            "--std=08",
-            "--ieee=synopsys",
-            "-frelaxed-rules",
-            *arguments[1:],
-        )
-        result = subprocess.run(
-            invocation.command,
-            check=False,
-            cwd=output_dir,
-            env=invocation.env,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        if result.stdout:
-            print(result.stdout, end="")
-        if result.stderr:
-            print(result.stderr, end="")
-        if result.returncode != 0:
-            error_text = (result.stderr or result.stdout).strip()
-            pytest.fail(f"ghdl {arguments[0]} failed for {name}\n{error_text}", pytrace=False)
-
-
 @pytest.mark.parametrize(
     ("enable_debug", "name"),
     [
@@ -122,7 +95,6 @@ def test_core_vhdl_conversion(enable_debug: bool, name: str, repo_root: Path):
 
     vhdl_file = _assert_vhdl_file(output_dir, name)
     _analyze_with_ghdl(output_dir, vhdl_file)
-
 
 def test_divider_vhdl_conversion(repo_root: Path):
     name = "divider"
@@ -239,33 +211,3 @@ def test_soc_testbench_vhdl_conversion(enable_jtag_debug: bool, name: str, repo_
 
     vhdl_file = _assert_vhdl_file(output_dir, name)
     _analyze_with_ghdl(output_dir, vhdl_file)
-
-
-def test_soc_uart_echo_vhdl(repo_root: Path):
-    name = "tb_bonfire_core_soc_uart_echo"
-    hex_path = repo_root / "code" / "build" / "soc" / "sim" / "uart_echo.hex"
-    if not hex_path.is_file():
-        pytest.skip(f"SoC UART echo HEX file not found: {hex_path}")
-
-    conf = config.BonfireConfig()
-    conf.jump_bypass = False
-    soc = BonfireCoreSoC(
-        conf,
-        hexfile=str(hex_path),
-        soc_config={
-            "numLeds": 4,
-            "ledActiveLow": False,
-            "uartLoopback": True,
-            "uartCapture": True,
-            "uartCaptureBitTime": 80,
-            "uartCaptureExpected": (0x48, 0x65, 0x6C, 0x6C, 0x6F, 0x1A),
-            "uartCaptureRequireLedSuccess": True,
-        },
-    )
-    output_dir = _conversion_output_dir(repo_root, name)
-    BonfireCoreSoCTestbenchGenerator(soc).convert(
-        "VHDL", name, str(output_dir), handleWarnings="ignore")
-
-    vhdl_file = _assert_vhdl_file(output_dir, name)
-    _analyze_with_ghdl(output_dir, vhdl_file)
-    _run_with_ghdl(output_dir, name)

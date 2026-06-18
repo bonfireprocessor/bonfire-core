@@ -246,14 +246,18 @@ SoC in three modes:
   bridge firmware test.
 - native UART loopback firmware, used in both MyHDL and GHDL simulation. The
   MyHDL run uses the shared Python `uart_tx_capture` helper for decoded output
-  and optional signature checking. The FuseSoC/GHDL testbench instantiates the
-  existing VHDL `tb_uart_capture_tx` from `bonfire-util`; the directly converted
-  MyHDL testbench relies on the firmware's loopback check and LED indication.
+  and optional signature checking. The FuseSoC/GHDL `sim` testbench instantiates
+  the existing VHDL `tb_uart_capture_tx` from `bonfire-util`. This target also
+  instantiates the JTAG debug module, but does not exercise it.
+
+The separate FuseSoC target `sim_converted` runs the original simple LED test
+using the testbench converted directly from MyHDL.
 
 Run the generated-SoC GHDL test through FuseSoC with:
 
 ```sh
 fusesoc run --target=sim ::bonfire-core-soc:0
+fusesoc run --target=sim_converted ::bonfire-core-soc:0
 ```
 
 The older `uncore/tb_soc.py` testbench for `bonfireCoreExtendedInterface` has

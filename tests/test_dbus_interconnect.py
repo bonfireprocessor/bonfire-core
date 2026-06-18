@@ -25,7 +25,7 @@ from rtl.bonfire_interfaces import DbusBundle
 from rtl.uncore.dbus_interconnect import AdrMask, DbusInterConnects
 from tb.ClkDriver import ClkDriver
 from tests.conftest import run_sim, waveform_config
-from tests.toolchain import ghdl_command
+from tests.toolchain import fusesoc_command, ghdl_command
 
 
 CLK_PERIOD = 10
@@ -823,7 +823,6 @@ def test_dbus_interconnect_signal_array_vhdl_conversion(repo_root: Path):
     )
     assert result.returncode == 0, (result.stderr or result.stdout)
 
-
 def test_dbus_interconnect_master8_vhdl_conversion(repo_root: Path):
     # Conversion smoke test for Master8Slaves with sparse active slots.
     output_dir = repo_root / "vhdl_gen" / "dbus_interconnect_master8"
@@ -923,7 +922,7 @@ def _dbus_tb_log_lines(text: str, marker: str = "DBUS_TB:") -> list[str]:
 
 
 def _run_converted_vhdl_testbench(dut, name: str, output_dir: Path) -> str:
-    # Convert a MyHDL testbench, analyze/elaborate it with GHDL, and return its log.
+    """Convert a testbench and run its GHDL simulation through FuseSoC."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with warnings.catch_warnings():
@@ -935,68 +934,48 @@ def _run_converted_vhdl_testbench(dut, name: str, output_dir: Path) -> str:
     assert vhdl_file.stat().st_size > 0
 
     vhdl_inputs = sorted(output_dir.glob("pck_myhdl_*.vhd")) + [vhdl_file]
-    analyze_invocation = ghdl_command(
-        "-a",
-        "--std=08",
-        "--ieee=synopsys",
-        "-frelaxed-rules",
-        *[str(path.relative_to(output_dir)) for path in vhdl_inputs],
+    core_file = output_dir / f"{name}.core"
+    core_file.write_text(
+        "CAPI=2:\n"
+        f"name: ::{name}:0\n"
+        "filesets:\n"
+        "  rtl:\n"
+        "    file_type: vhdlSource-2008\n"
+        "    files:\n"
+        + "".join(f"      - {path.name}\n" for path in vhdl_inputs)
+        + "targets:\n"
+        "  sim:\n"
+        "    default_tool: ghdl\n"
+        "    filesets: [rtl]\n"
+        "    tools:\n"
+        "      ghdl:\n"
+        "        analyze_options: [--ieee=synopsys, -frelaxed-rules]\n"
+        "        run_options: [--stop-time=500ns]\n"
+        f"    toplevel: {name}\n"
     )
-    analyze_result = subprocess.run(
-        analyze_invocation.command,
-        check=False,
-        cwd=output_dir,
-        env=analyze_invocation.env,
-        capture_output=True,
-        text=True,
-    )
-    assert analyze_result.returncode == 0, (analyze_result.stderr or analyze_result.stdout)
 
-    elaborate_invocation = ghdl_command(
-        "-e",
-        "--std=08",
-        "--ieee=synopsys",
-        "-frelaxed-rules",
-        name,
-    )
-    elaborate_result = subprocess.run(
-        elaborate_invocation.command,
+    invocation = fusesoc_command(
+        "--cores-root", str(output_dir), "run", "--target=sim", f"::{name}:0")
+    result = subprocess.run(
+        invocation.command,
         check=False,
         cwd=output_dir,
-        env=elaborate_invocation.env,
+        env=invocation.env,
         capture_output=True,
         text=True,
+        timeout=30,
     )
-    assert elaborate_result.returncode == 0, (elaborate_result.stderr or elaborate_result.stdout)
-
-    run_invocation = ghdl_command(
-        "-r",
-        "--std=08",
-        "--ieee=synopsys",
-        "-frelaxed-rules",
-        name,
-        "--stop-time=500ns",
-    )
-    run_result = subprocess.run(
-        run_invocation.command,
-        check=False,
-        cwd=output_dir,
-        env=run_invocation.env,
-        capture_output=True,
-        text=True,
-    )
-    assert run_result.returncode == 0, (run_result.stderr or run_result.stdout)
-    return (run_result.stdout or "") + "\n" + (run_result.stderr or "")
+    assert result.returncode == 0, (result.stderr or result.stdout)
+    return (result.stdout or "") + "\n" + (result.stderr or "")
 
 
 def test_dbus_interconnect_signal_array_vhdl_testbench(repo_root: Path, sim_env: dict, request, capsys):
     # Compare the convertible 3-slave testbench logs from MyHDL and GHDL.
     output_dir = repo_root / "vhdl_gen" / "dbus_interconnect_signal_array_tb"
-    output_dir.mkdir(parents=True, exist_ok=True)
     name = "dbus_interconnect_signal_array_tb"
 
     myhdl_tb = dbus_interconnect_signal_array_vhdl_tb()
-    trace, filename = waveform_config(request, sim_env, "dbus_interconnect_signal_array_tb")
+    trace, filename = waveform_config(request, sim_env, name)
     run_sim(
         myhdl_tb,
         trace=trace,
@@ -1004,20 +983,13 @@ def test_dbus_interconnect_signal_array_vhdl_testbench(repo_root: Path, sim_env:
         duration=500,
         waveforms_dir=sim_env["waveforms_dir"],
     )
-    myhdl_output = capsys.readouterr().out
-    myhdl_lines = _dbus_tb_log_lines(myhdl_output)
+    myhdl_lines = _dbus_tb_log_lines(capsys.readouterr().out)
     assert myhdl_lines
 
     ghdl_output = _run_converted_vhdl_testbench(
         dbus_interconnect_signal_array_vhdl_tb(), name, output_dir)
     ghdl_lines = _dbus_tb_log_lines(ghdl_output)
     assert ghdl_lines == myhdl_lines
-    print("DBUS_TB_COMPARE: MyHDL output")
-    for line in myhdl_lines:
-        print(line)
-    print("DBUS_TB_COMPARE: GHDL output")
-    for line in ghdl_lines:
-        print(line)
 
 
 def test_dbus_interconnect_master8_vhdl_testbench(repo_root: Path, sim_env: dict, request, capsys):
@@ -1026,7 +998,7 @@ def test_dbus_interconnect_master8_vhdl_testbench(repo_root: Path, sim_env: dict
     name = "dbus_interconnect_master8_tb"
 
     myhdl_tb = dbus_interconnect_master8_vhdl_tb()
-    trace, filename = waveform_config(request, sim_env, "dbus_interconnect_master8_tb")
+    trace, filename = waveform_config(request, sim_env, name)
     run_sim(
         myhdl_tb,
         trace=trace,
@@ -1034,17 +1006,10 @@ def test_dbus_interconnect_master8_vhdl_testbench(repo_root: Path, sim_env: dict
         duration=500,
         waveforms_dir=sim_env["waveforms_dir"],
     )
-    myhdl_output = capsys.readouterr().out
-    myhdl_lines = _dbus_tb_log_lines(myhdl_output, marker="DBUS8_TB:")
+    myhdl_lines = _dbus_tb_log_lines(capsys.readouterr().out, marker="DBUS8_TB:")
     assert myhdl_lines
 
     ghdl_output = _run_converted_vhdl_testbench(
         dbus_interconnect_master8_vhdl_tb(), name, output_dir)
     ghdl_lines = _dbus_tb_log_lines(ghdl_output, marker="DBUS8_TB:")
     assert ghdl_lines == myhdl_lines
-    print("DBUS8_TB_COMPARE: MyHDL output")
-    for line in myhdl_lines:
-        print(line)
-    print("DBUS8_TB_COMPARE: GHDL output")
-    for line in ghdl_lines:
-        print(line)

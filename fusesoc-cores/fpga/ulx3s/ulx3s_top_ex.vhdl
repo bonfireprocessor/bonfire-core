@@ -82,7 +82,7 @@ begin
     --   NUM_LEDS => NUM_LEDS,
     --   ENABLE_GPIO => ENABLE_GPIO,
     --   DEBUG => DEBUG
-        INST_UART_ONLY => true   -- Instantiate only zpuino UART
+        INST_UART_ONLY => false   -- Instantiate only zpuino UART
     )
     port map(
         sysclk => sysclk,

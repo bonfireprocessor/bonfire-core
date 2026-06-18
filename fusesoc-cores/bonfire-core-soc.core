@@ -132,6 +132,8 @@ targets:
          num_leds: 4
          led_active_low: false
          expose_wishbone_master: false
+         enable_jtag_debug: true
+         enable_debug_ndmreset: true
          
     tools:
       ghdl:
@@ -154,6 +156,9 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        enable_spi: true
+        enable_gpio: true
+        num_gpio: 8
     flags:
       simulation_target : true
    
@@ -325,7 +330,10 @@ targets:
     filesets: [icepizero_lpf,icepizero_jtag_top, scripts]  
     generate:
     - soc_top:
-        hexfile: "../code/build/soc/icepizero/led.hex"
+        #hexfile: "../code/build/soc/icepizero/led.hex"
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/icepizero/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/icepizero/hello.hex)"
         num_leds: 5
         led_active_low: false
         laned_memory: false

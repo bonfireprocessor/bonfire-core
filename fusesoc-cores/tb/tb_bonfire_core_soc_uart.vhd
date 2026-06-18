@@ -20,6 +20,7 @@ architecture testbench of tb_bonfire_core_soc is
     signal uart0_tx : std_logic;
     signal uart0_rx : std_logic;
     signal led : std_logic_vector(3 downto 0);
+    signal jtag_tdo : std_logic;
     signal uart_stop : boolean := false;
     signal framing_errors : natural := 0;
     signal total_count : natural := 0;
@@ -35,7 +36,12 @@ begin
             uart0_rx => uart0_rx,
             led => led,
             o_resetn => open,
-            i_locked => i_locked
+            i_locked => i_locked,
+            jtag_tck => '0',
+            jtag_tms => '1',
+            jtag_tdi => '0',
+            jtag_tdo => jtag_tdo,
+            jtag_trstn => '1'
         );
 
     capture_tx : entity work.tb_uart_capture_tx
