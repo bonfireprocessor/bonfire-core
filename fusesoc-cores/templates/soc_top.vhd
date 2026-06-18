@@ -29,7 +29,8 @@ entity {topEntityName} is
         ENABLE_GPIO     : boolean := {enableGpio};
         DEBUG          : boolean := {debug};
         UART_FIFO_DEPTH : natural := {uartFifoDepth};
-        INST_UART_ONLY  : boolean := {instUartOnly}
+        INST_UART_ONLY  : boolean := {instUartOnly};
+        WB_DIAG         : boolean := false
     );
 
     port(
@@ -102,6 +103,7 @@ signal io_dat_rd,io_dat_wr : std_logic_vector(31 downto 0);
 signal io_adr : std_logic_vector(io_adr_high downto 2);
 
 signal reset_sync : std_logic := '0';
+signal wb_diag_reg : std_logic_vector(31 downto 0) := x"12345678";
 
 begin
 
@@ -126,7 +128,7 @@ U_BONFIRE_CORE: {myhdlEntityName}
 
     io_adr(io_adr'range) <= adr_map(io_adr'length-1 downto 0); -- Map different address indexing
 
-io_gen: if not INST_UART_ONLY  generate
+io_gen: if not INST_UART_ONLY and not WB_DIAG generate
     
     
     Inst_bonfire_soc_io: entity  work.bonfire_soc_io
@@ -165,6 +167,37 @@ io_gen: if not INST_UART_ONLY  generate
             wb_dat_o => io_dat_rd
         );
 
+end generate;
+
+wb_diag_gen: if WB_DIAG generate
+    -- Minimal Wishbone diagnostic slave. It responds to every transaction
+    -- forwarded by the CPU's external Wishbone bridge. Writes update the
+    -- register byte-wise; reads return the current value.
+    io_ack <= io_cyc and io_stb;
+    io_dat_rd <= wb_diag_reg;
+
+    uart1_txd <= '1';
+    spi_cs <= (others => '1');
+    spi_clk <= (others => '0');
+    spi_mosi <= (others => '0');
+    gpio_o <= (others => '0');
+    gpio_t <= (others => '1');
+
+    process(sysclk)
+    begin
+        if rising_edge(sysclk) then
+            if reset_sync = '1' then
+                wb_diag_reg <= x"12345678";
+            elsif io_cyc = '1' and io_stb = '1' and io_we = '1' then
+                for i in io_sel'range loop
+                    if io_sel(i) = '1' then
+                        wb_diag_reg((i * 8) + 7 downto i * 8) <=
+                            io_dat_wr((i * 8) + 7 downto i * 8);
+                    end if;
+                end loop;
+            end if;
+        end if;
+    end process;
 end generate;
 
 -- uart_gen:  if INST_UART_ONLY generate

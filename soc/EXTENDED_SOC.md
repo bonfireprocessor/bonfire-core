@@ -233,9 +233,9 @@ process(sysclk, resetn)
 
 - instantiates the generated Extended SoC top-level,
 - provides a clock and reset,
-- wires GPIO pads through a simple `gpio_pad` entity,
-- loops SPI MISO back from MOSI,
-- monitors LED and GPIO changes with `print`,
+- wires GPIO pads through a simple `gpio_pad` entity when GPIO is enabled,
+- loops each SPI port's MISO back from its MOSI when SPI is enabled,
+- monitors LED changes and, when enabled, GPIO changes with `print`,
 - captures UART0 TX using `tb_uart_capture_tx`,
 - stops when the UART capture sees the stop marker byte `0x1A`.
 
@@ -250,6 +250,8 @@ Targets that use the Extended SoC path include:
   - `generate: [ soc_extended_sim ]`
   - includes `soc_io`
   - GHDL simulation target with top-level `tb_soc`
+  - runs `hello_io.hex` by default; `fw_monitor=true` still selects
+    `monitor.hex`
 
 - `ulx3s_extended`
   - `generate: [ soc_extended ]`

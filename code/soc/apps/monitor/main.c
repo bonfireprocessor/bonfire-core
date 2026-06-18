@@ -1,11 +1,15 @@
 #include <stdint.h>
 
 #include <bonfire/console.h>
+#include <bonfire/gpio.h>
 #include <bonfire/mmio.h>
 #include <bonfire/platform.h>
+#include <bonfire/spi.h>
 #include <bonfire/uart.h>
 
 #define MONITOR_DUMP_WORDS 64u
+#define GPIO_TEST_MASK 0xffu
+#define GPIO_TIMEOUT_READS 64u
 
 static uint32_t dump_address = BONFIRE_SRAM_BASE;
 
@@ -59,6 +63,9 @@ static int parse_hex(const char *text, const char **end, uint32_t *value)
     int consumed = 0;
 
     text = skip_space(text);
+    if (text[0] == '0' && to_upper(text[1]) == 'X') {
+        text += 2;
+    }
 
     while (*text != '\0') {
         int digit = hex_digit_value(*text);
@@ -121,6 +128,87 @@ static void print_info(void)
     printk("  extended_enable=0x%x\n", uart_control_extended);
     printk("sram_base=0x%x\n", BONFIRE_SRAM_BASE);
     printk("sram_size=%u\n", BONFIRE_SRAM_SIZE);
+    printk("commands: I=info D [addr]=dump R addr=read W addr value=write\n");
+    printk("          G=gpio test S=spi loopback\n");
+}
+
+#if BONFIRE_ENABLE_GPIO
+static int gpio_wait_for_value(uint32_t expected, uint32_t *actual)
+{
+    uint32_t timeout;
+
+    for (timeout = 0; timeout < GPIO_TIMEOUT_READS; ++timeout) {
+        *actual = bonfire_read32(
+            BONFIRE_GPIO_BASE + BONFIRE_GPIO_INPUT_VAL) & GPIO_TEST_MASK;
+        if (*actual == expected) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+#endif
+
+static void test_gpio(void)
+{
+#if BONFIRE_ENABLE_GPIO
+    static const uint8_t patterns[] = {
+        0x00u, 0x01u, 0x02u, 0x04u, 0x08u, 0x10u,
+        0x20u, 0x40u, 0x80u, 0x55u, 0xaau, 0xffu,
+    };
+    uint32_t index;
+
+    printk("GPIO test: start\n");
+    bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_VAL, 0u);
+    bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_INPUT_EN,
+                    GPIO_TEST_MASK);
+    bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_EN,
+                    GPIO_TEST_MASK);
+
+    for (index = 0; index < sizeof(patterns); ++index) {
+        uint32_t expected = patterns[index];
+        uint32_t actual = 0u;
+
+        bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_VAL,
+                        expected);
+        if (!gpio_wait_for_value(expected, &actual)) {
+            printk("GPIO test: FAIL pattern=0x%x read=0x%x\n",
+                   expected, actual);
+            return;
+        }
+    }
+
+    printk("GPIO test: OK\n");
+#else
+    printk("GPIO test: unavailable on this platform\n");
+#endif
+}
+
+static void test_spi_loopback(void)
+{
+    static const uint8_t patterns[] = {0x00u, 0x55u, 0xa5u, 0xffu};
+    uint32_t index;
+
+    printk("SPI loopback test: start\n");
+    bonfire_write32(BONFIRE_SPI_FLASH_BASE + BONFIRE_SPI_CLOCK, 1u);
+    bonfire_write32(BONFIRE_SPI_FLASH_BASE + BONFIRE_SPI_CONTROL,
+                    BONFIRE_SPI_CONTROL_AUTOWAIT);
+
+    for (index = 0; index < sizeof(patterns); ++index) {
+        uint32_t expected = patterns[index];
+        uint32_t received;
+
+        bonfire_write32(BONFIRE_SPI_FLASH_BASE + BONFIRE_SPI_TX, expected);
+        received = bonfire_read32(
+            BONFIRE_SPI_FLASH_BASE + BONFIRE_SPI_RX) & 0xffu;
+        if (received != expected) {
+            printk("SPI loopback test: FAIL tx=0x%x rx=0x%x\n",
+                   expected, received);
+            return;
+        }
+    }
+
+    printk("SPI loopback test: OK\n");
 }
 
 static void dump_words(uint32_t address)
@@ -139,6 +227,20 @@ static void dump_words(uint32_t address)
 
     printk("\n");
     dump_address = (uint32_t)&words[MONITOR_DUMP_WORDS];
+}
+
+static void read_word(uint32_t address)
+{
+    address &= 0xfffffffcu;
+    printk("R 0x%x = 0x%x\n", address, bonfire_read32(address));
+}
+
+static void write_word(uint32_t address, uint32_t value)
+{
+    address &= 0xfffffffcu;
+    bonfire_write32(address, value);
+    printk("W 0x%x = 0x%x readback=0x%x\n",
+           address, value, bonfire_read32(address));
 }
 
 static void handle_command(char *line)
@@ -165,6 +267,25 @@ static void handle_command(char *line)
         }
 
         dump_words(dump_address);
+    } else if (command == 'R') {
+        if (parse_hex(args, &args, &value)) {
+            read_word(value);
+        } else {
+            printk("usage: R <hex-address>\n");
+        }
+    } else if (command == 'W') {
+        uint32_t address;
+
+        if (parse_hex(args, &args, &address)
+                && parse_hex(args, &args, &value)) {
+            write_word(address, value);
+        } else {
+            printk("usage: W <hex-address> <hex-value>\n");
+        }
+    } else if (command == 'G') {
+        test_gpio();
+    } else if (command == 'S') {
+        test_spi_loopback();
     } else {
         printk("\a?\n");
     }

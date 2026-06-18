@@ -22,7 +22,8 @@ architecture rtl of icepizero_top is
         ENABLE_GPIO     : boolean := true;
         DEBUG           : boolean := false;
         UART_FIFO_DEPTH : natural := 6;
-        INST_UART_ONLY  : boolean := false
+        INST_UART_ONLY  : boolean := false;
+        WB_DIAG         : boolean := false
     );
     port (
         sysclk    : in  std_logic;
@@ -59,7 +60,9 @@ begin
     soc_inst: bonfire_core_soc_top
     generic map (
         INST_UART_ONLY => false,
-        ENABLE_SPI => true
+        ENABLE_SPI => true,
+        ENABLE_GPIO => true,
+        WB_DIAG => true
     )
     port map (
         sysclk    => sysclk,

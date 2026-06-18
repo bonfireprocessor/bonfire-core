@@ -151,7 +151,7 @@ targets:
         bram_adr_width: 12
         hexfile:
           - "fw_monitor ? (../code/build/soc/sim/monitor.hex)"
-          - "!fw_monitor ? (../code/build/soc/sim/hello.hex)"
+          - "!fw_monitor ? (../code/build/soc/sim/hello_io.hex)"
         num_leds: 8
         led_active_low: false
         laned_memory: false
@@ -355,4 +355,6 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
-       
+        enable_spi: true
+        enable_gpio: true
+        num_gpio: 8
