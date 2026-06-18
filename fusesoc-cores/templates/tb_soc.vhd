@@ -62,8 +62,7 @@ entity tb_soc is
         UART_BAUDRATE : natural := 115200;
         DEBUG          : boolean := {debug};
         UART_FIFO_DEPTH : natural := {uartFifoDepth};
-        INST_UART_ONLY  : boolean := {instUartOnly};
-        WB_DIAG         : boolean := false
+        INST_UART_ONLY  : boolean := {instUartOnly}
     );
 end tb_soc;
 
@@ -79,8 +78,7 @@ architecture tb of tb_soc is
         ENABLE_GPIO     : boolean := {enableGpio};
         DEBUG          : boolean := {debug};
         UART_FIFO_DEPTH : natural := {uartFifoDepth};
-        INST_UART_ONLY  : boolean := {instUartOnly};
-        WB_DIAG         : boolean := false
+        INST_UART_ONLY  : boolean := {instUartOnly}
     );
     port(
         sysclk  : in  std_logic;
@@ -170,8 +168,7 @@ begin
       ENABLE_GPIO => ENABLE_GPIO,
       DEBUG => DEBUG,
       UART_FIFO_DEPTH => UART_FIFO_DEPTH,
-      INST_UART_ONLY => INST_UART_ONLY,
-      WB_DIAG => WB_DIAG
+      INST_UART_ONLY => INST_UART_ONLY
     )
     port map(
         sysclk => TbClock,

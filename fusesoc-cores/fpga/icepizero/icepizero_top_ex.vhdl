@@ -22,8 +22,7 @@ architecture rtl of icepizero_top is
         ENABLE_GPIO     : boolean := true;
         DEBUG           : boolean := false;
         UART_FIFO_DEPTH : natural := 6;
-        INST_UART_ONLY  : boolean := false;
-        WB_DIAG         : boolean := false
+        INST_UART_ONLY  : boolean := false
     );
     port (
         sysclk    : in  std_logic;
@@ -61,8 +60,7 @@ begin
     generic map (
         INST_UART_ONLY => false,
         ENABLE_SPI => true,
-        ENABLE_GPIO => true,
-        WB_DIAG => true
+        ENABLE_GPIO => true
     )
     port map (
         sysclk    => sysclk,
