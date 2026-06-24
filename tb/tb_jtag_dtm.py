@@ -246,18 +246,18 @@ def jtag_dtm_testbench(conf: BonfireConfig | None = None, verbose: bool = True):
         yield test_tap_state_machine()
         yield bfm.reset()
 
-        yield bfm.set_ir(conf.debug_jtag_ir_idcode, width=conf.debug_jtag_ir_width)
+        yield bfm.set_ir(JTAG_INSTR_IDCODE)
         yield bfm.scan_dr(0, 32)
         idcode = int(bfm.last_scan)
         print("@{}ns [jtag-tb] IDCODE read {}".format(now(), hex(idcode)))
         assert idcode == JTAG_IDCODE, "IDCODE mismatch: got {} expected {}".format(hex(idcode), hex(JTAG_IDCODE))
 
-        yield bfm.scan_ir(conf.debug_jtag_ir_idcode, width=conf.debug_jtag_ir_width)
+        yield bfm.scan_ir(JTAG_INSTR_IDCODE)
         ir_capture = int(bfm.last_scan) & 0x3
         print("@{}ns [jtag-tb] IR capture low bits {}".format(now(), bin(ir_capture)))
         assert ir_capture == 0x1, "IR capture mismatch: got {} expected 0b1".format(bin(ir_capture))
 
-        yield bfm.set_ir(conf.debug_jtag_ir_dtmcs, width=conf.debug_jtag_ir_width)
+        yield bfm.set_ir(JTAG_INSTR_DTMCS)
         yield bfm.scan_dr(0, 32)
         dtmcs = modbv(int(bfm.last_scan))[32:]
         print("@{}ns [jtag-tb] DTMCS read {} version={} abits={} dmistat={} idle={}".format(now(), hex(int(dtmcs)), int(dtmcs[3:0]), int(dtmcs[9:4]), int(dtmcs[12:10]), int(dtmcs[15:12])))
@@ -274,13 +274,13 @@ def jtag_dtm_testbench(conf: BonfireConfig | None = None, verbose: bool = True):
         assert dtmcs[12:10] == 0
 
         print("@{}ns [jtag-tb] BYPASS shift test".format(now()))
-        yield bfm.set_ir(conf.debug_jtag_ir_bypass, width=conf.debug_jtag_ir_width)
+        yield bfm.set_ir(JTAG_INSTR_BYPASS)
         yield bfm.scan_dr(0b101101, 6)
         bypass_result = int(bfm.last_scan) & 0x3F
         print("@{}ns [jtag-tb] BYPASS scan result {}".format(now(), bin(bypass_result)))
         assert bypass_result == 0b011010, "BYPASS mismatch: got {} expected {}".format(bin(bypass_result), bin(0b011010))
 
-        yield bfm.set_ir(conf.debug_jtag_ir_dmi, width=conf.debug_jtag_ir_width)
+        yield bfm.set_ir(JTAG_INSTR_DMI)
         write_scan = (0x10 << 34) | (0x12345678 << 2) | DMI_OP_WRITE
         print("@{}ns [jtag-tb] DMI write request adr=0x10 data=0x12345678".format(now()))
         yield bfm.scan_dr(write_scan, dmi_width)

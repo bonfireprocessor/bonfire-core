@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 
 from openocd_bitbang.probe import RemoteBitbangClient, ScanResult
-from rtl.config import BonfireConfig
+from rtl.debug.ecp5_jtagg_client import ECP5_JTAGG_IR_ER1, ECP5_JTAGG_IR_ER2, ECP5_JTAGG_IR_WIDTH
 from rtl.debug.jtag_dtm import JTAG_IDCODE, JTAG_IR_WIDTH
 from .conftest import waveform_config
 
@@ -80,7 +80,7 @@ def _remote_bitbang_server_process(
     port: int,
     vcd: Path | None = None,
     observe_jtag: bool = False,
-    jtag_ir_profile: str = "standard",
+    jtag_transport: str = "standard",
 ) -> Generator[subprocess.Popen[str], None, None]:
     command = [
         sys.executable,
@@ -96,8 +96,8 @@ def _remote_bitbang_server_process(
         command.extend(["--vcd", str(vcd)])
     if observe_jtag:
         command.append("--observe-jtag")
-    if jtag_ir_profile != "standard":
-        command.extend(["--jtag-ir-profile", jtag_ir_profile])
+    if jtag_transport != "standard":
+        command.extend(["--jtag-transport", jtag_transport])
 
     process = subprocess.Popen(
         command,
@@ -210,25 +210,18 @@ def test_openocd_probe_long_dr_scan_returns_idcode_then_ones():
     _assert_scan_equal(actual, expected)
 
 
-def _profile_config(profile: str) -> BonfireConfig:
-    conf = BonfireConfig()
-    conf.set_debug_jtag_ir_profile(profile)
-    return conf
-
-
-def _openocd_ir_override(profile: str) -> str:
-    if profile == "standard":
+def _openocd_ir_override(transport: str) -> str:
+    if transport == "standard":
         return ""
 
-    conf = _profile_config(profile)
     return "riscv set_ir dtmcs 0x{:x}\nriscv set_ir dmi 0x{:x}\n\n".format(
-        conf.debug_jtag_ir_dtmcs,
-        conf.debug_jtag_ir_dmi,
+        ECP5_JTAGG_IR_ER2,
+        ECP5_JTAGG_IR_ER1,
     )
 
 
-def _openocd_config(host: str, port: int, profile: str = "standard") -> str:
-    conf = _profile_config(profile)
+def _openocd_config(host: str, port: int, transport: str = "standard") -> str:
+    ir_width = JTAG_IR_WIDTH if transport == "standard" else ECP5_JTAGG_IR_WIDTH
     return """
 adapter driver remote_bitbang
 remote_bitbang host {host}
@@ -240,11 +233,11 @@ jtag newtap bonfire cpu -irlen {ir_width} -expected-id 0x{idcode:08x}
 init
 scan_chain
 shutdown
-""".format(host=host, port=port, idcode=JTAG_IDCODE, ir_width=conf.debug_jtag_ir_width)
+""".format(host=host, port=port, idcode=JTAG_IDCODE, ir_width=ir_width)
 
 
-def _openocd_core_target_config(host: str, port: int, profile: str = "standard") -> str:
-    conf = _profile_config(profile)
+def _openocd_core_target_config(host: str, port: int, transport: str = "standard") -> str:
+    ir_width = JTAG_IR_WIDTH if transport == "standard" else ECP5_JTAGG_IR_WIDTH
     return """
 gdb_port disabled
 tcl_port disabled
@@ -261,7 +254,7 @@ target create bonfire.cpu riscv -chain-position bonfire.cpu
 
 init
 shutdown
-""".format(host=host, port=port, idcode=JTAG_IDCODE, ir_width=conf.debug_jtag_ir_width, ir_override=_openocd_ir_override(profile))
+""".format(host=host, port=port, idcode=JTAG_IDCODE, ir_width=ir_width, ir_override=_openocd_ir_override(transport))
 
 
 def test_openocd_remote_bitbang_scan_chain_reads_idcode(sim_env, tmp_path: Path, request: pytest.FixtureRequest):
@@ -297,19 +290,19 @@ def test_openocd_remote_bitbang_scan_chain_reads_idcode(sim_env, tmp_path: Path,
     assert "0x{:08x}".format(JTAG_IDCODE) in completed.stderr.lower()
 
 
-def test_openocd_remote_bitbang_scan_chain_reads_idcode_ecp5_ir(sim_env, tmp_path: Path, request: pytest.FixtureRequest):
-    """Run real OpenOCD against the alternate ECP5-style IR map."""
+def test_openocd_remote_bitbang_scan_chain_reads_idcode_ecp5_jtagg(sim_env, tmp_path: Path, request: pytest.FixtureRequest):
+    """Run real OpenOCD against the emulated ECP5 JTAGG transport."""
 
     if shutil.which("openocd") is None:
         pytest.skip("openocd not installed")
 
     port = _free_tcp_port()
-    trace, filename = waveform_config(request, sim_env, "openocd_bitbang_scan_chain_ecp5_ir")
+    trace, filename = waveform_config(request, sim_env, "openocd_bitbang_scan_chain_ecp5_jtagg")
     vcd_path = Path(filename) if trace and filename is not None else None
-    config_path = tmp_path / "bonfire_remote_bitbang_ecp5_ir.cfg"
-    config_path.write_text(_openocd_config("127.0.0.1", port, profile="ecp5_er"), encoding="utf-8")
+    config_path = tmp_path / "bonfire_remote_bitbang_ecp5_jtagg.cfg"
+    config_path.write_text(_openocd_config("127.0.0.1", port, transport="ecp5_jtagg"), encoding="utf-8")
 
-    with _remote_bitbang_server_process(port, vcd=vcd_path, observe_jtag=True, jtag_ir_profile="ecp5_er"):
+    with _remote_bitbang_server_process(port, vcd=vcd_path, observe_jtag=True, jtag_transport="ecp5_jtagg"):
         completed = subprocess.run(
             ["openocd", "-f", str(config_path)],
             check=False,
@@ -357,17 +350,17 @@ def test_openocd_remote_bitbang_core_target_smoke(tmp_path: Path):
         assert "not authenticated" in stderr, "openocd failed\nstdout:\n{}\nstderr:\n{}".format(completed.stdout, completed.stderr)
 
 
-def test_openocd_remote_bitbang_core_target_smoke_ecp5_ir(tmp_path: Path):
-    """Run OpenOCD with alternate ER1/ER2 IR codes against the full core simulation."""
+def test_openocd_remote_bitbang_core_target_smoke_ecp5_jtagg(tmp_path: Path):
+    """Run OpenOCD with the emulated ECP5 JTAGG transport against the full core simulation."""
 
     if shutil.which("openocd") is None:
         pytest.skip("openocd not installed")
 
     port = _free_tcp_port()
-    config_path = tmp_path / "bonfire_remote_bitbang_core_ecp5_ir.cfg"
-    config_path.write_text(_openocd_core_target_config("127.0.0.1", port, profile="ecp5_er"), encoding="utf-8")
+    config_path = tmp_path / "bonfire_remote_bitbang_core_ecp5_jtagg.cfg"
+    config_path.write_text(_openocd_core_target_config("127.0.0.1", port, transport="ecp5_jtagg"), encoding="utf-8")
 
-    with _remote_bitbang_server_process(port, observe_jtag=True, jtag_ir_profile="ecp5_er"):
+    with _remote_bitbang_server_process(port, observe_jtag=True, jtag_transport="ecp5_jtagg"):
         completed = subprocess.run(
             ["openocd", "-f", str(config_path)],
             check=False,

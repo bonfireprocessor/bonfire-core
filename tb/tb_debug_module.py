@@ -13,11 +13,11 @@ from typing import Any
 from myhdl import *
 
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debug import DmiBundle, DEBUG_SPEC_VERSION
+from rtl.debug import DmiBundle, DEBUG_SPEC_VERSION, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle, Ecp5JtaggTapEmulator
 from rtl.instructions import CSRAdr
 from rtl.debug.jtag_dtm import JtagDTM
 from tb.ClkDriver import ClkDriver
-from tb.debug_api import DebugAPI, DebugAPISim, JtagDebugAPISim
+from tb.debug_api import DebugAPI, DebugAPISim, Ecp5JtaggDebugAPISim, JtagDebugAPISim
 from tb.disassemble import abi_name, disassemble
 from tb.sim_monitor import monitor_instance
 from tb.sim_ram import sim_ram
@@ -261,7 +261,13 @@ class BonfireCoreDebugTestbench:
                 mark("reading JTAG DTMCS")
                 yield api.read_dtmcs()
                 self.log("JTAG DTMCS = {}".format(hex(api.dtmcs)))
-                self.log("using JTAG debug transport")
+                self.log("using native JTAG debug transport")
+            elif self.debug_transport == "jtagg":
+                assert tck is not None and tms is not None and tdi is not None and tdo is not None
+                api = Ecp5JtaggDebugAPISim(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
+                mark("resetting emulated ECP5 TAP")
+                yield api.reset_tap()
+                self.log("using ECP5 JTAGG debug transport")
             else:
                 api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
                 self.log("using direct DMI debug transport")
@@ -300,9 +306,9 @@ class BonfireCoreDebugTestbench:
             yield self.check_dpc(api, 0x0C, "second halt")
 
             gpr_save: list[int] = [0]
-            if self.debug_transport == "jtag":
-                # skip part of test with JTAG Transport for Performance reasons
-                self.log("skipping full GPR save/restore sweep for JTAG transport")
+            if self.debug_transport in ("jtag", "jtagg"):
+                # skip part of test with serial debug transports for performance reasons
+                self.log("skipping full GPR save/restore sweep for serial debug transport")
             else:
                 self.log("reading architectural GPR state")
                 for i in range(1, 32):
@@ -354,9 +360,9 @@ class BonfireCoreDebugTestbench:
             self.log("memory[0x4] initial value = {}".format(hex(api.cmd_result())))
             mem_save = api.cmd_result()
 
-            if self.debug_transport == "jtag":
-                # skip part of test with JTAG Transport for Performance reasons
-                self.log("skipping abstractauto memory sequence for JTAG transport")
+            if self.debug_transport in ("jtag", "jtagg"):
+                # skip part of test with serial debug transports for performance reasons
+                self.log("skipping abstractauto memory sequence for serial debug transport")
             else:
                 mark("testing abstractauto memory sequence")
                 yield self.check_abstractauto_memory_read(api, mem0_save, mem_save)
@@ -385,9 +391,9 @@ class BonfireCoreDebugTestbench:
             mark("writing and checking dcsr")
             yield self.set_and_check_dcsr(api, breakm=True, step=True)
 
-            if self.debug_transport == "jtag":
-                # skip part of test with JTAG Transport for Performance reasons
-                self.log("skipping debug CSR instruction and step/ebreak tests for JTAG transport")
+            if self.debug_transport in ("jtag", "jtagg"):
+                # skip part of test with serial debug transports for performance reasons
+                self.log("skipping debug CSR instruction and step/ebreak tests for serial debug transport")
             else:
                 mark("testing debug CSR instructions")
                 yield self.check_debug_csr_instructions(api)
@@ -395,8 +401,8 @@ class BonfireCoreDebugTestbench:
                 mark("testing ebreakm and single step")
                 yield self.check_ebreakm_and_step(api)
 
-            if self.debug_transport == "jtag":
-                # skip part of test with JTAG Transport for Performance reasons
+            if self.debug_transport in ("jtag", "jtagg"):
+                # skip part of test with serial debug transports for performance reasons
                 self.log("setting a0=1 for monitor success path")
                 mark("writing GPR a0 for success path")
                 yield api.writeGPR(regno=10, value=1)
@@ -419,7 +425,7 @@ class BonfireCoreDebugTestbench:
             mark("stimulus completed")
             progress["done"] = True
 
-        if self.debug_transport == "jtag":
+        if self.debug_transport in ("jtag", "jtagg"):
             assert tck is not None
 
             @instance
@@ -463,6 +469,10 @@ class BonfireCoreDebugTestbench:
                 yield api.reset_tap()
                 yield api.read_idcode()
                 yield api.read_dtmcs()
+            elif self.debug_transport == "jtagg":
+                assert tck is not None and tms is not None and tdi is not None and tdo is not None
+                api = Ecp5JtaggDebugAPISim(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
+                yield api.reset_tap()
             else:
                 api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
 
@@ -544,7 +554,7 @@ class BonfireCoreDebugTestbench:
         dbus_if = mem.ram_interface(ram, ram_dbus, clock, system_reset)
 
         clk_driver = ClkDriver(clock)
-        tck_driver = ClkDriver(tck, period=73)
+        tck_driver = None if self.debug_transport == "jtagg" else ClkDriver(tck, period=73)
         mon_i = monitor_instance(ram, mon_dbus, clock, sigFile=self.sigFile, elfFile=self.elfFile, result=self.monitor_result)
         if self.stimulus_mode == "ndmreset":
             stim = self.ndmreset_stimulus(dtm, clock, tck=tck, tms=tms, tdi=tdi, tdo=tdo)
@@ -553,8 +563,15 @@ class BonfireCoreDebugTestbench:
         else:
             raise ValueError("Unsupported stimulus_mode: {}".format(self.stimulus_mode))
         jtag_dtm = None
+        jtagg_client = None
+        jtagg_tap = None
         if self.debug_transport == "jtag":
             jtag_dtm = JtagDTM(local_config).createInstance(clock, reset, tck, tms, tdi, trstn, tdo, dtm)
+        elif self.debug_transport == "jtagg":
+            jtagg_in = Ecp5JtaggInputBundle()
+            jtagg_out = Ecp5JtaggOutputBundle()
+            jtagg_client = Ecp5JtaggClient(local_config, clock, reset, jtagg_in, jtagg_out, dtm)
+            jtagg_tap = Ecp5JtaggTapEmulator().createInstance(clock, reset, tck, tms, tdi, trstn, tdo, jtagg_in, jtagg_out)
         elif self.debug_transport != "dmi":
             raise ValueError("Unsupported debug_transport: {}".format(self.debug_transport))
 

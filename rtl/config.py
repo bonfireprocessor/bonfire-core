@@ -17,31 +17,8 @@ class BonfireConfig:
         self.dm_maxregno=0x101f
         self.dmi_adr_width=6 # DMI address width, 6 bits allows for 64 debug registers, which is more than the 0x101f max regno
         self.progbuf_size=2 # Currently the core only supports 1 and 2 for progbuf
-        self.debug_jtag_ir_width=5
-        self.debug_jtag_ir_idcode=0x01
-        self.debug_jtag_ir_dtmcs=0x10
-        self.debug_jtag_ir_dmi=0x11
-        self.debug_jtag_ir_bypass=0x1f
         #ip_low contains lowest bit of valid instruction pointer
         if self.RVC:
             self.ip_low=1
         else:
             self.ip_low=2    
-
-    def set_debug_jtag_ir_profile(self, profile: str) -> None:
-        if profile == "standard":
-            self.debug_jtag_ir_width = 5
-            self.debug_jtag_ir_idcode = 0x01
-            self.debug_jtag_ir_dtmcs = 0x10
-            self.debug_jtag_ir_dmi = 0x11
-            self.debug_jtag_ir_bypass = 0x1f
-        elif profile == "ecp5_er":
-            self.debug_jtag_ir_width = 6
-            self.debug_jtag_ir_idcode = 0x01
-            self.debug_jtag_ir_dtmcs = 0x38
-            self.debug_jtag_ir_dmi = 0x32
-            self.debug_jtag_ir_bypass = 0x1f
-        else:
-            raise ValueError("Unknown debug JTAG IR profile: {}".format(profile))
-
-        

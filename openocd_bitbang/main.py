@@ -48,7 +48,7 @@ def serve_openocd_bitbang(
     info_trace: bool = False,
     enable_ndmreset: bool = True,
     exit_on_client_quit: bool = False,
-    jtag_ir_profile: str = "standard",
+    jtag_transport: str = "standard",
 ) -> int:
     control = OpenOCDBitbangControl(host=host, port=port)
     server_socket = _bind_server_socket(control.host, control.port)
@@ -57,7 +57,6 @@ def serve_openocd_bitbang(
 
     bonfire_config = BonfireConfig()
     bonfire_config.enableDebugNdmreset = enable_ndmreset
-    bonfire_config.set_debug_jtag_ir_profile(jtag_ir_profile)
 
     tb = OpenOCDBitbangTestbench(
         bonfire_config,
@@ -71,6 +70,7 @@ def serve_openocd_bitbang(
         debug_trace=debug_trace,
         info_trace=info_trace,
         exit_on_client_quit=exit_on_client_quit,
+        jtag_transport=jtag_transport,
     ).testbench()
     sim_error: list[BaseException] = []
 
@@ -123,7 +123,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--info-trace", action="store_true", help="Print compact hart and abstract-command trace")
     parser.add_argument("--disable-ndmreset", action="store_true", help="Disable Debug Module ndmreset handling")
     parser.add_argument("--exit-on-client-quit", action="store_true", help="Exit after the remote_bitbang client sends Q")
-    parser.add_argument("--jtag-ir-profile", choices=["standard", "ecp5_er"], default="standard", help="Select the JTAG DTM IR-code profile")
+    parser.add_argument("--jtag-transport", choices=["standard", "ecp5_jtagg"], default="standard", help="Select the JTAG transport frontend")
     parser.add_argument("--vcd", type=Path, default=None, help="Optional VCD output filename base")
     return parser.parse_args()
 
@@ -147,7 +147,7 @@ def main() -> int:
         info_trace=args.info_trace,
         enable_ndmreset=not args.disable_ndmreset,
         exit_on_client_quit=args.exit_on_client_quit,
-        jtag_ir_profile=args.jtag_ir_profile,
+        jtag_transport=args.jtag_transport,
     )
 
 

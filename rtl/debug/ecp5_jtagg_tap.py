@@ -1,65 +1,31 @@
 """
-JTAG Debug Transport Module for the Bonfire debug module.
+Simulation-oriented ECP5 JTAGG TAP emulator.
 (c) 2026 The Bonfire Project
 License: See LICENSE
-
-This implements a small RISC-V debug compatible TAP with IDCODE, DTMCS, DMI
-and BYPASS instructions. The DMI scan register drives the DmiBundle consumed
-by the Debug Module Interface.
 """
 from __future__ import annotations
 
 from typing import Any
 
-from myhdl import Signal, always_comb, always_seq, block, enum, instances, modbv
+from myhdl import Signal, always_comb, always_seq, block, instances, modbv
 
-from rtl.debug.dm_registers import DmiBundle
-from rtl.debug.dtm_transport import DmiScanRegister, DtmcsScanRegister
+from rtl.debug.ecp5_jtagg_client import (
+    ECP5_JTAGG_IR_ER1,
+    ECP5_JTAGG_IR_ER2,
+    ECP5_JTAGG_IR_WIDTH,
+    Ecp5JtaggInputBundle,
+    Ecp5JtaggOutputBundle,
+)
+from rtl.debug.jtag_dtm import JTAG_IDCODE, t_tap_state
 from rtl.type_aliases import BitSignal
 
-
-JTAG_IR_WIDTH = 5
-
-JTAG_INSTR_IDCODE = 0x01
-JTAG_INSTR_DTMCS = 0x10
-JTAG_INSTR_DMI = 0x11
-JTAG_INSTR_BYPASS = 0x1F
-
-JTAG_IDCODE = 0x10E31913
-
-DTM_VERSION = 1
-DTM_IDLE = 1
-DTM_DMI_STATUS_OK = 0
-DTMCS_DMIRESET_BIT = 16
-
-DMI_OP_NOP = 0
-DMI_OP_READ = 1
-DMI_OP_WRITE = 2
-DMI_OP_SUCCESS = 0
-
-t_tap_state = enum(
-    'test_logic_reset',
-    'run_test_idle',
-    'select_dr_scan',
-    'capture_dr',
-    'shift_dr',
-    'exit1_dr',
-    'pause_dr',
-    'exit2_dr',
-    'update_dr',
-    'select_ir_scan',
-    'capture_ir',
-    'shift_ir',
-    'exit1_ir',
-    'pause_ir',
-    'exit2_ir',
-    'update_ir',
-)
+ECP5_JTAG_INSTR_IDCODE = 0x01
+ECP5_JTAG_INSTR_BYPASS = 0x3F
 
 
-class JtagDTM:
-    def __init__(self, config: Any) -> None:
-        self.config = config
+class Ecp5JtaggTapEmulator:
+    def __init__(self) -> None:
+        self.ir_width = ECP5_JTAGG_IR_WIDTH
 
     @block
     def createInstance(
@@ -71,12 +37,13 @@ class JtagDTM:
         tdi_i: BitSignal,
         trstn_i: BitSignal,
         tdo_o: BitSignal,
-        dtm: DmiBundle,
+        jtagg_i: Ecp5JtaggInputBundle,
+        jtagg_o: Ecp5JtaggOutputBundle,
         tap_state_o: Any = None,
     ) -> Any:
         tap_state = Signal(t_tap_state.test_logic_reset)
-        instruction = Signal(modbv(JTAG_INSTR_IDCODE)[JTAG_IR_WIDTH:])
-        ir_shift = Signal(modbv(0)[JTAG_IR_WIDTH:])
+        instruction = Signal(modbv(ECP5_JTAG_INSTR_IDCODE)[self.ir_width:])
+        ir_shift = Signal(modbv(0)[self.ir_width:])
         idcode_shift = Signal(modbv(0)[32:])
         bypass = Signal(bool(0))
 
@@ -92,21 +59,8 @@ class JtagDTM:
         tck_rise = Signal(bool(0))
         tck_fall = Signal(bool(0))
 
-        dmi_capture = Signal(bool(0))
-        dmi_shift = Signal(bool(0))
-        dmi_update = Signal(bool(0))
-        dtmcs_capture = Signal(bool(0))
-        dtmcs_shift = Signal(bool(0))
-        dtmcs_update = Signal(bool(0))
-        dmi_tdo = Signal(bool(0))
-        dtmcs_tdo = Signal(bool(0))
-        dmistat = Signal(modbv(DTM_DMI_STATUS_OK)[2:])
-        dmireset_pulse = Signal(bool(0))
-        dmi_selected = Signal(bool(0))
-        dtmcs_selected = Signal(bool(0))
-
         @always_seq(clock.posedge, reset=reset)
-        def jtag_input_sync():
+        def input_sync():
             tck_meta.next = tck_i
             tck_sync.next = tck_meta
             tck_sync_d.next = tck_sync
@@ -118,40 +72,25 @@ class JtagDTM:
             trstn_sync.next = trstn_meta
 
         @always_comb
-        def tck_edge_detect():
+        def edge_detect():
             tck_rise.next = tck_sync and not tck_sync_d
             tck_fall.next = not tck_sync and tck_sync_d
 
         @always_comb
-        def select_decode():
-            dmi_selected.next = instruction == JTAG_INSTR_DMI
-            dtmcs_selected.next = instruction == JTAG_INSTR_DTMCS
-
-        @always_seq(clock.posedge, reset=reset)
-        def drive_scan_controls():
-            dmi_capture.next = False
-            dmi_shift.next = False
-            dmi_update.next = False
-            dtmcs_capture.next = False
-            dtmcs_shift.next = False
-            dtmcs_update.next = False
-
-            if tck_rise and trstn_sync:
-                if tap_state == t_tap_state.capture_dr:
-                    if dmi_selected:
-                        dmi_capture.next = True
-                    elif dtmcs_selected:
-                        dtmcs_capture.next = True
-                elif tap_state == t_tap_state.shift_dr:
-                    if dmi_selected:
-                        dmi_shift.next = True
-                    elif dtmcs_selected:
-                        dtmcs_shift.next = True
-                elif tap_state == t_tap_state.update_dr:
-                    if dmi_selected:
-                        dmi_update.next = True
-                    elif dtmcs_selected:
-                        dtmcs_update.next = True
+        def jtagg_drive():
+            jtagg_i.jtck.next = tck_sync
+            jtagg_i.jtdi.next = tdi_sync
+            jtagg_i.jshift.next = tap_state == t_tap_state.shift_dr
+            jtagg_i.jupdate.next = tap_state == t_tap_state.update_dr
+            jtagg_i.jrstn.next = trstn_sync and tap_state != t_tap_state.test_logic_reset
+            jtagg_i.jce1.next = instruction == ECP5_JTAGG_IR_ER1 and (
+                tap_state == t_tap_state.capture_dr or tap_state == t_tap_state.shift_dr
+            )
+            jtagg_i.jce2.next = instruction == ECP5_JTAGG_IR_ER2 and (
+                tap_state == t_tap_state.capture_dr or tap_state == t_tap_state.shift_dr
+            )
+            jtagg_i.jrt1.next = instruction == ECP5_JTAGG_IR_ER1 and tap_state == t_tap_state.run_test_idle
+            jtagg_i.jrt2.next = instruction == ECP5_JTAGG_IR_ER2 and tap_state == t_tap_state.run_test_idle
 
         @always_seq(clock.posedge, reset=reset)
         def tdo_select():
@@ -161,16 +100,14 @@ class JtagDTM:
                 if tap_state == t_tap_state.shift_ir:
                     tdo_o.next = ir_shift[0]
                 elif tap_state == t_tap_state.shift_dr:
-                    if instruction == JTAG_INSTR_BYPASS:
-                        tdo_o.next = bypass
-                    elif instruction == JTAG_INSTR_IDCODE:
+                    if instruction == ECP5_JTAG_INSTR_IDCODE:
                         tdo_o.next = idcode_shift[0]
-                    elif dmi_selected:
-                        tdo_o.next = dmi_tdo
-                    elif dtmcs_selected:
-                        tdo_o.next = dtmcs_tdo
+                    elif instruction == ECP5_JTAGG_IR_ER1:
+                        tdo_o.next = jtagg_o.jtdo1
+                    elif instruction == ECP5_JTAGG_IR_ER2:
+                        tdo_o.next = jtagg_o.jtdo2
                     else:
-                        tdo_o.next = False
+                        tdo_o.next = bypass
                 else:
                     tdo_o.next = False
 
@@ -180,7 +117,7 @@ class JtagDTM:
                 tap_state_o.next = tap_state
 
         @always_seq(clock.posedge, reset=reset)
-        def tap_state_transition():
+        def state_transition():
             if not trstn_sync:
                 tap_state.next = t_tap_state.test_logic_reset
             elif tck_rise:
@@ -218,65 +155,34 @@ class JtagDTM:
                     tap_state.next = t_tap_state.select_dr_scan if tms_sync else t_tap_state.run_test_idle
 
         @always_seq(clock.posedge, reset=reset)
-        def tap_actions():
+        def actions():
             if not trstn_sync:
-                instruction.next = JTAG_INSTR_IDCODE
+                instruction.next = ECP5_JTAG_INSTR_IDCODE
                 ir_shift.next = 0
                 idcode_shift.next = 0
                 bypass.next = False
-                dmistat.next = DTM_DMI_STATUS_OK
-            elif dmireset_pulse:
-                dmistat.next = DTM_DMI_STATUS_OK
-
-            if trstn_sync and tck_rise:
+            elif tck_rise:
                 if tap_state == t_tap_state.test_logic_reset and tms_sync:
-                    instruction.next = JTAG_INSTR_IDCODE
+                    instruction.next = ECP5_JTAG_INSTR_IDCODE
 
                 if tap_state == t_tap_state.capture_ir:
                     ir_shift.next = 0x01
                 elif tap_state == t_tap_state.shift_ir:
-                    ir_shift.next[JTAG_IR_WIDTH - 1] = tdi_sync
-                    ir_shift.next[JTAG_IR_WIDTH - 1:0] = ir_shift[JTAG_IR_WIDTH:1]
+                    ir_shift.next[self.ir_width - 1] = tdi_sync
+                    ir_shift.next[self.ir_width - 1:0] = ir_shift[self.ir_width:1]
                 elif tap_state == t_tap_state.update_ir:
                     instruction.next = ir_shift
 
                 if tap_state == t_tap_state.capture_dr:
-                    if instruction == JTAG_INSTR_IDCODE:
+                    if instruction == ECP5_JTAG_INSTR_IDCODE:
                         idcode_shift.next = JTAG_IDCODE
-                    elif instruction == JTAG_INSTR_BYPASS:
+                    else:
                         bypass.next = False
                 elif tap_state == t_tap_state.shift_dr:
-                    if instruction == JTAG_INSTR_BYPASS:
-                        bypass.next = tdi_sync
-                    elif instruction == JTAG_INSTR_IDCODE:
+                    if instruction == ECP5_JTAG_INSTR_IDCODE:
                         idcode_shift.next[31] = tdi_sync
                         idcode_shift.next[31:0] = idcode_shift[32:1]
-
-        dmi_scan = DmiScanRegister(
-            self.config,
-            clock,
-            reset,
-            dmi_selected,
-            dmi_capture,
-            dmi_shift,
-            dmi_update,
-            tdi_sync,
-            dmi_tdo,
-            dtm,
-        )
-
-        dtmcs_scan = DtmcsScanRegister(
-            self.config,
-            clock,
-            reset,
-            dtmcs_selected,
-            dtmcs_capture,
-            dtmcs_shift,
-            dtmcs_update,
-            tdi_sync,
-            dtmcs_tdo,
-            dmistat,
-            dmireset_pulse,
-        )
+                    elif instruction != ECP5_JTAGG_IR_ER1 and instruction != ECP5_JTAGG_IR_ER2:
+                        bypass.next = tdi_sync
 
         return instances()

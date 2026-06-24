@@ -78,15 +78,14 @@ def test_debug_module_jtag(sim_env, repo_root: Path, request: pytest.FixtureRequ
     )
 
 
-def test_debug_module_jtag_ecp5_ir(sim_env, repo_root: Path, request: pytest.FixtureRequest):
+def test_debug_module_jtagg(sim_env, repo_root: Path, request: pytest.FixtureRequest):
     _run_debug_module_test(
         sim_env,
         repo_root,
-        debug_transport="jtag",
-        waveform_name="debug_module_jtag_ecp5_ir",
+        debug_transport="jtagg",
+        waveform_name="debug_module_jtagg",
         duration=15_000_000,
         request=request,
-        configure_debug=lambda conf: conf.set_debug_jtag_ir_profile("ecp5_er"),
     )
 
 

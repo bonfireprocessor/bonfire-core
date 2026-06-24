@@ -3,7 +3,9 @@
 This document describes the current debug stack in **bonfire-core**:
 
 - RISC-V Debug Module implementation (`rtl/debugModule.py`)
-- JTAG Debug Transport Module (DTM) (`rtl/jtag_dtm.py`)
+- Native JTAG Debug Transport Module (`rtl/jtag_dtm.py`)
+- Shared DTM transport logic (`rtl/debug/dtm_transport.py`)
+- ECP5 JTAGG frontend (`rtl/debug/ecp5_jtagg_client.py`)
 - OpenOCD remote_bitbang simulation server (`openocd_bitbang`)
 - Integration of the debug path into the Bonfire core (`rtl/bonfire_core_top.py` + decode/fetch/backend path)
 
@@ -11,9 +13,10 @@ This document describes the current debug stack in **bonfire-core**:
 
 ## 1. Architecture Overview
 
-Current end-to-end debug path:
+Current end-to-end debug paths:
 
-`GDB -> OpenOCD -> remote_bitbang TCP protocol -> JTAG DTM -> DMI signals -> Debug Module registers/state -> core decode/fetch control`
+- `GDB -> OpenOCD -> remote_bitbang TCP protocol -> native JTAG TAP/DTM -> DMI signals -> Debug Module registers/state -> core decode/fetch control`
+- `GDB -> OpenOCD -> remote_bitbang TCP protocol -> emulated ECP5 TAP -> JTAGG frontend -> DMI signals -> Debug Module registers/state -> core decode/fetch control`
 
 For direct simulation tests, the Debug Module can also be driven without JTAG via direct DMI stimulus.
 
@@ -77,13 +80,13 @@ Autoexec support:
 
 ---
 
-## 3. JTAG DTM (`rtl/jtag_dtm.py`)
+## 3. Native JTAG DTM (`rtl/jtag_dtm.py`)
 
 ### 3.1 Main responsibilities
 
-- Implement a JTAG TAP state machine
-- Expose RISC-V debug JTAG instructions and DR behavior
-- Translate DMI DR scans into `AbstractDebugTransportBundle` transactions
+- Implement the native RISC-V JTAG TAP state machine
+- Expose fixed standard RISC-V debug JTAG instructions and DR behavior
+- Translate DMI DR scans into transport transactions
 
 ### 3.2 Implemented JTAG instructions
 
@@ -97,10 +100,20 @@ Key constants:
 - IR width: 5
 - IDCODE: `0x10E31913`
 - DTM version: 1
-- Default IR map: `IRLEN=5`, `IDCODE=0x01`, `DTMCS=0x10`, `DMI=0x11`, `BYPASS=0x1F`
-- Alternate ECP5-style IR map: `IRLEN=6`, `IDCODE=0x01`, `DTMCS=0x38`, `DMI=0x32`, `BYPASS=0x1F`
+- Fixed IR map: `IRLEN=5`, `IDCODE=0x01`, `DTMCS=0x10`, `DMI=0x11`, `BYPASS=0x1F`
 
-### 3.3 DTM/DMI behavior
+### 3.3 Clock-domain handling
+
+- External JTAG pins (`tck/tms/tdi/trstn`) are synchronized into system clock domain
+- TAP transitions and DR/IR updates are evaluated using synchronized edge detection
+
+---
+
+## 4. Shared DTM transport logic (`rtl/debug/dtm_transport.py`)
+
+This block contains the frontend-independent scan-register and DMI request/response logic shared by the native JTAG DTM and the ECP5 JTAGG frontend.
+
+Implemented behavior:
 
 - DMI scan format: `{address, data, op}` (LSB-first)
 - Supports DMI operations:
@@ -111,23 +124,59 @@ Key constants:
 - `dmireset` handling through DTMCS bit 16
 - `dmistat` currently kept at OK under normal operation
 
-### 3.4 Clock-domain handling
+It intentionally does **not** contain:
 
-- External JTAG pins (`tck/tms/tdi/trstn`) are synchronized into system clock domain
-- TAP transitions and DR/IR updates are evaluated using synchronized edge detection
+- a TAP state machine
+- IDCODE handling
+- generic IR decode
+- FPGA-vendor specific USER-instruction binding
 
 ---
 
-## 4. OpenOCD remote_bitbang server (`openocd_bitbang`)
+## 5. ECP5 JTAGG frontend (`rtl/debug/ecp5_jtagg_client.py`)
 
-### 4.1 Components
+### 5.1 Main responsibilities
+
+- Bind the shared DTM transport logic to ECP5 `JTAGG`-style signals
+- Map `ER1 -> DMIACCESS`
+- Map `ER2 -> DTMCS`
+- Keep FPGA USER-instruction binding outside the transport core
+
+Implemented interface signals:
+
+- `JTCK`, `JTDI`
+- `JSHIFT`, `JUPDATE`, `JRSTN`
+- `JCE1`, `JCE2`
+- `JRT1`, `JRT2`
+- `JTDO1`, `JTDO2`
+
+Key constants:
+
+- Outer TAP IR width: 6
+- `ER1 = 0x32`
+- `ER2 = 0x38`
+
+### 5.2 Simulation support
+
+For simulation and OpenOCD-facing tests, the repository also contains:
+
+- `rtl/debug/ecp5_jtagg_tap.py`
+
+This is a TAP emulator that presents IDCODE plus USER instruction selection on the external JTAG pins and drives the internal JTAGG-style signals. It is a simulation/test helper; real FPGA integration is expected to bind the frontend to the vendor `JTAGG` primitive instead.
+
+---
+
+## 6. OpenOCD remote_bitbang server (`openocd_bitbang`)
+
+### 6.1 Components
 
 - `remote_bitbang.py`: protocol server (OpenOCD remote_bitbang command handling)
-- `sim_testbench.py`: full MyHDL simulation tying server + JTAG DTM + core + RAM
+- `sim_testbench.py`: full MyHDL simulation tying server + selected JTAG frontend + core + RAM
 - `main.py`: CLI runner for hosting the simulation server
-- `bonfire.cfg`: example OpenOCD configuration
+- `bonfire.cfg`: native JTAG example OpenOCD configuration
+- `bonfire_ecp5_er.cfg`: ECP5 JTAGG example OpenOCD configuration
 
-### 4.2 Implemented protocol support
+### 6.2 Implemented protocol support
 
 Supported remote_bitbang commands:
 
@@ -137,7 +186,7 @@ Supported remote_bitbang commands:
 - LED/blink-related commands (`B/b/Z/z/O/o`) are accepted/ignored safely
 - Client quit (`'Q'`) with optional simulation stop behavior
 
-### 4.3 Runtime and observability features
+### 6.3 Runtime and observability features
 
 CLI options include:
 
@@ -148,6 +197,7 @@ CLI options include:
 - `--debug-trace` (DMI/progbuf/abstract-command trace)
 - `--vcd`
 - `--exit-on-client-quit`
+- `--jtag-transport standard|ecp5_jtagg`
 
 The debug trace monitor reports:
 
@@ -159,9 +209,9 @@ The debug trace monitor reports:
 
 ---
 
-## 5. Debug Module Integration into the Core
+## 7. Debug Module Integration into the Core
 
-### 5.1 Top-level integration
+### 7.1 Top-level integration
 
 In `BonfireCoreTop`:
 
@@ -169,34 +219,36 @@ In `BonfireCoreTop`:
 - Core instance requires a `debugTransportBundle` in this mode
 - DMI interface instance connects transport signals to debug register/state bundle
 
-### 5.2 Pipeline integration
+### 7.2 Pipeline integration
 
 - Decode stage owns most debug command orchestration
 - Fetch stage suppresses normal forward progress while hart is halted
 - Backend jump output is OR-combined with debug `dpc_jump` recovery path
 - Progbuf instructions are multiplexed into decode when halted + exec state active
 
-### 5.3 Transport options used in tests
+### 7.3 Transport options used in tests
 
 - **Direct DMI simulation** path (`DebugAPISim`) for fast, detailed debug-module checks
-- **JTAG simulation** path (`JtagDebugAPISim` + `JtagDTM`) for full transport verification
+- **Native JTAG simulation** path (`JtagDebugAPISim` + `JtagDTM`) for full transport verification
+- **ECP5 JTAGG simulation** path (`Ecp5JtaggDebugAPISim` + `Ecp5JtaggClient` + `Ecp5JtaggTapEmulator`) for USER-instruction based transport verification
 
 ---
 
-## 6. Supported Features (Current State)
+## 8. Supported Features (Current State)
 
 1. Single-hart debug halt/resume flow
 2. DMI register map subset for core debug operation
 3. Access-register abstract commands (32-bit) for GPR and limited CSR path
 4. Program buffer execution with configurable size 1 or 2
 5. `abstractauto` for data/progbuf autoexec triggers
-6. JTAG TAP + IDCODE/DTMCS/DMI/BYPASS instruction support
-7. OpenOCD-compatible remote_bitbang server for simulated JTAG connectivity
-8. End-to-end simulation path up to OpenOCD target creation (`GDB/OpenOCD/JTAG/DTM/DM/Core`)
+6. Native JTAG TAP + IDCODE/DTMCS/DMI/BYPASS instruction support
+7. Separate ECP5 JTAGG frontend with fixed `ER1/ER2` mapping
+8. OpenOCD-compatible remote_bitbang server for simulated JTAG connectivity
+9. End-to-end simulation paths for both native JTAG and ECP5-style JTAGG transport
 
 ---
 
-## 7. Missing or Incomplete Functionality
+## 9. Missing or Incomplete Functionality
 
 1. **Full RISC-V Debug Spec coverage is not implemented**
    - Implementation is a practical subset, not a complete 0.13 feature set.
@@ -223,37 +275,38 @@ In `BonfireCoreTop`:
 
 ---
 
-## 8. Practical Bring-up Notes
+## 10. Practical Bring-up Notes
 
 1. Build debug test images before running OpenOCD bitbang flows.
 2. Start server:
    - `scripts/bonfire-core --openocd-bitbang --port 3335`
-3. Connect OpenOCD using a remote_bitbang config equivalent to `openocd_bitbang/bonfire.cfg`.
-4. Optionally enable:
+3. For native JTAG, use the default transport and `openocd_bitbang/bonfire.cfg`.
+4. For the ECP5-style transport, start the server with:
+   - `--jtag-transport ecp5_jtagg`
+   and use:
+   - `openocd_bitbang/bonfire_ecp5_er.cfg`
+5. Optionally enable:
    - `--observe-jtag` for TAP visibility
    - `--debug-trace` for abstract command/progbuf diagnostics
 
-### 8.1 Alternate ECP5-style IR profile
+### 10.1 OpenOCD note for ECP5 JTAGG
 
-The JTAG DTM also supports a configurable alternate IR mapping intended for an
-ECP5/JTAGG-style transport while keeping the standard RISC-V DMI semantics:
+The companion config keeps the outer TAP at `IRLEN=6` and overrides the RISC-V DTM instruction numbers so OpenOCD uses:
 
-- `DTMCS = 0x38`
-- `DMI = 0x32`
+- `DTMCS = 0x38` (`ER2`)
+- `DMI = 0x32` (`ER1`)
 
-OpenOCD can use this profile with the companion config:
-
-- `openocd_bitbang/bonfire_ecp5_er.cfg`
-
-The current repository scope only changes the IR codes. The actual FPGA-side
-binding to the ECP5 `JTAGG` primitive is a separate integration step.
+Unlike the earlier intermediate approach, these opcodes are now specific to the dedicated ECP5 JTAGG frontend. The native JTAG DTM no longer supports alternate IR mappings.
 
 ---
 
-## 9. Relevant Source Files
+## 11. Relevant Source Files
 
 - `rtl/debugModule.py`
 - `rtl/jtag_dtm.py`
+- `rtl/debug/dtm_transport.py`
+- `rtl/debug/ecp5_jtagg_client.py`
+- `rtl/debug/ecp5_jtagg_tap.py`
 - `rtl/decode.py`
 - `rtl/fetch.py`
 - `rtl/simple_pipeline.py`
@@ -265,7 +318,9 @@ binding to the ECP5 `JTAGG` primitive is a separate integration step.
 - `openocd_bitbang/bonfire_ecp5_er.cfg`
 - `tb/tb_debug_module.py`
 - `tb/tb_jtag_dtm.py`
+- `tb/tb_ecp5_jtagg.py`
 - `tests/test_debug_module.py`
 - `tests/test_jtag_dtm.py`
 - `tests/test_openocd_remote_bitbang.py`
+- `tests/test_vhdl_conversion.py`
 - `scripts/README.md`

@@ -12,7 +12,7 @@ import pytest
 from myhdl import ResetSignal, Signal, ToVHDLWarning, always_comb, block, instances, intbv
 
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debug import DmiBundle
+from rtl.debug import DmiBundle, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
 from rtl.divider import DividerBundle
 from rtl.debug.jtag_dtm import JtagDTM
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
@@ -155,6 +155,24 @@ def test_jtag_dtm_vhdl_conversion(repo_root: Path):
     dut.convert(hdl="VHDL", path=str(output_dir), name=name)
 
     _assert_vhdl_file(output_dir, name)
+
+
+def test_ecp5_jtagg_client_vhdl_conversion(repo_root: Path):
+    name = "ecp5_jtagg_client"
+    output_dir = _conversion_output_dir(repo_root, name)
+
+    conf = config.BonfireConfig()
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+    dtm = DmiBundle(conf)
+    jtagg_i = Ecp5JtaggInputBundle()
+    jtagg_o = Ecp5JtaggOutputBundle()
+
+    dut = Ecp5JtaggClient(conf, clock, reset, jtagg_i, jtagg_o, dtm)
+    dut.convert(hdl="VHDL", path=str(output_dir), name=name)
+
+    vhdl_file = _assert_vhdl_file(output_dir, name)
+    _analyze_with_ghdl(output_dir, vhdl_file)
 
 
 @pytest.mark.parametrize(

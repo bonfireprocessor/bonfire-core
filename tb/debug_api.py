@@ -22,6 +22,7 @@ from rtl.debug.jtag_dtm import (
     JTAG_INSTR_IDCODE,
     JTAG_IR_WIDTH,
 )
+from rtl.debug.ecp5_jtagg_client import ECP5_JTAGG_IR_ER1, ECP5_JTAGG_IR_ER2, ECP5_JTAGG_IR_WIDTH
 from rtl.type_aliases import BitSignal
 
 EBREAK_INSN = 0x00100073
@@ -258,6 +259,10 @@ class JtagDebugAPISim(DebugAPI):
         tdi: BitSignal,
         tdo: BitSignal,
         verbose: bool = False,
+        ir_width: int = JTAG_IR_WIDTH,
+        ir_idcode: int = JTAG_INSTR_IDCODE,
+        ir_dtmcs: int = JTAG_INSTR_DTMCS,
+        ir_dmi: int = JTAG_INSTR_DMI,
     ) -> None:
         self.clock = clock
         self.tck = tck
@@ -271,6 +276,11 @@ class JtagDebugAPISim(DebugAPI):
         self.idcode = 0
         self.tck_low_aligned = False
         self.dmi_width = config.dmi_adr_width + 34
+        self.ir_width = ir_width
+        self.ir_idcode = ir_idcode
+        self.ir_dtmcs = ir_dtmcs
+        self.ir_dmi = ir_dmi
+        self.settle_sysclk_cycles = 3
         DebugAPI.__init__(self, config=config)
 
     def log(self, message: str) -> None:
@@ -298,7 +308,7 @@ class JtagDebugAPISim(DebugAPI):
         self.last_tdo = int(self.tdo)
         yield self.tck.posedge
         yield self.tck.negedge
-        yield self.wait_sysclk(3)
+        yield self.wait_sysclk(self.settle_sysclk_cycles)
 
     def reset_tap(self) -> Generator[Any, None, None]:
         self.log("reset TAP")
@@ -307,7 +317,7 @@ class JtagDebugAPISim(DebugAPI):
         yield self.jtag_cycle(0)
 
     def read_idcode(self) -> Generator[Any, None, int]:
-        yield self.set_ir(self.config.debug_jtag_ir_idcode)
+        yield self.set_ir(self.ir_idcode)
         yield self.scan_dr(0, 32)
         self.idcode = self.last_scan
         assert self.idcode == JTAG_IDCODE, "JTAG IDCODE mismatch: got {} expected {}".format(hex(self.idcode), hex(JTAG_IDCODE))
@@ -315,7 +325,7 @@ class JtagDebugAPISim(DebugAPI):
         return self.idcode
 
     def read_dtmcs(self) -> Generator[Any, None, int]:
-        yield self.set_ir(self.config.debug_jtag_ir_dtmcs)
+        yield self.set_ir(self.ir_dtmcs)
         yield self.scan_dr(0, 32)
         self.dtmcs = self.last_scan
         dtmcs = modbv(self.dtmcs)[32:]
@@ -332,7 +342,7 @@ class JtagDebugAPISim(DebugAPI):
         yield self.jtag_cycle(1)
         yield self.jtag_cycle(0)
         yield self.jtag_cycle(0)
-        bits = _bits_lsb_first(instruction, self.config.debug_jtag_ir_width)
+        bits = _bits_lsb_first(instruction, self.ir_width)
         for index, bit in enumerate(bits):
             yield self.jtag_cycle(1 if index == len(bits) - 1 else 0, bit)
         yield self.jtag_cycle(1)
@@ -356,7 +366,7 @@ class JtagDebugAPISim(DebugAPI):
             yield self.jtag_cycle(0)
 
     def dmi_read(self, adr: int) -> Generator[Any, None, None]:
-        yield self.set_ir(self.config.debug_jtag_ir_dmi)
+        yield self.set_ir(self.ir_dmi)
         request = (adr << 34) | DMI_OP_READ
         self.log("DMI read request adr={}".format(hex(adr)))
         yield self.scan_dr(request, self.dmi_width)
@@ -369,11 +379,60 @@ class JtagDebugAPISim(DebugAPI):
         self.log("DMI read response adr={} data={}".format(hex(adr), hex(self.cmd_result())))
 
     def dmi_write(self, adr: int, data: int) -> Generator[Any, None, None]:
-        yield self.set_ir(self.config.debug_jtag_ir_dmi)
+        yield self.set_ir(self.ir_dmi)
         request = (adr << 34) | (data << 2) | DMI_OP_WRITE
         self.log("DMI write adr={} data={}".format(hex(adr), hex(data)))
         yield self.scan_dr(request, self.dmi_width)
         response = modbv(self.last_scan)[self.dmi_width:]
         op = response[2:0]
         assert op == 0, "JTAG DMI write failed with op {}".format(op)
+        yield self.idle(2)
+
+
+class Ecp5JtaggDebugAPISim(JtagDebugAPISim):
+    def __init__(
+        self,
+        config: BonfireConfig,
+        clock: BitSignal,
+        tck: BitSignal,
+        tms: BitSignal,
+        tdi: BitSignal,
+        tdo: BitSignal,
+        verbose: bool = False,
+    ) -> None:
+        JtagDebugAPISim.__init__(
+            self,
+            config,
+            clock,
+            tck,
+            tms,
+            tdi,
+            tdo,
+            verbose=verbose,
+            ir_width=ECP5_JTAGG_IR_WIDTH,
+            ir_idcode=JTAG_INSTR_IDCODE,
+            ir_dtmcs=ECP5_JTAGG_IR_ER2,
+            ir_dmi=ECP5_JTAGG_IR_ER1,
+        )
+        self.settle_sysclk_cycles = 6
+        self.tck_low_aligned = True
+
+    def align_tck_low(self) -> Generator[Any, None, None]:
+        if False:
+            yield None
+
+    def jtag_cycle(self, tms: int, tdi: int = 0) -> Generator[Any, None, None]:
+        self.tms.next = bool(tms)
+        self.tdi.next = bool(tdi)
+        yield delay(20)
+        self.last_tdo = int(self.tdo)
+        self.tck.next = True
+        yield delay(50)
+        self.tck.next = False
+        yield delay(50)
+        yield self.wait_sysclk(self.settle_sysclk_cycles)
+
+    def reset_tap(self) -> Generator[Any, None, None]:
+        yield from JtagDebugAPISim.reset_tap(self)
+        yield self.wait_sysclk(12)
         yield self.idle(2)
