@@ -307,7 +307,7 @@ class JtagDebugAPISim(DebugAPI):
         yield self.jtag_cycle(0)
 
     def read_idcode(self) -> Generator[Any, None, int]:
-        yield self.set_ir(JTAG_INSTR_IDCODE)
+        yield self.set_ir(self.config.debug_jtag_ir_idcode)
         yield self.scan_dr(0, 32)
         self.idcode = self.last_scan
         assert self.idcode == JTAG_IDCODE, "JTAG IDCODE mismatch: got {} expected {}".format(hex(self.idcode), hex(JTAG_IDCODE))
@@ -315,7 +315,7 @@ class JtagDebugAPISim(DebugAPI):
         return self.idcode
 
     def read_dtmcs(self) -> Generator[Any, None, int]:
-        yield self.set_ir(JTAG_INSTR_DTMCS)
+        yield self.set_ir(self.config.debug_jtag_ir_dtmcs)
         yield self.scan_dr(0, 32)
         self.dtmcs = self.last_scan
         dtmcs = modbv(self.dtmcs)[32:]
@@ -332,7 +332,7 @@ class JtagDebugAPISim(DebugAPI):
         yield self.jtag_cycle(1)
         yield self.jtag_cycle(0)
         yield self.jtag_cycle(0)
-        bits = _bits_lsb_first(instruction, JTAG_IR_WIDTH)
+        bits = _bits_lsb_first(instruction, self.config.debug_jtag_ir_width)
         for index, bit in enumerate(bits):
             yield self.jtag_cycle(1 if index == len(bits) - 1 else 0, bit)
         yield self.jtag_cycle(1)
@@ -356,7 +356,7 @@ class JtagDebugAPISim(DebugAPI):
             yield self.jtag_cycle(0)
 
     def dmi_read(self, adr: int) -> Generator[Any, None, None]:
-        yield self.set_ir(JTAG_INSTR_DMI)
+        yield self.set_ir(self.config.debug_jtag_ir_dmi)
         request = (adr << 34) | DMI_OP_READ
         self.log("DMI read request adr={}".format(hex(adr)))
         yield self.scan_dr(request, self.dmi_width)
@@ -369,7 +369,7 @@ class JtagDebugAPISim(DebugAPI):
         self.log("DMI read response adr={} data={}".format(hex(adr), hex(self.cmd_result())))
 
     def dmi_write(self, adr: int, data: int) -> Generator[Any, None, None]:
-        yield self.set_ir(JTAG_INSTR_DMI)
+        yield self.set_ir(self.config.debug_jtag_ir_dmi)
         request = (adr << 34) | (data << 2) | DMI_OP_WRITE
         self.log("DMI write adr={} data={}".format(hex(adr), hex(data)))
         yield self.scan_dr(request, self.dmi_width)

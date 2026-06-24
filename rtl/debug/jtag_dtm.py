@@ -22,6 +22,8 @@ JTAG_INSTR_IDCODE = 0x01
 JTAG_INSTR_DTMCS = 0x10
 JTAG_INSTR_DMI = 0x11
 JTAG_INSTR_BYPASS = 0x1F
+JTAG_INSTR_ECP5_ER1_DMI = 0x32
+JTAG_INSTR_ECP5_ER2_DTMCS = 0x38
 
 JTAG_IDCODE = 0x10E31913
 
@@ -60,6 +62,11 @@ class JtagDTM:
         self.config = config
         self.abits: int = config.dmi_adr_width
         self.dmi_width: int = self.abits + 34
+        self.ir_width: int = getattr(config, "debug_jtag_ir_width", JTAG_IR_WIDTH)
+        self.ir_idcode: int = getattr(config, "debug_jtag_ir_idcode", JTAG_INSTR_IDCODE)
+        self.ir_dtmcs: int = getattr(config, "debug_jtag_ir_dtmcs", JTAG_INSTR_DTMCS)
+        self.ir_dmi: int = getattr(config, "debug_jtag_ir_dmi", JTAG_INSTR_DMI)
+        self.ir_bypass: int = getattr(config, "debug_jtag_ir_bypass", JTAG_INSTR_BYPASS)
 
     @block
     def createInstance(
@@ -85,8 +92,8 @@ class JtagDTM:
         dr_width = dmi_width
 
         tap_state = Signal(t_tap_state.test_logic_reset)
-        instruction = Signal(modbv(JTAG_INSTR_IDCODE)[JTAG_IR_WIDTH:])
-        ir_shift = Signal(modbv(0)[JTAG_IR_WIDTH:])
+        instruction = Signal(modbv(self.ir_idcode)[self.ir_width:])
+        ir_shift = Signal(modbv(0)[self.ir_width:])
         dr_shift = Signal(modbv(0)[dr_width:])
         dmi_response = Signal(modbv(0)[dmi_width:])
         bypass = Signal(bool(0))
@@ -132,7 +139,7 @@ class JtagDTM:
                 if tap_state == t_tap_state.shift_ir:
                     tdo_o.next = ir_shift[0]
                 elif tap_state == t_tap_state.shift_dr:
-                    if instruction == JTAG_INSTR_BYPASS:
+                    if instruction == self.ir_bypass:
                         tdo_o.next = bypass
                     else:
                         tdo_o.next = dr_shift[0]
@@ -233,7 +240,7 @@ class JtagDTM:
         @always_seq(clock.posedge, reset=reset)
         def tap_actions():
             if not trstn_sync:
-                instruction.next = JTAG_INSTR_IDCODE
+                instruction.next = self.ir_idcode
                 ir_shift.next = 0
                 dr_shift.next = 0
                 dmi_response.next = 0
@@ -258,47 +265,47 @@ class JtagDTM:
 
             if trstn_sync and tck_rise:
                 if tap_state == t_tap_state.test_logic_reset and tms_sync:
-                    instruction.next = JTAG_INSTR_IDCODE
+                    instruction.next = self.ir_idcode
 
                 if tap_state == t_tap_state.capture_ir:
                     ir_shift.next = 0x01
                 elif tap_state == t_tap_state.shift_ir:
-                    ir_shift.next[JTAG_IR_WIDTH - 1] = tdi_sync
-                    ir_shift.next[JTAG_IR_WIDTH - 1:0] = ir_shift[JTAG_IR_WIDTH:1]
+                    ir_shift.next[self.ir_width - 1] = tdi_sync
+                    ir_shift.next[self.ir_width - 1:0] = ir_shift[self.ir_width:1]
                 elif tap_state == t_tap_state.update_ir:
                     instruction.next = ir_shift
 
                 if tap_state == t_tap_state.capture_dr:
-                    if instruction == JTAG_INSTR_IDCODE:
+                    if instruction == self.ir_idcode:
                         dr_shift.next = JTAG_IDCODE
-                    elif instruction == JTAG_INSTR_DTMCS:
+                    elif instruction == self.ir_dtmcs:
                         dtmcs = modbv(0)[32:]
                         dtmcs[3:0] = DTM_VERSION
                         dtmcs[9:4] = abits
                         dtmcs[12:10] = dmistat
                         dtmcs[15:12] = DTM_IDLE
                         dr_shift.next = dtmcs
-                    elif instruction == JTAG_INSTR_DMI:
+                    elif instruction == self.ir_dmi:
                         dr_shift.next = dmi_response
-                    elif instruction == JTAG_INSTR_BYPASS:
+                    elif instruction == self.ir_bypass:
                         bypass.next = False
                     else:
                         bypass.next = False
                 elif tap_state == t_tap_state.shift_dr:
-                    if instruction == JTAG_INSTR_BYPASS:
+                    if instruction == self.ir_bypass:
                         bypass.next = tdi_sync
-                    elif instruction == JTAG_INSTR_IDCODE or instruction == JTAG_INSTR_DTMCS:
+                    elif instruction == self.ir_idcode or instruction == self.ir_dtmcs:
                         dr_shift.next[31] = tdi_sync
                         dr_shift.next[31:0] = dr_shift[32:1]
                     else:
                         dr_shift.next[dr_width - 1] = tdi_sync
                         dr_shift.next[dr_width - 1:0] = dr_shift[dr_width:1]
                 elif tap_state == t_tap_state.update_dr:
-                    if instruction == JTAG_INSTR_DTMCS:
+                    if instruction == self.ir_dtmcs:
                         if dr_shift[DTMCS_DMIRESET_BIT]:
                             dmistat.next = DTM_DMI_STATUS_OK
 
-                    if instruction == JTAG_INSTR_DMI:
+                    if instruction == self.ir_dmi:
                         op = dr_shift[2:0]
                         dtm.adr.next = dr_shift[dmi_width:34]
                         dtm.dbi.next = dr_shift[34:2]

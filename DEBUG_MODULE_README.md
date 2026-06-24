@@ -97,6 +97,8 @@ Key constants:
 - IR width: 5
 - IDCODE: `0x10E31913`
 - DTM version: 1
+- Default IR map: `IRLEN=5`, `IDCODE=0x01`, `DTMCS=0x10`, `DMI=0x11`, `BYPASS=0x1F`
+- Alternate ECP5-style IR map: `IRLEN=6`, `IDCODE=0x01`, `DTMCS=0x38`, `DMI=0x32`, `BYPASS=0x1F`
 
 ### 3.3 DTM/DMI behavior
 
@@ -231,6 +233,21 @@ In `BonfireCoreTop`:
    - `--observe-jtag` for TAP visibility
    - `--debug-trace` for abstract command/progbuf diagnostics
 
+### 8.1 Alternate ECP5-style IR profile
+
+The JTAG DTM also supports a configurable alternate IR mapping intended for an
+ECP5/JTAGG-style transport while keeping the standard RISC-V DMI semantics:
+
+- `DTMCS = 0x38`
+- `DMI = 0x32`
+
+OpenOCD can use this profile with the companion config:
+
+- `openocd_bitbang/bonfire_ecp5_er.cfg`
+
+The current repository scope only changes the IR codes. The actual FPGA-side
+binding to the ECP5 `JTAGG` primitive is a separate integration step.
+
 ---
 
 ## 9. Relevant Source Files
@@ -245,6 +262,7 @@ In `BonfireCoreTop`:
 - `openocd_bitbang/sim_testbench.py`
 - `openocd_bitbang/remote_bitbang.py`
 - `openocd_bitbang/bonfire.cfg`
+- `openocd_bitbang/bonfire_ecp5_er.cfg`
 - `tb/tb_debug_module.py`
 - `tb/tb_jtag_dtm.py`
 - `tests/test_debug_module.py`
