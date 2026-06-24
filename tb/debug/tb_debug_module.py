@@ -17,7 +17,7 @@ from rtl.debug import DmiBundle, DEBUG_SPEC_VERSION, Ecp5JtaggClient, Ecp5JtaggI
 from rtl.instructions import CSRAdr
 from rtl.debug.jtag_dtm import JtagDTM
 from tb.ClkDriver import ClkDriver
-from tb.debug_api import DebugAPI, DebugAPISim, Ecp5JtaggDebugAPISim, JtagDebugAPISim
+from tb.debug import DebugAPI, DmiDebugAPI, Ecp5JtaggDebugAPI, JtagDebugAPI
 from tb.disassemble import abi_name, disassemble
 from tb.sim_monitor import monitor_instance
 from tb.sim_ram import sim_ram
@@ -252,7 +252,7 @@ class BonfireCoreDebugTestbench:
             mark("stimulus started")
             if self.debug_transport == "jtag":
                 assert tck is not None and tms is not None and tdi is not None and tdo is not None
-                api = JtagDebugAPISim(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
+                api = JtagDebugAPI(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
                 mark("resetting JTAG TAP")
                 yield api.reset_tap()
                 mark("reading JTAG IDCODE")
@@ -264,12 +264,12 @@ class BonfireCoreDebugTestbench:
                 self.log("using native JTAG debug transport")
             elif self.debug_transport == "jtagg":
                 assert tck is not None and tms is not None and tdi is not None and tdo is not None
-                api = Ecp5JtaggDebugAPISim(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
+                api = Ecp5JtaggDebugAPI(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
                 mark("resetting emulated ECP5 TAP")
                 yield api.reset_tap()
                 self.log("using ECP5 JTAGG debug transport")
             else:
-                api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
+                api = DmiDebugAPI(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
                 self.log("using direct DMI debug transport")
 
             mark("reading debug module version")
@@ -465,16 +465,16 @@ class BonfireCoreDebugTestbench:
         def test() -> Generator[Any, None, None]:
             if self.debug_transport == "jtag":
                 assert tck is not None and tms is not None and tdi is not None and tdo is not None
-                api = JtagDebugAPISim(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
+                api = JtagDebugAPI(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
                 yield api.reset_tap()
                 yield api.read_idcode()
                 yield api.read_dtmcs()
             elif self.debug_transport == "jtagg":
                 assert tck is not None and tms is not None and tdi is not None and tdo is not None
-                api = Ecp5JtaggDebugAPISim(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
+                api = Ecp5JtaggDebugAPI(self.config, clock, tck, tms, tdi, tdo, verbose=self.verbose)
                 yield api.reset_tap()
             else:
-                api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
+                api = DmiDebugAPI(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
 
             for _ in range(0, 5):
                 yield clock.posedge

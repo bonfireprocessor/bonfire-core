@@ -6,7 +6,7 @@ from typing import Callable
 import pytest
 
 from rtl import config
-from tb.tb_debug_module import BonfireCoreDebugTestbench
+from tb.debug.tb_debug_module import BonfireCoreDebugTestbench
 
 from .conftest import SimFailure, run_sim, waveform_config
 

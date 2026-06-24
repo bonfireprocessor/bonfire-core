@@ -1,5 +1,5 @@
 """
-JTAG DTM testbench helpers.
+JTAG DTM testbench.
 (c) 2026 The Bonfire Project
 License: See LICENSE
 """

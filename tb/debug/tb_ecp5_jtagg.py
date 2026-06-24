@@ -1,5 +1,5 @@
 """
-ECP5 JTAGG debug transport testbench helpers.
+ECP5 JTAGG debug transport testbench.
 (c) 2026 The Bonfire Project
 License: See LICENSE
 """
@@ -14,7 +14,7 @@ from rtl.debug import DmiBundle, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5Jtag
 from rtl.debug.ecp5_jtagg_client import ECP5_JTAGG_IR_ER1, ECP5_JTAGG_IR_ER2, ECP5_JTAGG_IR_WIDTH
 from rtl.debug.jtag_dtm import DTM_IDLE, DMI_OP_READ, DMI_OP_WRITE, JTAG_IDCODE
 from tb.ClkDriver import ClkDriver
-from tb.tb_jtag_dtm import JtagBFM
+from tb.debug.tb_jtag_dtm import JtagBFM
 
 
 @block

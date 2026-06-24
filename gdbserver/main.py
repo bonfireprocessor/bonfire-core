@@ -17,7 +17,7 @@ from typing import Any
 from myhdl import *
 
 from gdbserver.gdb_rsp import RSPHandler
-from tb.debug_api import DebugAPISim
+from tb.debug import DmiDebugAPI
 
 DEFAULT_GDBSERVER_PORT_BASE = 5500
 DEFAULT_GDBSERVER_PORT_SPAN = 51
@@ -66,7 +66,7 @@ def tcp_server(dtm_bundle: Any, clock: Any, control: ServerControl | None = None
     @instance
     def server():
         ready_signal = Signal(bool(0))
-        api = DebugAPISim(dtm_bundle=dtm_bundle, clock=clock)
+        api = DmiDebugAPI(dtm_bundle=dtm_bundle, clock=clock)
         api.memory_size_bytes = control.memory_size_bytes
 
         server_socket = _bind_server_socket(control.host, control.port)

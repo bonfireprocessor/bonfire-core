@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import pytest
 
-from tb.tb_ecp5_jtagg import ecp5_jtagg_testbench
-from tb.tb_jtag_dtm import jtag_dtm_testbench
+from tb.debug.tb_ecp5_jtagg import ecp5_jtagg_testbench
+from tb.debug.tb_jtag_dtm import jtag_dtm_testbench
 
 from .conftest import run_sim, waveform_config
 
