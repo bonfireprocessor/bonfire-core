@@ -152,7 +152,8 @@ Implemented interface signals:
 
 Key constants:
 
-- Outer TAP IR width: 6
+- Outer TAP IR width: 8
+- Default emulated ECP5 IDCODE: `0x41111043` (`LFE5U_25F`)
 - `ER1 = 0x32`
 - `ER2 = 0x38`
 
@@ -291,10 +292,12 @@ In `BonfireCoreTop`:
 
 ### 10.1 OpenOCD note for ECP5 JTAGG
 
-The companion config keeps the outer TAP at `IRLEN=6` and overrides the RISC-V DTM instruction numbers so OpenOCD uses:
+The companion config keeps the outer TAP at the ECP5 JTAG IR length (`IRLEN=8`), accepts the common `LFE5U_*F` TAP IDCODEs, and overrides the RISC-V DTM instruction numbers so OpenOCD uses:
 
 - `DTMCS = 0x38` (`ER2`)
 - `DMI = 0x32` (`ER1`)
+
+The simulation defaults to the Ice Pi Zero class `LFE5U_25F` IDCODE `0x41111043`. ULX3S-class `LFE5U_85F` hardware reports `0x41113043`.
 
 Unlike the earlier intermediate approach, these opcodes are now specific to the dedicated ECP5 JTAGG frontend. The native JTAG DTM no longer supports alternate IR mappings.
 

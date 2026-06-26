@@ -15,7 +15,7 @@ from rtl.type_aliases import BitSignal
 
 ECP5_JTAGG_IR_ER1 = 0x32
 ECP5_JTAGG_IR_ER2 = 0x38
-ECP5_JTAGG_IR_WIDTH = 6
+ECP5_JTAGG_IR_WIDTH = 8
 
 
 class Ecp5JtaggInputBundle:

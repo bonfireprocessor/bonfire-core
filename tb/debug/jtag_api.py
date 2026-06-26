@@ -43,6 +43,7 @@ class JtagDebugAPI(DebugAPI):
         ir_idcode: int = JTAG_INSTR_IDCODE,
         ir_dtmcs: int = JTAG_INSTR_DTMCS,
         ir_dmi: int = JTAG_INSTR_DMI,
+        expected_idcode: int = JTAG_IDCODE,
     ) -> None:
         self.clock = clock
         self.tck = tck
@@ -60,6 +61,7 @@ class JtagDebugAPI(DebugAPI):
         self.ir_idcode = ir_idcode
         self.ir_dtmcs = ir_dtmcs
         self.ir_dmi = ir_dmi
+        self.expected_idcode = expected_idcode
         self.settle_sysclk_cycles = 3
         DebugAPI.__init__(self, config=config)
 
@@ -100,7 +102,7 @@ class JtagDebugAPI(DebugAPI):
         yield self.set_ir(self.ir_idcode)
         yield self.scan_dr(0, 32)
         self.idcode = self.last_scan
-        assert self.idcode == JTAG_IDCODE, "JTAG IDCODE mismatch: got {} expected {}".format(hex(self.idcode), hex(JTAG_IDCODE))
+        assert self.idcode == self.expected_idcode, "JTAG IDCODE mismatch: got {} expected {}".format(hex(self.idcode), hex(self.expected_idcode))
         self.log("JTAG IDCODE {}".format(hex(self.idcode)))
         return self.idcode
 

@@ -12,7 +12,8 @@ from myhdl import ResetSignal, Signal, always_seq, block, instance, instances, m
 from rtl.config import BonfireConfig
 from rtl.debug import DmiBundle, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle, Ecp5JtaggTapEmulator
 from rtl.debug.ecp5_jtagg_client import ECP5_JTAGG_IR_ER1, ECP5_JTAGG_IR_ER2, ECP5_JTAGG_IR_WIDTH
-from rtl.debug.jtag_dtm import DTM_IDLE, DMI_OP_READ, DMI_OP_WRITE, JTAG_IDCODE
+from rtl.debug.ecp5_jtagg_tap import ECP5_JTAG_IDCODE_DEFAULT, ECP5_JTAG_INSTR_BYPASS, ECP5_JTAG_INSTR_IDCODE
+from rtl.debug.jtag_dtm import DTM_IDLE, DMI_OP_READ, DMI_OP_WRITE
 from tb.ClkDriver import ClkDriver
 from tb.debug.tb_jtag_dtm import JtagBFM
 
@@ -63,9 +64,9 @@ def ecp5_jtagg_testbench(verbose: bool = True):
         trstn.next = True
         yield bfm.reset()
 
-        yield bfm.set_ir(0x01, width=ECP5_JTAGG_IR_WIDTH)
+        yield bfm.set_ir(ECP5_JTAG_INSTR_IDCODE, width=ECP5_JTAGG_IR_WIDTH)
         yield bfm.scan_dr(0, 32)
-        assert int(bfm.last_scan) == JTAG_IDCODE, "ECP5 emulated IDCODE mismatch"
+        assert int(bfm.last_scan) == ECP5_JTAG_IDCODE_DEFAULT, "ECP5 emulated IDCODE mismatch"
 
         yield bfm.set_ir(ECP5_JTAGG_IR_ER2, width=ECP5_JTAGG_IR_WIDTH)
         yield bfm.scan_dr(0, 32)
@@ -80,7 +81,7 @@ def ecp5_jtagg_testbench(verbose: bool = True):
         dtmcs = modbv(int(bfm.last_scan))[32:]
         assert dtmcs[12:10] == 0
 
-        yield bfm.set_ir(0x3F, width=ECP5_JTAGG_IR_WIDTH)
+        yield bfm.set_ir(ECP5_JTAG_INSTR_BYPASS, width=ECP5_JTAGG_IR_WIDTH)
         yield bfm.scan_dr(0b101101, 6)
         assert (int(bfm.last_scan) & 0x3F) == 0b011010
 

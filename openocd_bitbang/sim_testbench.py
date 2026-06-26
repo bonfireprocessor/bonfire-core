@@ -571,6 +571,7 @@ class OpenOCDBitbangTestbench:
             jtagg_tap = Ecp5JtaggTapEmulator().createInstance(clock, sys_reset, tck, tms, tdi, trstn, tdo, jtagg_in, jtagg_out, tap_state_o=tap_state)
         else:
             raise ValueError("Unsupported jtag_transport: {}".format(self.jtag_transport))
+        bitbang_settle_cycles = 8 if self.jtag_transport == "ecp5_jtagg" else 3
         bitbang = remote_bitbang_server(
             clock,
             tck,
@@ -579,6 +580,7 @@ class OpenOCDBitbangTestbench:
             trstn,
             tdo,
             self.server_socket,
+            sysclk_settle_cycles=bitbang_settle_cycles,
             verbose=self.verbose,
             client_quit_event=self.stop_event if self.exit_on_client_quit else None,
         )

@@ -16,16 +16,26 @@ from rtl.debug.ecp5_jtagg_client import (
     Ecp5JtaggInputBundle,
     Ecp5JtaggOutputBundle,
 )
-from rtl.debug.jtag_dtm import JTAG_IDCODE, t_tap_state
+from rtl.debug.jtag_dtm import t_tap_state
 from rtl.type_aliases import BitSignal
 
 ECP5_JTAG_INSTR_IDCODE = 0x01
-ECP5_JTAG_INSTR_BYPASS = 0x3F
+ECP5_JTAG_INSTR_BYPASS = 0xFF
+ECP5_JTAG_IDCODE_LFE5U_25F = 0x41111043
+ECP5_JTAG_IDCODE_LFE5U_45F = 0x41112043
+ECP5_JTAG_IDCODE_LFE5U_85F = 0x41113043
+ECP5_JTAG_IDCODE_DEFAULT = ECP5_JTAG_IDCODE_LFE5U_25F
+ECP5_JTAG_EXPECTED_IDCODES = (
+    ECP5_JTAG_IDCODE_LFE5U_25F,
+    ECP5_JTAG_IDCODE_LFE5U_45F,
+    ECP5_JTAG_IDCODE_LFE5U_85F,
+)
 
 
 class Ecp5JtaggTapEmulator:
-    def __init__(self) -> None:
+    def __init__(self, idcode: int = ECP5_JTAG_IDCODE_DEFAULT) -> None:
         self.ir_width = ECP5_JTAGG_IR_WIDTH
+        self.idcode = idcode
 
     @block
     def createInstance(
@@ -223,7 +233,7 @@ class Ecp5JtaggTapEmulator:
 
                 if tap_state == t_tap_state.capture_dr:
                     if instruction == ECP5_JTAG_INSTR_IDCODE:
-                        idcode_shift.next = JTAG_IDCODE
+                        idcode_shift.next = self.idcode
                     else:
                         bypass.next = False
                 elif tap_state == t_tap_state.shift_dr:

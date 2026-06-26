@@ -12,7 +12,7 @@ from myhdl import delay
 
 from rtl.config import BonfireConfig
 from rtl.debug.ecp5_jtagg_client import ECP5_JTAGG_IR_ER1, ECP5_JTAGG_IR_ER2, ECP5_JTAGG_IR_WIDTH
-from rtl.debug.jtag_dtm import JTAG_INSTR_IDCODE
+from rtl.debug.ecp5_jtagg_tap import ECP5_JTAG_IDCODE_DEFAULT, ECP5_JTAG_INSTR_IDCODE
 from rtl.type_aliases import BitSignal
 from tb.debug.jtag_api import JtagDebugAPI
 
@@ -38,9 +38,10 @@ class Ecp5JtaggDebugAPI(JtagDebugAPI):
             tdo,
             verbose=verbose,
             ir_width=ECP5_JTAGG_IR_WIDTH,
-            ir_idcode=JTAG_INSTR_IDCODE,
+            ir_idcode=ECP5_JTAG_INSTR_IDCODE,
             ir_dtmcs=ECP5_JTAGG_IR_ER2,
             ir_dmi=ECP5_JTAGG_IR_ER1,
+            expected_idcode=ECP5_JTAG_IDCODE_DEFAULT,
         )
         self.settle_sysclk_cycles = 6
         self.tck_low_aligned = True
