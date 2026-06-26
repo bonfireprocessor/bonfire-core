@@ -25,6 +25,8 @@ from rtl.debug.debug_module import (
 )
 from rtl.debug.jtag_dtm import JtagDTM
 from rtl.debug.ecp5_jtagg_client import Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
+from rtl.debug.ecp5_jtagg_primitive import Ecp5JtaggPrimitive, Ecp5JtaggPrimitiveForBundle
+from rtl.debug.ecp5_jtagg_led_demo import Ecp5JtaggLedDemo
 from rtl.debug.ecp5_jtagg_tap import Ecp5JtaggTapEmulator
 
 __all__ = [
@@ -53,5 +55,8 @@ __all__ = [
     "Ecp5JtaggClient",
     "Ecp5JtaggInputBundle",
     "Ecp5JtaggOutputBundle",
+    "Ecp5JtaggPrimitive",
+    "Ecp5JtaggPrimitiveForBundle",
+    "Ecp5JtaggLedDemo",
     "Ecp5JtaggTapEmulator",
 ]

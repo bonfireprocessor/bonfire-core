@@ -86,3 +86,18 @@ def fusesoc_command(*args: str) -> CommandInvocation:
         return CommandInvocation([fusesoc, *args], env)
 
     pytest.skip("fusesoc/ghdl not available")
+
+
+def yosys_command(script: str) -> CommandInvocation:
+    env_script = _oss_cad_suite_env_script()
+    if env_script is not None:
+        return CommandInvocation(
+            ["bash", "-lc", f"source {shlex.quote(str(env_script))} && yosys -p {shlex.quote(script)}"],
+            os.environ.copy(),
+        )
+
+    yosys = shutil.which("yosys")
+    if yosys is None:
+        pytest.skip("yosys not available")
+
+    return CommandInvocation([yosys, "-p", script])

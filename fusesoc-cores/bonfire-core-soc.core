@@ -339,6 +339,22 @@ targets:
         laned_memory: false
         enable_jtag_debug: true
         enable_debug_ndmreset: true
+
+  icepizero_jtagg:
+    <<: *target_icepizero
+    filesets: [icepizero_lpf,icepizero_top, scripts]
+    generate:
+    - soc_top:
+        #hexfile: "../code/build/soc/icepizero/led.hex"
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/icepizero/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/icepizero/hello.hex)"
+        num_leds: 5
+        led_active_low: false
+        laned_memory: false
+        enable_jtag_debug: true
+        debug_jtag_transport: ecp5_jtagg
+        enable_debug_ndmreset: true
         
 
   icepizero_extended:

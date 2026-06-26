@@ -92,6 +92,7 @@ class SoCGenerationConfigBuilder:
         "enable_gpio": True,
         "debug": False,
         "enable_jtag_debug": False,
+        "debug_jtag_transport": "native",
         "enable_debug_ndmreset": False,
         "inst_uart_only": False,
         "uart_fifo_depth": 6,
@@ -189,6 +190,7 @@ class SoCGenerationConfigBuilder:
             expose_wishbone_master = True
 
         soc_config["exposeWishboneMaster"] = expose_wishbone_master
+        self._validate_debug_jtag_transport(soc_config["debugJtagTransport"])
         soc_config.update(
             self._build_lower_camel_config(
                 {
@@ -198,6 +200,14 @@ class SoCGenerationConfigBuilder:
             )
         )
         return soc_config
+
+    def _validate_debug_jtag_transport(self, transport):
+        if transport not in ("native", "ecp5_jtagg"):
+            raise ValueError(
+                "Invalid debug_jtag_transport '{}'. Expected one of: native, ecp5_jtagg".format(
+                    transport
+                )
+            )
 
     def _build_lower_camel_config(self, parameters, defaults=None):
         if defaults is None:

@@ -6,8 +6,9 @@ from myhdl import *
 
 from rtl.bonfire_interfaces import DbusBundle, Wishbone_master_bundle
 from rtl.config import BonfireConfig
-from rtl.debug import DmiBundle
+from rtl.debug import DmiBundle, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
 from rtl.debug.jtag_dtm import JtagDTM
+from rtl.debug.ecp5_jtagg_primitive import Ecp5JtaggPrimitiveForBundle
 from rtl.type_aliases import BitSignal
 from rtl.uncore import bonfire_core_ex, ram_dp
 from rtl.uncore.dbus_interconnect import AdrMask, DbusInterConnects
@@ -36,6 +37,10 @@ class BonfireCoreSoC:
         self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
         self.exposeWishboneMaster: bool = soc_config.get('exposeWishboneMaster', False)
         self.enableJtagDebug: bool = soc_config.get('enableJtagDebug', False)
+        self.debugJtagTransport: str = soc_config.get('debugJtagTransport', 'native')
+        assert self.debugJtagTransport in ('native', 'ecp5_jtagg'), (
+            "debugJtagTransport must be 'native' or 'ecp5_jtagg'"
+        )
         self.uartLoopback: bool = soc_config.get('uartLoopback', False)
         self.uartCapture: bool = soc_config.get('uartCapture', False)
         self.uartCaptureBitTime: int = soc_config.get('uartCaptureBitTime', 2170)
@@ -250,15 +255,23 @@ class BonfireCoreSoC:
 
         debug_transport: DmiBundle | None = None
         if self.enableJtagDebug:
-            assert jtag_tck is not None, "enableJtagDebug requires jtag_tck"
-            assert jtag_tms is not None, "enableJtagDebug requires jtag_tms"
-            assert jtag_tdi is not None, "enableJtagDebug requires jtag_tdi"
-            assert jtag_tdo is not None, "enableJtagDebug requires jtag_tdo"
-            assert jtag_trstn is not None, "enableJtagDebug requires jtag_trstn"
             debug_transport = DmiBundle(self.config)
-            jtag_i = JtagDTM(self.config).createInstance(
-                sysclk, sys_reset, jtag_tck, jtag_tms, jtag_tdi, jtag_trstn,
-                jtag_tdo, debug_transport)
+            if self.debugJtagTransport == 'native':
+                assert jtag_tck is not None, "native JTAG debug requires jtag_tck"
+                assert jtag_tms is not None, "native JTAG debug requires jtag_tms"
+                assert jtag_tdi is not None, "native JTAG debug requires jtag_tdi"
+                assert jtag_tdo is not None, "native JTAG debug requires jtag_tdo"
+                assert jtag_trstn is not None, "native JTAG debug requires jtag_trstn"
+                jtag_i = JtagDTM(self.config).createInstance(
+                    sysclk, sys_reset, jtag_tck, jtag_tms, jtag_tdi, jtag_trstn,
+                    jtag_tdo, debug_transport)
+            else:
+                jtagg_i = Ecp5JtaggInputBundle()
+                jtagg_o = Ecp5JtaggOutputBundle()
+                jtagg_primitive_i = Ecp5JtaggPrimitiveForBundle(jtagg_i, jtagg_o)
+                jtagg_client_i = Ecp5JtaggClient(
+                    self.config, sysclk, sys_reset, jtagg_i, jtagg_o,
+                    debug_transport)
 
         if self.config.enableDebugNdmreset and debug_transport is not None:
             @always_comb

@@ -242,6 +242,13 @@ target remote localhost:3333
 - a plain prefix, e.g. `riscv64-unknown-elf`
 - a full path prefix, e.g. `/opt/riscv/bin/riscv64-unknown-elf`
 
+For local ECP5 synthesis and GHDL/Yosys checks, activate the OSS CAD suite
+first:
+
+```bash
+source ~/opt/oss-cad-new/oss-cad-suite/environment
+```
+
 ### Python Environment
 
 - `BONFIRE_CORE_KEEPENV=1` is equivalent to `--keepenv`

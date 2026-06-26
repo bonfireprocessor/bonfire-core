@@ -32,13 +32,15 @@ class BonfireCoreSoCInstanceGenerator:
         jtag_tdo: BitSignal | None = None
         jtag_trstn: BitSignal | None = None
 
-        if self.soc.enableJtagDebug:
+        if self.soc.enableJtagDebug and self.soc.debugJtagTransport == "native":
             get_diagnostics().detail("soc: exposing JTAG debug interface")
             jtag_tck = Signal(bool(0))
             jtag_tms = Signal(bool(1))
             jtag_tdi = Signal(bool(0))
             jtag_tdo = Signal(bool(0))
             jtag_trstn = Signal(bool(1))
+        elif self.soc.enableJtagDebug:
+            get_diagnostics().detail("soc: using ECP5 JTAGG debug interface")
 
         if self.soc.exposeWishboneMaster:
             get_diagnostics().detail("soc: exposing Wishbone master interface")
@@ -47,7 +49,7 @@ class BonfireCoreSoCInstanceGenerator:
             wb_master = None
 
         try:
-            if self.soc.enableJtagDebug:
+            if self.soc.enableJtagDebug and self.soc.debugJtagTransport == "native":
                 return self.soc.bonfire_core_soc(
                     sysclk,
                     resetn,
