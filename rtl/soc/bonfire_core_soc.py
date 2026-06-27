@@ -8,7 +8,6 @@ from rtl.bonfire_interfaces import DbusBundle, Wishbone_master_bundle
 from rtl.config import BonfireConfig
 from rtl.debug import DmiBundle, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
 from rtl.debug.jtag_dtm import JtagDTM
-from rtl.debug.ecp5_jtagg_primitive import Ecp5JtaggPrimitiveForBundle
 from rtl.type_aliases import BitSignal
 from rtl.uncore import bonfire_core_ex, ram_dp
 from rtl.uncore.dbus_interconnect import AdrMask, DbusInterConnects
@@ -189,7 +188,9 @@ class BonfireCoreSoC:
                          jtag_tms: BitSignal | None = None,
                          jtag_tdi: BitSignal | None = None,
                          jtag_tdo: BitSignal | None = None,
-                         jtag_trstn: BitSignal | None = None) -> Any:
+                         jtag_trstn: BitSignal | None = None,
+                         jtagg_i: Ecp5JtaggInputBundle | None = None,
+                         jtagg_o: Ecp5JtaggOutputBundle | None = None) -> Any:
         """
         sysclk : cpu clock
         resetn : reset button, active low
@@ -266,9 +267,8 @@ class BonfireCoreSoC:
                     sysclk, sys_reset, jtag_tck, jtag_tms, jtag_tdi, jtag_trstn,
                     jtag_tdo, debug_transport)
             else:
-                jtagg_i = Ecp5JtaggInputBundle()
-                jtagg_o = Ecp5JtaggOutputBundle()
-                jtagg_primitive_i = Ecp5JtaggPrimitiveForBundle(jtagg_i, jtagg_o)
+                assert jtagg_i is not None, "ECP5 JTAGG debug requires jtagg_i"
+                assert jtagg_o is not None, "ECP5 JTAGG debug requires jtagg_o"
                 jtagg_client_i = Ecp5JtaggClient(
                     self.config, sysclk, sys_reset, jtagg_i, jtagg_o,
                     debug_transport)

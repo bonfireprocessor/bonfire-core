@@ -6,6 +6,7 @@ from typing import Any
 from myhdl import Signal, modbv
 
 from rtl import bonfire_interfaces
+from rtl.debug import Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
 from rtl.type_aliases import BitSignal
 from util.diagnostics import diagnostics_context, get_diagnostics
 
@@ -31,6 +32,8 @@ class BonfireCoreSoCInstanceGenerator:
         jtag_tdi: BitSignal | None = None
         jtag_tdo: BitSignal | None = None
         jtag_trstn: BitSignal | None = None
+        jtagg_i: Ecp5JtaggInputBundle | None = None
+        jtagg_o: Ecp5JtaggOutputBundle | None = None
 
         if self.soc.enableJtagDebug and self.soc.debugJtagTransport == "native":
             get_diagnostics().detail("soc: exposing JTAG debug interface")
@@ -40,7 +43,9 @@ class BonfireCoreSoCInstanceGenerator:
             jtag_tdo = Signal(bool(0))
             jtag_trstn = Signal(bool(1))
         elif self.soc.enableJtagDebug:
-            get_diagnostics().detail("soc: using ECP5 JTAGG debug interface")
+            get_diagnostics().detail("soc: exposing ECP5 JTAGG user interface")
+            jtagg_i = Ecp5JtaggInputBundle()
+            jtagg_o = Ecp5JtaggOutputBundle()
 
         if self.soc.exposeWishboneMaster:
             get_diagnostics().detail("soc: exposing Wishbone master interface")
@@ -75,6 +80,8 @@ class BonfireCoreSoCInstanceGenerator:
                 o_resetn,
                 i_locked,
                 wb_master=wb_master,
+                jtagg_i=jtagg_i,
+                jtagg_o=jtagg_o,
             )
         except FileNotFoundError as fnf_error:
             get_diagnostics().error("file not found: {}".format(fnf_error))

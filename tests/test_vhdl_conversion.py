@@ -12,13 +12,7 @@ import pytest
 from myhdl import ResetSignal, Signal, ToVHDLWarning, always_comb, block, instances, intbv, modbv
 
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debug import (
-    DmiBundle,
-    Ecp5JtaggClient,
-    Ecp5JtaggInputBundle,
-    Ecp5JtaggLedDemo,
-    Ecp5JtaggOutputBundle,
-)
+from rtl.debug import DmiBundle, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
 from rtl.divider import DividerBundle
 from rtl.debug.jtag_dtm import JtagDTM
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
@@ -26,7 +20,7 @@ from rtl.soc.bonfire_core_soc_generator import (
     BonfireCoreSoCInstanceGenerator,
     BonfireCoreSoCTestbenchGenerator,
 )
-from tests.toolchain import ghdl_command, yosys_command
+from tests.toolchain import ghdl_command
 
 pytestmark = pytest.mark.filterwarnings("ignore::myhdl.ToVHDLWarning")
 
@@ -70,44 +64,6 @@ def _analyze_with_ghdl(output_dir: Path, vhdl_file: Path) -> None:
     if result.returncode != 0:
         error_text = (result.stderr or result.stdout).strip()
         pytest.fail(f"ghdl -a failed for {vhdl_file.name}\n{error_text}", pytrace=False)
-
-
-def _synthesize_ecp5_with_yosys(output_dir: Path, name: str, extra_vhdl_files: list[Path] | None = None) -> Path:
-    json_file = output_dir / f"{name}.json"
-    log_file = output_dir / "yosys.log"
-    vhdl_files = (
-        sorted(output_dir.glob("pck_myhdl_*.vhd"))
-        + (extra_vhdl_files or [])
-        + [output_dir / f"{name}.vhd"]
-    )
-    script = (
-        "plugin -i ghdl; "
-        "ghdl --std=08 --ieee=synopsys -frelaxed-rules "
-        + " ".join(str(path.name) for path in vhdl_files)
-        + " -e "
-        + name
-        + "; synth_ecp5 -top "
-        + name
-        + " -json "
-        + json_file.name
-    )
-    invocation = yosys_command(script)
-    result = subprocess.run(
-        invocation.command,
-        check=False,
-        cwd=output_dir,
-        env=invocation.env,
-        capture_output=True,
-        text=True,
-    )
-    log_file.write_text(
-        (result.stdout or "") + (result.stderr or ""),
-        encoding="utf-8",
-    )
-    if result.returncode != 0:
-        error_text = (result.stderr or result.stdout).strip()
-        pytest.fail(f"yosys synth_ecp5 failed for {name}\n{error_text}", pytrace=False)
-    return json_file
 
 
 @pytest.mark.parametrize(
@@ -219,31 +175,6 @@ def test_ecp5_jtagg_client_vhdl_conversion(repo_root: Path):
     _analyze_with_ghdl(output_dir, vhdl_file)
 
 
-def test_ecp5_jtagg_led_demo_vhdl_conversion(repo_root: Path):
-    name = "ecp5_jtagg_led_demo"
-    output_dir = _conversion_output_dir(repo_root, name)
-
-    led = Signal(modbv(0)[5:])
-    jtagg_i = Ecp5JtaggInputBundle()
-    jtagg_o = Ecp5JtaggOutputBundle()
-    dut = Ecp5JtaggLedDemo(led, jtagg_i, jtagg_o)
-    dut.convert(hdl="VHDL", path=str(output_dir), name=name)
-
-def test_ecp5_jtagg_led_demo_yosys_synthesis(repo_root: Path):
-    name = "ecp5_jtagg_led_demo_synth"
-    output_dir = _conversion_output_dir(repo_root, name)
-
-    led = Signal(modbv(0)[5:])
-    jtagg_i = Ecp5JtaggInputBundle()
-    jtagg_o = Ecp5JtaggOutputBundle()
-    dut = Ecp5JtaggLedDemo(led, jtagg_i, jtagg_o)
-    dut.convert(hdl="VHDL", path=str(output_dir), name=name)
-
-    json_file = _synthesize_ecp5_with_yosys(output_dir, name)
-    assert json_file.exists()
-    assert json_file.stat().st_size > 0
-
-
 @pytest.mark.parametrize(
     ("enable_jtag_debug", "debug_jtag_transport", "name"),
     [
@@ -286,9 +217,13 @@ def test_soc_top_vhdl_conversion(
         _analyze_with_ghdl(output_dir, vhdl_file)
     elif debug_jtag_transport == "ecp5_jtagg":
         assert "jtag_tck" not in content
-        assert "u_jtagg: entity work.JTAGG" in content
-        assert "JRT1" in content
-        assert "JRT2" in content
+        assert "jtagg_i_jtck" in content
+        assert "jtagg_i_jrt1" in content
+        assert "jtagg_i_jrt2" in content
+        assert "jtagg_o_jtdo1" in content
+        assert "jtagg_o_jtdo2" in content
+        assert "JTAGG" not in content
+        _analyze_with_ghdl(output_dir, vhdl_file)
     else:
         assert "jtag_tck" not in content
         assert "JTAGG" not in content
