@@ -70,11 +70,6 @@ jobs:
           . .venv/bin/activate
           pytest -vv tests/
 
-      - name: Test VHDL core with FuseSoC
-        run: |
-          . .venv/bin/activate
-          fusesoc run --target=sim bonfire-core --testfile=code/build/core-tests/loop.hex
-
       - name: Clone riscv-compliance (bonfireprocessor fork)
         run: |
           git clone --depth 1 https://github.com/bonfireprocessor/riscv-compliance.git riscv-compliance

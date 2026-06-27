@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import shlex
 import shutil
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -86,3 +87,25 @@ def fusesoc_command(*args: str) -> CommandInvocation:
         return CommandInvocation([fusesoc, *args], env)
 
     pytest.skip("fusesoc/ghdl not available")
+
+
+def toolchain_commands_available(*commands: str) -> bool:
+    env_script = _oss_cad_suite_env_script()
+    if env_script is None:
+        return all(shutil.which(command) is not None for command in commands)
+
+    checks = " && ".join(
+        f"command -v {shlex.quote(command)} >/dev/null" for command in commands
+    )
+    result = subprocess.run(
+        [
+            "bash",
+            "-lc",
+            f"source {shlex.quote(str(env_script))} && {checks}",
+        ],
+        check=False,
+        env=os.environ.copy(),
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0

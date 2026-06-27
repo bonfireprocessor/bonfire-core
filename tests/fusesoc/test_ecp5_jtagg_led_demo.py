@@ -2,31 +2,24 @@ from __future__ import annotations
 
 import json
 import re
-import subprocess
 from collections import Counter
 from pathlib import Path
+from typing import Callable
 
-from tests.toolchain import fusesoc_command
 
+def test_ecp5_jtagg_led_demo_icepizero_fusesoc(
+    repo_root: Path,
+    run_fusesoc: Callable[..., str],
+    ecp5_fpga_toolchain_available: bool,
+):
+    command = ["run", "--target=icepizero"]
+    if not ecp5_fpga_toolchain_available:
+        command.append("--setup")
+    command.append("::bonfire-ecp5-jtagg-led-demo:0")
 
-def test_ecp5_jtagg_led_demo_icepizero_fusesoc(repo_root: Path):
-    invocation = fusesoc_command(
-        "run",
-        "--target=icepizero",
-        "::bonfire-ecp5-jtagg-led-demo:0",
-    )
-    result = subprocess.run(
-        invocation.command,
-        cwd=repo_root,
-        env=invocation.env,
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        timeout=180,
-        check=False,
-    )
-    print(result.stdout, end="")
-    assert result.returncode == 0, result.stdout
+    run_fusesoc(*command, timeout=180)
+    if not ecp5_fpga_toolchain_available:
+        return
 
     output_dir = (
         repo_root

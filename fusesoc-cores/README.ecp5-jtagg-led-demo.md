@@ -116,11 +116,14 @@ The design must contain one `JTAGG` cell as well as LUTs and flip-flops for the
 shift and LED registers. nextpnr should report `JTAGG: 1/1`. A result with zero
 LUTs or no `JTAGG` cell indicates that the primitive boundary was not preserved.
 
-The automated FuseSoC smoke test runs the same complete flow:
+The automated FuseSoC smoke test runs the same complete flow when `yosys` and
+`nextpnr-ecp5` are available. Without those FPGA tools it runs FuseSoC setup
+only, so environments with FuseSoC and GHDL can still validate the generated
+core and filesets:
 
 ```bash
 OSS_CAD_SUITE_ENV=~/opt/oss-cad-new/oss-cad-suite/environment \
-  pytest tests/test_ecp5_jtagg_led_demo_fusesoc.py -q
+  pytest tests/fusesoc/test_ecp5_jtagg_led_demo.py -q
 ```
 
 ## Relationship to the Bonfire debug transport
