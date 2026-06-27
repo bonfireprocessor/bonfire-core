@@ -72,32 +72,6 @@ def _analyze_with_ghdl(output_dir: Path, vhdl_file: Path) -> None:
         pytest.fail(f"ghdl -a failed for {vhdl_file.name}\n{error_text}", pytrace=False)
 
 
-JTAGG_STUB_VHDL = """
-library ieee;
-use ieee.std_logic_1164.all;
-
-entity JTAGG is
-    port (
-        JTDO2   : in std_logic;
-        JTDO1   : in std_logic;
-        JTDI    : out std_logic;
-        JTCK    : out std_logic;
-        JRT2    : out std_logic;
-        JRT1    : out std_logic;
-        JSHIFT  : out std_logic;
-        JUPDATE : out std_logic;
-        JRSTN   : out std_logic;
-        JCE2    : out std_logic;
-        JCE1    : out std_logic
-    );
-end entity;
-
-architecture blackbox of JTAGG is
-begin
-end architecture;
-"""
-
-
 def _synthesize_ecp5_with_yosys(output_dir: Path, name: str, extra_vhdl_files: list[Path] | None = None) -> Path:
     json_file = output_dir / f"{name}.json"
     log_file = output_dir / "yosys.log"
@@ -250,7 +224,9 @@ def test_ecp5_jtagg_led_demo_vhdl_conversion(repo_root: Path):
     output_dir = _conversion_output_dir(repo_root, name)
 
     led = Signal(modbv(0)[5:])
-    dut = Ecp5JtaggLedDemo(led)
+    jtagg_i = Ecp5JtaggInputBundle()
+    jtagg_o = Ecp5JtaggOutputBundle()
+    dut = Ecp5JtaggLedDemo(led, jtagg_i, jtagg_o)
     dut.convert(hdl="VHDL", path=str(output_dir), name=name)
 
 def test_ecp5_jtagg_led_demo_yosys_synthesis(repo_root: Path):
@@ -258,13 +234,12 @@ def test_ecp5_jtagg_led_demo_yosys_synthesis(repo_root: Path):
     output_dir = _conversion_output_dir(repo_root, name)
 
     led = Signal(modbv(0)[5:])
-    dut = Ecp5JtaggLedDemo(led)
+    jtagg_i = Ecp5JtaggInputBundle()
+    jtagg_o = Ecp5JtaggOutputBundle()
+    dut = Ecp5JtaggLedDemo(led, jtagg_i, jtagg_o)
     dut.convert(hdl="VHDL", path=str(output_dir), name=name)
 
-    jtagg_stub = output_dir / "jtagg_stub.vhd"
-    jtagg_stub.write_text(JTAGG_STUB_VHDL, encoding="utf-8")
-
-    json_file = _synthesize_ecp5_with_yosys(output_dir, name, extra_vhdl_files=[jtagg_stub])
+    json_file = _synthesize_ecp5_with_yosys(output_dir, name)
     assert json_file.exists()
     assert json_file.stat().st_size > 0
 

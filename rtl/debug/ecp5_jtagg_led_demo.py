@@ -10,22 +10,21 @@ from typing import Any
 from myhdl import Signal, always, always_comb, block, concat, instances, modbv
 
 from rtl.debug.ecp5_jtagg_client import Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
-from rtl.debug.ecp5_jtagg_primitive import Ecp5JtaggPrimitiveForBundle
 from rtl.type_aliases import BitSignal
 
 
 @block
-def Ecp5JtaggLedDemo(led: Any) -> Any:
+def Ecp5JtaggLedDemo(
+    led: Any,
+    jtagg_i: Ecp5JtaggInputBundle,
+    jtagg_o: Ecp5JtaggOutputBundle,
+) -> Any:
     width = len(led)
     assert width > 0, "Ecp5JtaggLedDemo requires at least one LED"
 
-    jtagg_i = Ecp5JtaggInputBundle()
-    jtagg_o = Ecp5JtaggOutputBundle()
     shift_reg = Signal(modbv(0)[width:])
     led_reg = Signal(modbv(0)[width:])
     active_er1: BitSignal = Signal(bool(0))
-
-    primitive = Ecp5JtaggPrimitiveForBundle(jtagg_i, jtagg_o)
 
     @always(jtagg_i.jtck.posedge)
     def shift_user_register():
