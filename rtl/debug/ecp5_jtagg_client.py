@@ -7,15 +7,24 @@ from __future__ import annotations
 
 from typing import Any
 
-from myhdl import Signal, always_comb, always_seq, block, instances, intbv
+from myhdl import Signal, always, always_comb, block, instances, modbv
 
 from rtl.debug.dm_registers import DmiBundle
-from rtl.debug.dtm_transport import DmiScanRegister, DtmcsScanRegister
+from rtl.debug.dtm_transport import (
+    DMI_OP_READ,
+    DMI_OP_SUCCESS,
+    DMI_OP_WRITE,
+    DTM_IDLE,
+    DTM_VERSION,
+    DTMCS_DMIRESET_BIT,
+)
 from rtl.type_aliases import BitSignal
 
 ECP5_JTAGG_IR_ER1 = 0x32
 ECP5_JTAGG_IR_ER2 = 0x38
 ECP5_JTAGG_IR_WIDTH = 8
+
+DMI_OP_BUSY = 3
 
 
 class Ecp5JtaggInputBundle:
@@ -46,138 +55,183 @@ def Ecp5JtaggClient(
     jtagg_o: Ecp5JtaggOutputBundle,
     dtm: DmiBundle,
 ) -> Any:
-    jtck_meta = Signal(bool(0))
-    jtck_sync = Signal(bool(0))
-    jtck_sync_d = Signal(bool(0))
-    jtdi_meta = Signal(bool(0))
-    jtdi_sync = Signal(bool(0))
-    jshift_meta = Signal(bool(0))
-    jshift_sync = Signal(bool(0))
-    jupdate_meta = Signal(bool(0))
-    jupdate_sync = Signal(bool(0))
-    jrstn_meta = Signal(bool(1))
-    jrstn_sync = Signal(bool(1))
-    jce1_meta = Signal(bool(0))
-    jce1_sync = Signal(bool(0))
-    jce2_meta = Signal(bool(0))
-    jce2_sync = Signal(bool(0))
-    jrt1_meta = Signal(bool(0))
-    jrt1_sync = Signal(bool(0))
-    jrt2_meta = Signal(bool(0))
-    jrt2_sync = Signal(bool(0))
+    abits = config.dmi_adr_width
+    dmi_width = abits + 34
 
-    jtck_rise = Signal(bool(0))
-
-    dmi_capture = Signal(bool(0))
-    dmi_shift = Signal(bool(0))
-    dmi_update = Signal(bool(0))
-    dtmcs_capture = Signal(bool(0))
-    dtmcs_shift = Signal(bool(0))
-    dtmcs_update = Signal(bool(0))
-
-    dmi_tdo = Signal(bool(0))
-    dtmcs_tdo = Signal(bool(0))
-    dmistat = Signal(intbv(0)[2:])
-    dmireset_pulse = Signal(bool(0))
+    dmi_shift_reg = Signal(modbv(0)[dmi_width:])
+    dtmcs_shift_reg = Signal(modbv(0)[32:])
     active_er1 = Signal(bool(0))
     active_er2 = Signal(bool(0))
-    always_active = Signal(bool(1))
+    jshift_d = Signal(bool(0))
 
-    @always_seq(clock.posedge, reset=reset)
-    def sync_inputs():
-        jtck_meta.next = jtagg_i.jtck
-        jtck_sync.next = jtck_meta
-        jtck_sync_d.next = jtck_sync
-        jtdi_meta.next = jtagg_i.jtdi
-        jtdi_sync.next = jtdi_meta
-        jshift_meta.next = jtagg_i.jshift
-        jshift_sync.next = jshift_meta
-        jupdate_meta.next = jtagg_i.jupdate
-        jupdate_sync.next = jupdate_meta
-        jrstn_meta.next = jtagg_i.jrstn
-        jrstn_sync.next = jrstn_meta
-        jce1_meta.next = jtagg_i.jce1
-        jce1_sync.next = jce1_meta
-        jce2_meta.next = jtagg_i.jce2
-        jce2_sync.next = jce2_meta
-        jrt1_meta.next = jtagg_i.jrt1
-        jrt1_sync.next = jrt1_meta
-        jrt2_meta.next = jtagg_i.jrt2
-        jrt2_sync.next = jrt2_meta
+    request_payload = Signal(modbv(0)[dmi_width:])
+    request_toggle = Signal(bool(0))
+    dmireset_toggle = Signal(bool(0))
 
-    @always_comb
-    def edge_detect():
-        jtck_rise.next = jtck_sync and not jtck_sync_d
+    response_payload = Signal(modbv(0)[dmi_width:])
+    response_toggle = Signal(bool(0))
+    response_toggle_meta = Signal(bool(0))
+    response_toggle_sync = Signal(bool(0))
 
-    @always_seq(clock.posedge, reset=reset)
-    def derive_controls():
-        dmi_capture.next = False
-        dmi_shift.next = False
-        dmi_update.next = False
-        dtmcs_capture.next = False
-        dtmcs_shift.next = False
-        dtmcs_update.next = False
+    request_toggle_meta = Signal(bool(0))
+    request_toggle_sync = Signal(bool(0))
+    request_toggle_seen = Signal(bool(0))
+    dmireset_toggle_meta = Signal(bool(0))
+    dmireset_toggle_sync = Signal(bool(0))
+    dmireset_toggle_seen = Signal(bool(0))
 
-        if not jrstn_sync:
-            active_er1.next = False
-            active_er2.next = False
-        elif jtck_rise:
-            if jce1_sync:
-                active_er1.next = True
-                active_er2.next = False
-                if jshift_sync:
-                    dmi_shift.next = True
-                else:
-                    dmi_capture.next = True
-            elif jce2_sync:
-                active_er1.next = False
-                active_er2.next = True
-                if jshift_sync:
-                    dtmcs_shift.next = True
-                else:
-                    dtmcs_capture.next = True
-            elif jupdate_sync:
-                if active_er1:
-                    dmi_update.next = True
-                elif active_er2:
-                    dtmcs_update.next = True
-            elif jrt1_sync:
-                active_er1.next = True
-                active_er2.next = False
-            elif jrt2_sync:
-                active_er1.next = False
-                active_er2.next = True
+    request_active = Signal(bool(0))
+    read_pending = Signal(bool(0))
+    read_capture = Signal(bool(0))
 
     @always_comb
     def outputs():
-        jtagg_o.jtdo1.next = dmi_tdo
-        jtagg_o.jtdo2.next = dtmcs_tdo
+        jtagg_o.jtdo1.next = dmi_shift_reg[0]
+        jtagg_o.jtdo2.next = dtmcs_shift_reg[0]
 
-    dmi_scan = DmiScanRegister(
-        config,
-        clock,
-        reset,
-        always_active,
-        dmi_capture,
-        dmi_shift,
-        dmi_update,
-        jtdi_sync,
-        dmi_tdo,
-        dtm,
-    )
+    @always(jtagg_i.jtck.posedge)
+    def jtag_clock_domain():
+        response_toggle_meta.next = response_toggle
+        response_toggle_sync.next = response_toggle_meta
 
-    dtmcs_scan = DtmcsScanRegister(
-        config,
-        clock,
-        reset,
-        always_active,
-        dtmcs_capture,
-        dtmcs_shift,
-        dtmcs_update,
-        jtdi_sync,
-        dtmcs_tdo,
-        dmistat,
-        dmireset_pulse,
-    )
+        if reset or not jtagg_i.jrstn:
+            dmi_shift_reg.next = 0
+            dtmcs_shift_reg.next = 0
+            active_er1.next = False
+            active_er2.next = False
+            jshift_d.next = False
+            request_payload.next = 0
+            request_toggle.next = False
+            dmireset_toggle.next = False
+            response_toggle_meta.next = False
+            response_toggle_sync.next = False
+        else:
+            jshift_d.next = jtagg_i.jshift
+
+            if jtagg_i.jce1 and not jtagg_i.jshift:
+                active_er1.next = True
+                active_er2.next = False
+                if request_toggle != response_toggle_sync:
+                    busy_response = modbv(0)[dmi_width:]
+                    busy_response[2:0] = DMI_OP_BUSY
+                    dmi_shift_reg.next = busy_response
+                else:
+                    dmi_shift_reg.next = response_payload
+            elif jtagg_i.jce2 and not jtagg_i.jshift:
+                active_er1.next = False
+                active_er2.next = True
+                dtmcs = modbv(0)[32:]
+                dtmcs[3:0] = DTM_VERSION
+                dtmcs[9:4] = abits
+                if request_toggle != response_toggle_sync:
+                    dtmcs[12:10] = DMI_OP_BUSY
+                dtmcs[15:12] = DTM_IDLE
+                dtmcs_shift_reg.next = dtmcs
+            elif jtagg_i.jshift:
+                # JTAGG registers JTDI on this edge. Ignore it on the first
+                # shift edge, but advance TDO to the next LSB. From the next
+                # edge onward JTDI is the previous bit.
+                if jshift_d:
+                    if active_er1:
+                        dmi_shift_reg.next[dmi_width - 1] = jtagg_i.jtdi
+                        dmi_shift_reg.next[dmi_width - 1:0] = dmi_shift_reg[dmi_width:1]
+                    elif active_er2:
+                        dtmcs_shift_reg.next[31] = jtagg_i.jtdi
+                        dtmcs_shift_reg.next[31:0] = dtmcs_shift_reg[32:1]
+                elif active_er1:
+                    dmi_shift_reg.next = dmi_shift_reg >> 1
+                elif active_er2:
+                    dtmcs_shift_reg.next = dtmcs_shift_reg >> 1
+            elif jshift_d:
+                # The final registered JTDI bit becomes visible after JSHIFT
+                # falls, before the following Update-DR clock.
+                if active_er1:
+                    dmi_shift_reg.next[dmi_width - 1] = jtagg_i.jtdi
+                    dmi_shift_reg.next[dmi_width - 1:0] = dmi_shift_reg[dmi_width:1]
+                elif active_er2:
+                    dtmcs_shift_reg.next[31] = jtagg_i.jtdi
+                    dtmcs_shift_reg.next[31:0] = dtmcs_shift_reg[32:1]
+            elif jtagg_i.jupdate:
+                if active_er1:
+                    request_payload.next = dmi_shift_reg
+                    request_toggle.next = not request_toggle
+                elif active_er2 and dtmcs_shift_reg[DTMCS_DMIRESET_BIT]:
+                    dmireset_toggle.next = not dmireset_toggle
+            elif jtagg_i.jrt1:
+                active_er1.next = True
+                active_er2.next = False
+            elif jtagg_i.jrt2:
+                active_er1.next = False
+                active_er2.next = True
+
+    @always(clock.posedge)
+    def core_clock_domain():
+        request_toggle_meta.next = request_toggle
+        request_toggle_sync.next = request_toggle_meta
+        dmireset_toggle_meta.next = dmireset_toggle
+        dmireset_toggle_sync.next = dmireset_toggle_meta
+
+        if reset:
+            request_toggle_meta.next = False
+            request_toggle_sync.next = False
+            request_toggle_seen.next = False
+            dmireset_toggle_meta.next = False
+            dmireset_toggle_sync.next = False
+            dmireset_toggle_seen.next = False
+            request_active.next = False
+            read_pending.next = False
+            read_capture.next = False
+            response_payload.next = 0
+            response_toggle.next = False
+            dtm.en.next = False
+            dtm.we.next = False
+            dtm.adr.next = 0
+            dtm.dbi.next = 0
+        else:
+            if dmireset_toggle_sync != dmireset_toggle_seen:
+                dmireset_toggle_seen.next = dmireset_toggle_sync
+                request_toggle_seen.next = request_toggle_sync
+                request_active.next = False
+                read_pending.next = False
+                read_capture.next = False
+                response_payload.next = 0
+                response_toggle.next = request_toggle_sync
+                dtm.en.next = False
+                dtm.we.next = False
+            elif request_active:
+                dtm.en.next = False
+                dtm.we.next = False
+                request_active.next = False
+                if read_pending:
+                    read_pending.next = False
+                    read_capture.next = True
+                else:
+                    response_toggle.next = request_toggle_seen
+            elif read_capture:
+                response_payload.next[2:0] = DMI_OP_SUCCESS
+                response_payload.next[34:2] = dtm.dbo
+                response_toggle.next = request_toggle_seen
+                read_capture.next = False
+            elif request_toggle_sync != request_toggle_seen:
+                request_toggle_seen.next = request_toggle_sync
+                dtm.adr.next = request_payload[dmi_width:34]
+                dtm.dbi.next = request_payload[34:2]
+                response_payload.next[2:0] = DMI_OP_SUCCESS
+                response_payload.next[34:2] = 0
+                response_payload.next[dmi_width:34] = request_payload[dmi_width:34]
+
+                if request_payload[2:0] == DMI_OP_READ:
+                    dtm.we.next = False
+                    dtm.en.next = True
+                    request_active.next = True
+                    read_pending.next = True
+                elif request_payload[2:0] == DMI_OP_WRITE:
+                    dtm.we.next = True
+                    dtm.en.next = True
+                    request_active.next = True
+                else:
+                    dtm.en.next = False
+                    dtm.we.next = False
+                    response_toggle.next = request_toggle_sync
 
     return instances()

@@ -71,6 +71,7 @@ def ecp5_jtagg_testbench(verbose: bool = True):
         yield bfm.set_ir(ECP5_JTAGG_IR_ER2, width=ECP5_JTAGG_IR_WIDTH)
         yield bfm.scan_dr(0, 32)
         dtmcs = modbv(int(bfm.last_scan))[32:]
+        assert int(dtmcs) == 0x00001061
         assert dtmcs[3:0] == 1
         assert dtmcs[9:4] == conf.dmi_adr_width
         assert dtmcs[12:10] == 0

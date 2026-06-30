@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from myhdl import Signal, always_comb, always_seq, block, instances, modbv
+from myhdl import Signal, always, always_comb, block, delay, instance, instances, modbv
 
 from rtl.debug.ecp5_jtagg_client import (
     ECP5_JTAGG_IR_ER1,
@@ -57,42 +57,11 @@ class Ecp5JtaggTapEmulator:
         idcode_shift = Signal(modbv(0)[32:])
         bypass = Signal(bool(0))
 
-        tck_meta = Signal(bool(0))
-        tck_sync = Signal(bool(0))
-        tck_sync_d = Signal(bool(0))
-        tms_meta = Signal(bool(1))
-        tms_sync = Signal(bool(1))
-        tdi_meta = Signal(bool(0))
-        tdi_sync = Signal(bool(0))
-        trstn_meta = Signal(bool(1))
-        trstn_sync = Signal(bool(1))
-        tck_rise = Signal(bool(0))
-        tck_fall = Signal(bool(0))
-
-        @always_seq(clock.posedge, reset=reset)
-        def input_sync():
-            tck_meta.next = tck_i
-            tck_sync.next = tck_meta
-            tck_sync_d.next = tck_sync
-            tms_meta.next = tms_i
-            tms_sync.next = tms_meta
-            tdi_meta.next = tdi_i
-            tdi_sync.next = tdi_meta
-            trstn_meta.next = trstn_i
-            trstn_sync.next = trstn_meta
-
-        @always_comb
-        def edge_detect():
-            tck_rise.next = tck_sync and not tck_sync_d
-            tck_fall.next = not tck_sync and tck_sync_d
-
         @always_comb
         def jtagg_drive():
-            jtagg_i.jtck.next = tck_sync
-            jtagg_i.jtdi.next = tdi_sync
             jtagg_i.jshift.next = tap_state == t_tap_state.shift_dr
             jtagg_i.jupdate.next = tap_state == t_tap_state.update_dr
-            jtagg_i.jrstn.next = trstn_sync and tap_state != t_tap_state.test_logic_reset
+            jtagg_i.jrstn.next = trstn_i and tap_state != t_tap_state.test_logic_reset
             jtagg_i.jce1.next = instruction == ECP5_JTAGG_IR_ER1 and (
                 tap_state == t_tap_state.capture_dr or tap_state == t_tap_state.shift_dr
             )
@@ -102,131 +71,142 @@ class Ecp5JtaggTapEmulator:
             jtagg_i.jrt1.next = instruction == ECP5_JTAGG_IR_ER1 and tap_state == t_tap_state.run_test_idle
             jtagg_i.jrt2.next = instruction == ECP5_JTAGG_IR_ER2 and tap_state == t_tap_state.run_test_idle
 
-        @always_seq(clock.posedge, reset=reset)
+        @instance
+        def jtagg_clock_and_data():
+            while True:
+                yield tck_i.posedge
+                jtagg_i.jtck.next = True
+                # Let JTCK-clocked user logic consume the previously
+                # registered JTDI value before publishing the new one.
+                yield delay(0)
+                jtagg_i.jtdi.next = tdi_i
+                yield tck_i.negedge
+                jtagg_i.jtck.next = False
+
+        @always(tck_i.negedge)
         def tdo_select():
-            if not trstn_sync:
+            if reset or not trstn_i:
                 tdo_o.next = False
-            elif tck_fall:
-                if tap_state == t_tap_state.shift_ir:
-                    tdo_o.next = ir_shift[0]
-                elif tap_state == t_tap_state.shift_dr:
-                    if instruction == ECP5_JTAG_INSTR_IDCODE:
-                        tdo_o.next = idcode_shift[0]
-                    elif instruction == ECP5_JTAGG_IR_ER1:
-                        tdo_o.next = jtagg_o.jtdo1
-                    elif instruction == ECP5_JTAGG_IR_ER2:
-                        tdo_o.next = jtagg_o.jtdo2
-                    else:
-                        tdo_o.next = bypass
+            elif tap_state == t_tap_state.shift_ir:
+                tdo_o.next = ir_shift[0]
+            elif tap_state == t_tap_state.shift_dr:
+                if instruction == ECP5_JTAG_INSTR_IDCODE:
+                    tdo_o.next = idcode_shift[0]
+                elif instruction == ECP5_JTAGG_IR_ER1:
+                    tdo_o.next = jtagg_o.jtdo1
+                elif instruction == ECP5_JTAGG_IR_ER2:
+                    tdo_o.next = jtagg_o.jtdo2
                 else:
-                    tdo_o.next = False
+                    tdo_o.next = bypass
+            else:
+                tdo_o.next = False
 
         if tap_state_o is not None:
             @always_comb
             def tap_state_observe():
                 tap_state_o.next = tap_state
 
-        @always_seq(clock.posedge, reset=reset)
+        @always(tck_i.posedge)
         def state_transition():
-            if not trstn_sync:
+            if reset or not trstn_i:
                 tap_state.next = t_tap_state.test_logic_reset
-            elif tck_rise:
+            else:
                 if tap_state == t_tap_state.test_logic_reset:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.test_logic_reset
                     else:
                         tap_state.next = t_tap_state.run_test_idle
                 elif tap_state == t_tap_state.run_test_idle:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.select_dr_scan
                     else:
                         tap_state.next = t_tap_state.run_test_idle
                 elif tap_state == t_tap_state.select_dr_scan:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.select_ir_scan
                     else:
                         tap_state.next = t_tap_state.capture_dr
                 elif tap_state == t_tap_state.capture_dr:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.exit1_dr
                     else:
                         tap_state.next = t_tap_state.shift_dr
                 elif tap_state == t_tap_state.shift_dr:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.exit1_dr
                     else:
                         tap_state.next = t_tap_state.shift_dr
                 elif tap_state == t_tap_state.exit1_dr:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.update_dr
                     else:
                         tap_state.next = t_tap_state.pause_dr
                 elif tap_state == t_tap_state.pause_dr:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.exit2_dr
                     else:
                         tap_state.next = t_tap_state.pause_dr
                 elif tap_state == t_tap_state.exit2_dr:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.update_dr
                     else:
                         tap_state.next = t_tap_state.shift_dr
                 elif tap_state == t_tap_state.update_dr:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.select_dr_scan
                     else:
                         tap_state.next = t_tap_state.run_test_idle
                 elif tap_state == t_tap_state.select_ir_scan:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.test_logic_reset
                     else:
                         tap_state.next = t_tap_state.capture_ir
                 elif tap_state == t_tap_state.capture_ir:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.exit1_ir
                     else:
                         tap_state.next = t_tap_state.shift_ir
                 elif tap_state == t_tap_state.shift_ir:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.exit1_ir
                     else:
                         tap_state.next = t_tap_state.shift_ir
                 elif tap_state == t_tap_state.exit1_ir:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.update_ir
                     else:
                         tap_state.next = t_tap_state.pause_ir
                 elif tap_state == t_tap_state.pause_ir:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.exit2_ir
                     else:
                         tap_state.next = t_tap_state.pause_ir
                 elif tap_state == t_tap_state.exit2_ir:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.update_ir
                     else:
                         tap_state.next = t_tap_state.shift_ir
                 else:
-                    if tms_sync:
+                    if tms_i:
                         tap_state.next = t_tap_state.select_dr_scan
                     else:
                         tap_state.next = t_tap_state.run_test_idle
 
-        @always_seq(clock.posedge, reset=reset)
+        @always(tck_i.posedge)
         def actions():
-            if not trstn_sync:
+            if reset or not trstn_i:
                 instruction.next = ECP5_JTAG_INSTR_IDCODE
                 ir_shift.next = 0
                 idcode_shift.next = 0
                 bypass.next = False
-            elif tck_rise:
-                if tap_state == t_tap_state.test_logic_reset and tms_sync:
+            else:
+                if tap_state == t_tap_state.test_logic_reset and tms_i:
                     instruction.next = ECP5_JTAG_INSTR_IDCODE
 
                 if tap_state == t_tap_state.capture_ir:
                     ir_shift.next = 0x01
                 elif tap_state == t_tap_state.shift_ir:
-                    ir_shift.next[self.ir_width - 1] = tdi_sync
+                    ir_shift.next[self.ir_width - 1] = tdi_i
                     ir_shift.next[self.ir_width - 1:0] = ir_shift[self.ir_width:1]
                 elif tap_state == t_tap_state.update_ir:
                     instruction.next = ir_shift
@@ -238,9 +218,9 @@ class Ecp5JtaggTapEmulator:
                         bypass.next = False
                 elif tap_state == t_tap_state.shift_dr:
                     if instruction == ECP5_JTAG_INSTR_IDCODE:
-                        idcode_shift.next[31] = tdi_sync
+                        idcode_shift.next[31] = tdi_i
                         idcode_shift.next[31:0] = idcode_shift[32:1]
                     elif instruction != ECP5_JTAGG_IR_ER1 and instruction != ECP5_JTAGG_IR_ER2:
-                        bypass.next = tdi_sync
+                        bypass.next = tdi_i
 
         return instances()
