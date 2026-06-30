@@ -54,7 +54,16 @@ class SoCGenerator:
         ]
         testbench_files = []
 
-        if generation_config.is_extended:
+        if generation_config.uses_ecp5_jtagg_wrapper:
+            renderer = VhdlTemplateRenderer(files_root, gen_path)
+            filelist.append(renderer.copy_ecp5_jtagg_bridge())
+            filelist.append(
+                renderer.render_basic_jtagg_wrapper(
+                    generation_config.names,
+                    generation_config.soc_config,
+                )
+            )
+        elif generation_config.is_extended:
             extra_files, testbench_files = self._generate_extended_templates(
                 files_root,
                 gen_path,
@@ -121,6 +130,9 @@ class SoCGenerator:
         if generation_config.is_extended:
             names.add("{}.vhd".format(generation_config.names.top_entity_name))
             names.add(generation_config.names.extended_testbench_file)
+        if generation_config.uses_ecp5_jtagg_wrapper:
+            names.add("{}.vhd".format(generation_config.names.top_entity_name))
+            names.add("ecp5_jtagg_bridge.vhd")
 
         for name in names:
             path = gen_path / name
