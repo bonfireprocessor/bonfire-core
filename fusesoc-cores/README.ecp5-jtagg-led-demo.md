@@ -100,6 +100,98 @@ build/bonfire-ecp5-jtagg-led-demo_0/icepizero-trellis/
 `-- next.log
 ```
 
+## Testing on Ice Pi Zero
+
+Load the generated bitstream into the FPGA, for example with
+openFPGALoader:
+
+```bash
+openFPGALoader -b icepi-zero \
+  build/bonfire-ecp5-jtagg-led-demo_0/icepizero-trellis/bonfire-ecp5-jtagg-led-demo_0.bit
+```
+
+The Ice Pi Zero connects its ECP5 JTAG port to the on-board FTDI FT231XQ. The
+OpenOCD `ft232r` driver uses the UART handshake signals as synchronous JTAG
+GPIOs. Close any program that has the FTDI serial port open, then start OpenOCD
+with the board's signal mapping:
+
+```bash
+openocd \
+  -c "adapter driver ft232r" \
+  -c "adapter speed 1000" \
+  -c "ft232r vid_pid 0x0403 0x6015" \
+  -c "ft232r tck_num DSR" \
+  -c "ft232r tms_num DCD" \
+  -c "ft232r tdi_num RI" \
+  -c "ft232r tdo_num CTS" \
+  -c "ft232r trst_num RTS" \
+  -c "ft232r srst_num DTR" \
+  -c "ft232r restore_serial 0x0015" \
+  -c "jtag newtap target tap -irlen 8 -expected-id 0x41111043" \
+  -c "init"
+```
+
+Open a second terminal and connect to the OpenOCD command server:
+
+```bash
+telnet localhost 4444
+```
+
+Check the scan chain first:
+
+```tcl
+scan_chain
+```
+
+The `LFE5U-25F` must be reported with IDCODE `0x41111043`. OpenOCD should also
+have printed a corresponding message during initialization:
+
+```text
+JTAG tap: target.tap tap/device found: 0x41111043
+```
+
+ER1 is selected by the 8-bit instruction `0x32`; its demo data register is five
+bits wide. A direct write looks like this:
+
+```tcl
+irscan target.tap 0x32
+drscan target.tap 5 0x15
+```
+
+For repeated tests, create a file named `led-test.tcl`:
+
+```tcl
+proc led {value} {
+    irscan target.tap 0x32
+    set previous [drscan target.tap 5 $value]
+    puts "previous shift value: $previous"
+}
+```
+
+Load the procedure from the OpenOCD Telnet console. Using a script avoids the
+console treating each line of a multi-line procedure as a separate command:
+
+```tcl
+script /absolute/path/to/led-test.tcl
+```
+
+Exercise individual LEDs and useful patterns:
+
+```tcl
+led 0x00
+led 0x01
+led 0x02
+led 0x04
+led 0x08
+led 0x10
+led 0x15
+led 0x1f
+```
+
+Bits 0 through 4 map directly to `led(0)` through `led(4)`. The value printed
+by `led` is the previous contents shifted out through `JTDO1`, not a fixed
+signature. ER2 (`0x38`) is unused by this demo and `JTDO2` is held low.
+
 ## Verifying synthesis
 
 Successful command completion alone is not sufficient. Check that synthesis
