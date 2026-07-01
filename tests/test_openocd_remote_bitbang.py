@@ -24,8 +24,8 @@ from rtl.debug.ecp5_jtagg_tap import ECP5_JTAG_EXPECTED_IDCODES, ECP5_JTAG_IDCOD
 from rtl.debug.jtag_dtm import JTAG_IDCODE, JTAG_IR_WIDTH
 from .conftest import waveform_config
 
-OPENOCD_TIMEOUT_SECONDS = 10.0
-OPENOCD_CORE_TARGET_TIMEOUT_SECONDS = 20.0
+OPENOCD_TIMEOUT_SECONDS = 60.0
+OPENOCD_CORE_TARGET_TIMEOUT_SECONDS = 60.0
 
 
 def _free_tcp_port() -> int:

@@ -66,6 +66,8 @@ jobs:
           make -C code clean all TARGET_PREFIX=riscv64-unknown-elf
 
       - name: Run unit + integration tests
+        id: unit_integration_tests
+        continue-on-error: true
         run: |
           . .venv/bin/activate
           pytest -vv tests/
@@ -82,3 +84,7 @@ jobs:
           cd riscv-compliance
           make -j3 RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
           make -j3 RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
+
+      - name: Propagate unit + integration test failure
+        if: ${{ always() && steps.unit_integration_tests.outcome == 'failure' }}
+        run: exit 1
