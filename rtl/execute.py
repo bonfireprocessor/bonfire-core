@@ -89,8 +89,14 @@ class ExecuteBundle(PipelineControl):
             @always_seq(clock.posedge, reset=reset)
             def debug_retire_seq():
                 debug_redirect_kill.next = debugRegisterBundle.dpc_jump
-                debugRegisterBundle.instr_retired.next = valid
-                if valid:
+                control_flow_retired = self.taken and (decode.branch_cmd or decode.sys_cmd)
+                debugRegisterBundle.instr_retired.next = valid or control_flow_retired
+                if control_flow_retired:
+                    if jump:
+                        debugRegisterBundle.instr_retire_dpc.next = jump_dest[self.config.xlen:self.config.ip_low]
+                    else:
+                        debugRegisterBundle.instr_retire_dpc.next = decode.next_ip_o[self.config.xlen:self.config.ip_low]
+                elif valid:
                     debugRegisterBundle.instr_retire_dpc.next = decode.next_ip_o[self.config.xlen:self.config.ip_low]
                     if decode.jump_cmd:
                         debugRegisterBundle.instr_retire_dpc.next = decode.jump_dest_o[self.config.xlen:self.config.ip_low]

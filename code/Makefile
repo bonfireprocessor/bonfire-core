@@ -43,6 +43,7 @@ HEXDUMP ?= hexdump
 LINKDEF?=$(CORE_TEST_DIR)/bonfire_core.ld
 OBJDUMP_FLAGS := -d -S
 CORE_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -g
+DEBUG_CFLAGS := $(CORE_CFLAGS) -Og -ffreestanding -fno-builtin -Wall -Wextra
 SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Og -g -ffreestanding -fno-builtin -Wall -Wextra
 
 SOC_APPS := led wishbone hello hello_io monitor uart_echo
@@ -64,6 +65,9 @@ $(CORE_TEST_BUILD_DIR)/%.elf : $(CORE_TEST_DIR)/%.S | $(CORE_TEST_BUILD_DIR)
 $(DEBUG_TEST_BUILD_DIR)/%.elf : $(DEBUG_TEST_DIR)/%.S | $(DEBUG_TEST_BUILD_DIR)
 	@$(TARGET_CC) $(CORE_CFLAGS) -nostdlib -nostartfiles -T$(CORE_TEST_DIR)/bonfire_core.ld -o $@ $<
 
+$(DEBUG_TEST_BUILD_DIR)/gdb_demo.elf : $(DEBUG_TEST_DIR)/gdb_demo.c $(DEBUG_TEST_DIR)/gdb_demo.ld | $(DEBUG_TEST_BUILD_DIR)
+	@$(TARGET_CC) $(DEBUG_CFLAGS) -nostdlib -nostartfiles -T$(DEBUG_TEST_DIR)/gdb_demo.ld -o $@ $<
+
 
 $(CORE_TEST_BUILD_DIR)/%.hex : $(CORE_TEST_BUILD_DIR)/%.elf | $(CORE_TEST_BUILD_DIR)
 	@$(TARGET_OBJCOPY) -j .text -O binary $< $(basename $@).bin
@@ -81,7 +85,7 @@ $(DEBUG_TEST_BUILD_DIR)/%.hex : $(DEBUG_TEST_BUILD_DIR)/%.elf | $(DEBUG_TEST_BUI
 
 PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap fence
 HEXES := $(addprefix $(CORE_TEST_BUILD_DIR)/,$(addsuffix .hex,$(PROGRAMS)))
-DEBUG_PROGRAMS := debug endless
+DEBUG_PROGRAMS := debug endless gdb_demo
 DEBUG_HEXES := $(addprefix $(DEBUG_TEST_BUILD_DIR)/,$(addsuffix .hex,$(DEBUG_PROGRAMS)))
 
 define SOC_APP_RULE

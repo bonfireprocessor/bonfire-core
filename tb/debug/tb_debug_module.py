@@ -28,7 +28,10 @@ CSRW_DCSR_A0 = 0x7B051073
 CSRW_DCSR_S0 = 0x7B041073
 CSRW_DPC_A0 = 0x7B151073
 EBREAK = 0x00100073
+ECALL = 0x00000073
 DEBUG_LOOP_J = 0x0000006F
+BEQ_ZERO_ZERO_PLUS_8 = 0x00000463
+BNE_ZERO_ZERO_PLUS_8 = 0x00001463
 
 
 class BonfireCoreDebugTestbench:
@@ -205,6 +208,31 @@ class BonfireCoreDebugTestbench:
         yield self.check_dpc(api, 0x0C, "single step jump halt")
         yield api.readCSR(csr_adr=0x700 | CSRAdr.dcsr)
         assert api.result[9:6] == 4, "jump step dcsr cause: {} expected 4".format(int(api.result[9:6]))
+
+        yield api.writeMemory(memadr=0x100, memvalue=BEQ_ZERO_ZERO_PLUS_8)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x100)
+        yield self.resume_without_running_assert(api)
+        yield api.check_halted()
+        while not api.halted:
+            yield api.check_halted()
+        yield self.check_dpc(api, 0x108, "single step taken branch halt")
+
+        yield api.writeMemory(memadr=0x100, memvalue=BNE_ZERO_ZERO_PLUS_8)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x100)
+        yield self.resume_without_running_assert(api)
+        yield api.check_halted()
+        while not api.halted:
+            yield api.check_halted()
+        yield self.check_dpc(api, 0x104, "single step not-taken branch halt")
+
+        yield api.writeMemory(memadr=0x110, memvalue=ECALL)
+        yield api.writeCSR(csr_adr=0x300 | CSRAdr.tvec, value=0x120)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x110)
+        yield self.resume_without_running_assert(api)
+        yield api.check_halted()
+        while not api.halted:
+            yield api.check_halted()
+        yield self.check_dpc(api, 0x120, "single step trap halt")
 
         yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x10)
         dcsr_value = modbv(0)[32:]

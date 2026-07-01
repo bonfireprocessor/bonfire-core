@@ -62,7 +62,7 @@ def test_debug_module(sim_env, repo_root: Path, request: pytest.FixtureRequest):
         repo_root,
         debug_transport="dmi",
         waveform_name="debug_module",
-        duration=30_000,
+        duration=45_000,
         request=request,
     )
 
