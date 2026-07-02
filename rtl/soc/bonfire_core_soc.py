@@ -17,6 +17,8 @@ from util.diagnostics import get_diagnostics
 
 
 class BonfireCoreSoC:
+    WISHBONE_DUMMY_SIGNATURE = 0x44554D59  # ASCII "DUMY"
+
     def __init__(self, config: BonfireConfig, hexfile: str = "", soc_config: Mapping[str, Any] | None = None) -> None:
         soc_config = soc_config or {}
 
@@ -90,19 +92,11 @@ class BonfireCoreSoC:
 
     @block
     def wishbone_dummy(self, clock: BitSignal, reset: BitSignal, wb_bundle: Wishbone_master_bundle) -> Any:
-
-        dummy_reg = Signal(modbv(0xdeadbeef)[32:])
-
-        @always_seq(clock.posedge,reset=reset)
-        def regwrite():
-            if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o and wb_bundle.wbm_we_o:
-                dummy_reg.next = wb_bundle.wbm_db_o
-
         @always_comb
         def comb():
             if wb_bundle.wbm_cyc_o and wb_bundle.wbm_stb_o:
                 wb_bundle.wbm_ack_i.next = True
-                wb_bundle.wbm_db_i.next = dummy_reg
+                wb_bundle.wbm_db_i.next = self.WISHBONE_DUMMY_SIGNATURE
             else:
                 wb_bundle.wbm_ack_i.next = False
                 wb_bundle.wbm_db_i.next = 0

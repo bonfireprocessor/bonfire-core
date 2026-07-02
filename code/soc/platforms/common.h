@@ -14,6 +14,9 @@
 
 #define BONFIRE_LED_BASE BONFIRE_NATIVE_IO_BASE
 
+/* Returned by the Basic SoC's terminating Wishbone dummy on every read. */
+#define BONFIRE_WISHBONE_DUMMY_SIGNATURE 0x44554d59u
+
 #define BONFIRE_DEFAULT_BAUDRATE 38400u
 #define BONFIRE_ENABLE_GPIO 1u
 
