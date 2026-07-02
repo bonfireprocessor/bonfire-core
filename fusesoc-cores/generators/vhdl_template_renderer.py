@@ -19,6 +19,26 @@ class VhdlTemplateRenderer:
         self._render_template(template_path, self.gen_path / output_file, soc_config)
         return output_file
 
+    def render_basic_jtagg_wrapper(self, names, soc_config):
+        output_file = "{}.vhd".format(names.top_entity_name)
+        self._render_template(
+            self.files_root / "templates" / "soc_basic_jtagg_top.vhd",
+            self.gen_path / output_file,
+            soc_config,
+        )
+        return output_file
+
+    def copy_ecp5_jtagg_bridge(self):
+        output_file = "ecp5_jtagg_bridge.vhd"
+        source = self.files_root / "vhdl" / output_file
+        destination = self.gen_path / output_file
+        destination.write_text(
+            source.read_text(encoding="utf-8"),
+            encoding="utf-8",
+        )
+        get_diagnostics().summary("generated VHDL: {}".format(destination))
+        return output_file
+
     def render_extended_testbench(self, names, soc_config):
         output_file = names.extended_testbench_file
         self._render_template(
@@ -54,6 +74,7 @@ class VhdlTemplateRenderer:
     def _prepare_template_config(self, soc_config):
         config = dict(soc_config)
         config["generated"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        config["numLeds_minus_one"] = int(config["numLeds"]) - 1
         for key in ("enableUart1", "enableSpi", "enableGpio", "debug", "instUartOnly"):
             config[key] = self._bool_vhdl(config[key])
         return config

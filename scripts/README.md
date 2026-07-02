@@ -31,6 +31,9 @@ Server modes:
                     OpenOCD bitbang default: 3335)
   --debug-trace     With --openocd-bitbang: print Debug Module/progbuf trace
   --info-trace      With --openocd-bitbang: print compact hart/abstract-command trace
+  --jtag-transport standard|ecp5_jtagg
+                    With --openocd-bitbang: select the JTAG transport frontend
+                    (default: standard)
 
 Environment / venv:
   --install         Create/update ./.venv and install Python deps
@@ -194,6 +197,18 @@ commands, and program-buffer execution:
 scripts/bonfire-core --openocd-bitbang --port 3335 --info-trace
 ```
 
+Use the ECP5 JTAGG transport frontend:
+
+```bash
+scripts/bonfire-core --openocd-bitbang \
+  --port 3335 \
+  --jtag-transport ecp5_jtagg
+```
+
+Use `openocd_bitbang/bonfire_ecp5_er.cfg` with this mode. It models the
+outer FPGA TAP as ECP5 (`IRLEN=8`) and maps RISC-V Debug DTM scans to
+`ER2`/`ER1`.
+
 Example OpenOCD configuration:
 
 ```tcl
@@ -226,6 +241,13 @@ target remote localhost:3333
 
 - a plain prefix, e.g. `riscv64-unknown-elf`
 - a full path prefix, e.g. `/opt/riscv/bin/riscv64-unknown-elf`
+
+For local ECP5 synthesis and GHDL/Yosys checks, activate the OSS CAD suite
+first:
+
+```bash
+source ~/opt/oss-cad-new/oss-cad-suite/environment
+```
 
 ### Python Environment
 

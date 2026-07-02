@@ -46,6 +46,14 @@ class SoCGenerationConfig:
     def is_testbench(self):
         return self.generation_kind == GenerationKind.BASIC_SOC_TESTBENCH
 
+    @property
+    def uses_ecp5_jtagg_wrapper(self):
+        return (
+            self.generation_kind == GenerationKind.BASIC_SOC_TOP
+            and self.soc_config["enableJtagDebug"]
+            and self.soc_config["debugJtagTransport"] == "ecp5_jtagg"
+        )
+
 
 def param(parameters, key, default):
     return parameters.get(key, default)
@@ -92,6 +100,7 @@ class SoCGenerationConfigBuilder:
         "enable_gpio": True,
         "debug": False,
         "enable_jtag_debug": False,
+        "debug_jtag_transport": "native",
         "enable_debug_ndmreset": False,
         "inst_uart_only": False,
         "uart_fifo_depth": 6,
@@ -171,6 +180,26 @@ class SoCGenerationConfigBuilder:
                 myhdl_entity_name=myhdl_entity_name,
             )
 
+        uses_ecp5_jtagg_wrapper = (
+            generation_kind == GenerationKind.BASIC_SOC_TOP
+            and bool(param(parameters, "enable_jtag_debug", False))
+            and param(parameters, "debug_jtag_transport", "native") == "ecp5_jtagg"
+        )
+        if uses_ecp5_jtagg_wrapper:
+            myhdl_entity_name = param(
+                parameters,
+                "myhdl_entity_name",
+                "bonfire_core_soc_myhdl_top",
+            )
+            if myhdl_entity_name == top_entity_name:
+                raise ValueError(
+                    "'myhdl_entity_name' must differ from 'top_entity_name' for ECP5 JTAGG"
+                )
+            return GeneratedNames(
+                top_entity_name=top_entity_name,
+                myhdl_entity_name=myhdl_entity_name,
+            )
+
         myhdl_entity_name = param(parameters, "myhdl_entity_name", top_entity_name)
         if myhdl_entity_name != top_entity_name:
             raise ValueError(
@@ -189,6 +218,16 @@ class SoCGenerationConfigBuilder:
             expose_wishbone_master = True
 
         soc_config["exposeWishboneMaster"] = expose_wishbone_master
+        self._validate_debug_jtag_transport(soc_config["debugJtagTransport"])
+        if (
+            generation_kind == GenerationKind.BASIC_SOC_TOP
+            and soc_config["enableJtagDebug"]
+            and soc_config["debugJtagTransport"] == "ecp5_jtagg"
+            and expose_wishbone_master
+        ):
+            raise ValueError(
+                "ECP5 JTAGG Basic SoC wrapper does not support expose_wishbone_master"
+            )
         soc_config.update(
             self._build_lower_camel_config(
                 {
@@ -198,6 +237,14 @@ class SoCGenerationConfigBuilder:
             )
         )
         return soc_config
+
+    def _validate_debug_jtag_transport(self, transport):
+        if transport not in ("native", "ecp5_jtagg"):
+            raise ValueError(
+                "Invalid debug_jtag_transport '{}'. Expected one of: native, ecp5_jtagg".format(
+                    transport
+                )
+            )
 
     def _build_lower_camel_config(self, parameters, defaults=None):
         if defaults is None:

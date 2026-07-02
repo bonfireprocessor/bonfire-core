@@ -3,8 +3,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from myhdl import ResetSignal, Signal, Simulation, StopSimulation, delay, instance
 
-from rtl import config
+from rtl import bonfire_interfaces, config
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
 from rtl.uncore.dbus_interconnect import DbusInterConnects
 from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
@@ -22,6 +23,35 @@ def test_soc_native_io_address_map():
     unmapped_address = 0x80020000
     for address_mask in (soc.ledMask, soc.uartMask):
         assert unmapped_address & address_mask.address_mask() != address_mask.base_address()
+
+
+def test_wishbone_dummy_acks_writes_and_returns_fixed_signature():
+    soc = BonfireCoreSoC(config.BonfireConfig())
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+    wishbone = bonfire_interfaces.Wishbone_master_bundle()
+    dut = soc.wishbone_dummy(clock, reset, wishbone)
+
+    @instance
+    def stimulus():
+        wishbone.wbm_cyc_o.next = True
+        wishbone.wbm_stb_o.next = True
+        wishbone.wbm_we_o.next = True
+        wishbone.wbm_db_o.next = 0xA5A55A5A
+        yield delay(1)
+
+        assert wishbone.wbm_ack_i
+        assert int(wishbone.wbm_db_i) == soc.WISHBONE_DUMMY_SIGNATURE
+
+        wishbone.wbm_we_o.next = False
+        wishbone.wbm_adr_o.next = 0x1234567
+        yield delay(1)
+
+        assert wishbone.wbm_ack_i
+        assert int(wishbone.wbm_db_i) == soc.WISHBONE_DUMMY_SIGNATURE
+        raise StopSimulation
+
+    Simulation(dut, stimulus).run()
 
 
 @pytest.mark.parametrize(

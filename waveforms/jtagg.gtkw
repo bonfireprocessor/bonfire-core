@@ -1,0 +1,60 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Tue Jun 30 21:31:08 2026
+[*]
+[dumpfile] "waveforms/openocd_bitbang_core_ecp5_jtagg.vcd"
+[dumpfile_mtime] "Fri Jun 26 14:15:33 2026"
+[dumpfile_size] 46388091
+[savefile] "waveforms/jtagg.gtkw"
+[timestart] 409200
+[size] 2184 1110
+[pos] 174 157
+*-15.720646 587405 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] testbench.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.DebugModuleInterface0_dmi_interface0.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.
+[treeopen] testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.
+[treeopen] testbench.Ecp5JtaggClient0.
+[sst_width] 338
+[signals_width] 500
+[sst_expanded] 1
+[sst_vpaned_height] 566
+@28
+testbench.BonfireCoreTop0_createInstance0.DebugModuleInterface0_dmi_interface0.debugRegs_haltreq
+testbench.BonfireCoreTop0_createInstance0.DebugModuleInterface0_dmi_interface0.debugRegs_hart_state
+testbench.BonfireCoreTop0_createInstance0.DebugModuleInterface0_dmi_interface0.dtm_en
+testbench.BonfireCoreTop0_createInstance0.DebugModuleInterface0_dmi_interface0.dtm_we
+@22
+testbench.BonfireCoreTop0_createInstance0.DebugModuleInterface0_dmi_interface0.dtm_adr[5:0]
+testbench.BonfireCoreTop0_createInstance0.DebugModuleInterface0_dmi_interface0.dtm_dbi[31:0]
+testbench.BonfireCoreTop0_createInstance0.DebugModuleInterface0_dmi_interface0.dtm_dbo[31:0]
+@28
+testbench.Ecp5JtaggClient0.jce1_meta
+testbench.Ecp5JtaggClient0.jce2_meta
+@22
+testbench.Ecp5JtaggTapEmulator0_createInstance0.instruction[7:0]
+@28
+testbench.Ecp5JtaggTapEmulator0_createInstance0.jtagg_i_jce1
+testbench.Ecp5JtaggTapEmulator0_createInstance0.jtagg_i_jce2
+testbench.Ecp5JtaggTapEmulator0_createInstance0.jtagg_i_jrstn
+testbench.Ecp5JtaggTapEmulator0_createInstance0.jtagg_i_jrt1
+testbench.Ecp5JtaggTapEmulator0_createInstance0.jtagg_i_jrt2
+@22
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_progbuf0[31:0]
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_progbuf1[31:0]
+@28
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_command_type
+@22
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_regno[4:0]
+@28
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_abstract_command_new
+testbench.BonfireCoreTop0_createInstance0.SimpleBackend0_backend0.DecodeBundle0_decoder0.debugRegisterBundle_abstract_command_state
+testbench.clock
+testbench.tck
+testbench.tdi
+testbench.tdo
+testbench.tms
+testbench.Ecp5JtaggTapEmulator0_createInstance0.tap_state
+[pattern_trace] 1
+[pattern_trace] 0

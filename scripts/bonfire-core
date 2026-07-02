@@ -40,6 +40,9 @@ Server modes:
                     OpenOCD bitbang default: 3335)
   --debug-trace     With --openocd-bitbang: print Debug Module/progbuf trace
   --info-trace      With --openocd-bitbang: print compact hart/abstract-command trace
+  --jtag-transport standard|ecp5_jtagg
+                    With --openocd-bitbang: select the JTAG transport frontend
+                    (default: standard)
 
 Environment / venv:
   --install         Create/update ./.venv and install Python deps (runs scripts/install.sh)
@@ -55,6 +58,7 @@ Examples:
   scripts/bonfire-core --gdbserver --hex code/build/debug-tests/endless.hex --port 5500
   scripts/bonfire-core --openocd-bitbang --hex code/build/debug-tests/endless.hex --port 3335 --debug-trace
   scripts/bonfire-core --openocd-bitbang --port 3335 --info-trace
+  scripts/bonfire-core --openocd-bitbang --jtag-transport ecp5_jtagg
 USAGE
 }
 
@@ -63,6 +67,7 @@ RUN_GDBSERVER=0
 RUN_OPENOCD_BITBANG=0
 OPENOCD_DEBUG_TRACE=0
 OPENOCD_INFO_TRACE=0
+OPENOCD_JTAG_TRANSPORT="standard"
 DO_INSTALL=0
 KEEPENV=0
 
@@ -113,6 +118,20 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
 
+    --jtag-transport)
+      OPENOCD_JTAG_TRANSPORT="${2:-}"
+      [[ -n "$OPENOCD_JTAG_TRANSPORT" ]] || { echo "ERROR: --jtag-transport requires a value" >&2; exit 2; }
+      case "$OPENOCD_JTAG_TRANSPORT" in
+        standard|ecp5_jtagg) ;;
+        *)
+          echo "ERROR: invalid --jtag-transport: $OPENOCD_JTAG_TRANSPORT" >&2
+          echo "Expected one of: standard, ecp5_jtagg" >&2
+          exit 2
+          ;;
+      esac
+      shift 2
+      ;;
+
     --port)
       SERVER_PORT="${2:-}"
       [[ -n "$SERVER_PORT" ]] || { echo "ERROR: --port requires a value" >&2; exit 2; }
@@ -159,9 +178,14 @@ if [[ $OPENOCD_INFO_TRACE -eq 1 && $RUN_OPENOCD_BITBANG -eq 0 ]]; then
   exit 2
 fi
 
+if [[ "$OPENOCD_JTAG_TRANSPORT" != "standard" && $RUN_OPENOCD_BITBANG -eq 0 ]]; then
+  echo "ERROR: --jtag-transport requires --openocd-bitbang" >&2
+  exit 2
+fi
+
 if [[ $RUN_PYTEST -eq 1 ]]; then
-  if [[ -n "$TB_HEX$SERVER_PORT" || $OPENOCD_DEBUG_TRACE -eq 1 || $OPENOCD_INFO_TRACE -eq 1 ]]; then
-    echo "ERROR: --pytest does not accept --hex, --port, --debug-trace, or --info-trace" >&2
+  if [[ -n "$TB_HEX$SERVER_PORT" || $OPENOCD_DEBUG_TRACE -eq 1 || $OPENOCD_INFO_TRACE -eq 1 || "$OPENOCD_JTAG_TRANSPORT" != "standard" ]]; then
+    echo "ERROR: --pytest does not accept --hex, --port, --debug-trace, --info-trace, or --jtag-transport" >&2
     echo "Hint: pass pytest options after --, e.g. --pytest -- tests/test_core.py --bonfire-hex path.hex" >&2
     exit 2
   fi
@@ -231,7 +255,7 @@ if [[ $RUN_GDBSERVER -eq 1 ]]; then
 fi
 
 if [[ $RUN_OPENOCD_BITBANG -eq 1 ]]; then
-  OPENOCD_BITBANG_CMD=(python -m openocd_bitbang --hex "$TB_HEX")
+  OPENOCD_BITBANG_CMD=(python -m openocd_bitbang --hex "$TB_HEX" --jtag-transport "$OPENOCD_JTAG_TRANSPORT")
   if [[ -n "$SERVER_PORT" ]]; then
     OPENOCD_BITBANG_CMD+=(--port "$SERVER_PORT")
   fi

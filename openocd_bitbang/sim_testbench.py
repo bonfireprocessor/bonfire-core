@@ -14,7 +14,15 @@ from myhdl import *
 
 from openocd_bitbang.remote_bitbang import remote_bitbang_server
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debug import DmiBundle, t_abstract_command_state, t_debug_hart_state
+from rtl.debug import (
+    DmiBundle,
+    Ecp5JtaggClient,
+    Ecp5JtaggInputBundle,
+    Ecp5JtaggOutputBundle,
+    Ecp5JtaggTapEmulator,
+    t_abstract_command_state,
+    t_debug_hart_state,
+)
 from rtl.debug.jtag_dtm import JtagDTM, t_tap_state
 from tb.ClkDriver import ClkDriver
 from tb.disassemble import abi_name, disassemble
@@ -53,6 +61,7 @@ class OpenOCDBitbangTestbench:
         debug_trace: bool = False,
         info_trace: bool = False,
         exit_on_client_quit: bool = False,
+        jtag_transport: str = "standard",
     ) -> None:
         self.config = config
         self.hexfile = hexfile
@@ -65,6 +74,7 @@ class OpenOCDBitbangTestbench:
         self.debug_trace = debug_trace
         self.info_trace = info_trace
         self.exit_on_client_quit = exit_on_client_quit
+        self.jtag_transport = jtag_transport
 
     def create_ram(self, progfile: str, ramsize: int) -> list[Any]:
         ram: list[Any] = []
@@ -549,7 +559,19 @@ class OpenOCDBitbangTestbench:
         dbus_if = mem.ram_interface(ram, ram_dbus, clock, core_reset)
 
         clk_driver = ClkDriver(clock, period=10)
-        jtag_dtm = JtagDTM(local_config).createInstance(clock, sys_reset, tck, tms, tdi, trstn, tdo, dtm, tap_state_o=tap_state)
+        jtag_dtm = None
+        jtagg_client = None
+        jtagg_tap = None
+        if self.jtag_transport == "standard":
+            jtag_dtm = JtagDTM(local_config).createInstance(clock, sys_reset, tck, tms, tdi, trstn, tdo, dtm, tap_state_o=tap_state)
+        elif self.jtag_transport == "ecp5_jtagg":
+            jtagg_in = Ecp5JtaggInputBundle()
+            jtagg_out = Ecp5JtaggOutputBundle()
+            jtagg_client = Ecp5JtaggClient(local_config, clock, sys_reset, jtagg_in, jtagg_out, dtm)
+            jtagg_tap = Ecp5JtaggTapEmulator().createInstance(clock, sys_reset, tck, tms, tdi, trstn, tdo, jtagg_in, jtagg_out, tap_state_o=tap_state)
+        else:
+            raise ValueError("Unsupported jtag_transport: {}".format(self.jtag_transport))
+        bitbang_settle_cycles = 8 if self.jtag_transport == "ecp5_jtagg" else 3
         bitbang = remote_bitbang_server(
             clock,
             tck,
@@ -558,6 +580,7 @@ class OpenOCDBitbangTestbench:
             trstn,
             tdo,
             self.server_socket,
+            sysclk_settle_cycles=bitbang_settle_cycles,
             verbose=self.verbose,
             client_quit_event=self.stop_event if self.exit_on_client_quit else None,
         )

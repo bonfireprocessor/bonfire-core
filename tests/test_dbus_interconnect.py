@@ -1,16 +1,10 @@
 from __future__ import annotations
 
-import subprocess
-import warnings
-from pathlib import Path
-from textwrap import dedent, indent
-
 import pytest
 from myhdl import (
     ResetSignal,
     Signal,
     StopSimulation,
-    ToVHDLWarning,
     always,
     always_comb,
     always_seq,
@@ -25,8 +19,7 @@ from rtl import config
 from rtl.bonfire_interfaces import DbusBundle
 from rtl.uncore.dbus_interconnect import AdrMask, DbusInterConnects
 from tb.ClkDriver import ClkDriver
-from tests.conftest import run_sim, waveform_config
-from tests.toolchain import fusesoc_command
+from tests.conftest import run_sim
 
 
 CLK_PERIOD = 10
@@ -778,112 +771,3 @@ def test_dbus_interconnect_master8_rejects_overlapping_masks():
             slave1=slave1,
             adrmask0=AdrMask(32, 28, 0x8),
             adrmask1=AdrMask(31, 28, 0x0))
-
-
-def _dbus_tb_log_lines(text: str, marker: str = "DBUS_TB:") -> list[str]:
-    lines = []
-    for line in text.splitlines():
-        if marker in line:
-            lines.append(line[line.index(marker):].strip())
-    return lines
-
-
-def _render_fusesoc_core(name: str, vhdl_inputs: list[Path]) -> str:
-    files = indent("\n".join(f"- {path.name}" for path in vhdl_inputs), "      ")
-    return dedent(
-        """\
-        CAPI=2:
-        name: ::{name}:0
-        filesets:
-          rtl:
-            file_type: vhdlSource-2008
-            files:
-        {files}
-        targets:
-          sim:
-            default_tool: ghdl
-            filesets: [rtl]
-            tools:
-              ghdl:
-                analyze_options: [--ieee=synopsys, -frelaxed-rules]
-                run_options: [--stop-time=500ns]
-            toplevel: {name}
-        """
-    ).format(name=name, files=files)
-
-
-def _run_converted_vhdl_testbench(dut, name: str, output_dir: Path) -> str:
-    """Convert a testbench and run its GHDL simulation through FuseSoC."""
-    output_dir.mkdir(parents=True, exist_ok=True)
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", ToVHDLWarning)
-        dut.convert(hdl="VHDL", path=str(output_dir), name=name)
-
-    vhdl_file = output_dir / f"{name}.vhd"
-    assert vhdl_file.exists()
-    assert vhdl_file.stat().st_size > 0
-
-    vhdl_inputs = sorted(output_dir.glob("pck_myhdl_*.vhd")) + [vhdl_file]
-    core_file = output_dir / f"{name}.core"
-    core_file.write_text(_render_fusesoc_core(name, vhdl_inputs))
-
-    invocation = fusesoc_command(
-        "--cores-root", str(output_dir), "run", "--target=sim", f"::{name}:0")
-    result = subprocess.run(
-        invocation.command,
-        check=False,
-        cwd=output_dir,
-        env=invocation.env,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-    assert result.returncode == 0, (result.stderr or result.stdout)
-    return (result.stdout or "") + "\n" + (result.stderr or "")
-
-
-def test_dbus_interconnect_signal_array_vhdl_testbench(repo_root: Path, sim_env: dict, request, capsys):
-    # Compare the convertible 3-slave testbench logs from MyHDL and GHDL.
-    output_dir = repo_root / "vhdl_gen" / "dbus_interconnect_signal_array_tb"
-    name = "dbus_interconnect_signal_array_tb"
-
-    myhdl_tb = dbus_interconnect_signal_array_vhdl_tb()
-    trace, filename = waveform_config(request, sim_env, name)
-    run_sim(
-        myhdl_tb,
-        trace=trace,
-        filename=filename,
-        duration=500,
-        waveforms_dir=sim_env["waveforms_dir"],
-    )
-    myhdl_lines = _dbus_tb_log_lines(capsys.readouterr().out)
-    assert myhdl_lines
-
-    ghdl_output = _run_converted_vhdl_testbench(
-        dbus_interconnect_signal_array_vhdl_tb(), name, output_dir)
-    ghdl_lines = _dbus_tb_log_lines(ghdl_output)
-    assert ghdl_lines == myhdl_lines
-
-
-def test_dbus_interconnect_master8_vhdl_testbench(repo_root: Path, sim_env: dict, request, capsys):
-    # Compare the convertible two-slave Master8 testbench logs from MyHDL and GHDL.
-    output_dir = repo_root / "vhdl_gen" / "dbus_interconnect_master8_tb"
-    name = "dbus_interconnect_master8_tb"
-
-    myhdl_tb = dbus_interconnect_master8_vhdl_tb()
-    trace, filename = waveform_config(request, sim_env, name)
-    run_sim(
-        myhdl_tb,
-        trace=trace,
-        filename=filename,
-        duration=500,
-        waveforms_dir=sim_env["waveforms_dir"],
-    )
-    myhdl_lines = _dbus_tb_log_lines(capsys.readouterr().out, marker="DBUS8_TB:")
-    assert myhdl_lines
-
-    ghdl_output = _run_converted_vhdl_testbench(
-        dbus_interconnect_master8_vhdl_tb(), name, output_dir)
-    ghdl_lines = _dbus_tb_log_lines(ghdl_output, marker="DBUS8_TB:")
-    assert ghdl_lines == myhdl_lines

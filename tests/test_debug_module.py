@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
 
 import pytest
 
 from rtl import config
-from tb.tb_debug_module import BonfireCoreDebugTestbench
+from tb.debug.tb_debug_module import BonfireCoreDebugTestbench
 
 from .conftest import SimFailure, run_sim, waveform_config
 
@@ -17,6 +18,7 @@ def _run_debug_module_test(
     waveform_name: str,
     duration: int,
     request: pytest.FixtureRequest,
+    configure_debug: Callable[[config.BonfireConfig], None] | None = None,
 ):
     hex_path = Path(request.config.getoption("--bonfire-hex") or "code/build/debug-tests/debug.hex")
     if not hex_path.is_absolute():
@@ -28,6 +30,8 @@ def _run_debug_module_test(
     verbose = request.config.getoption("verbose") > 0
 
     conf = config.BonfireConfig()
+    if configure_debug is not None:
+        configure_debug(conf)
     monitor_result = {"seen": False, "time": None, "address": None, "value": None}
     debug_tb = BonfireCoreDebugTestbench(
         conf,
@@ -58,7 +62,7 @@ def test_debug_module(sim_env, repo_root: Path, request: pytest.FixtureRequest):
         repo_root,
         debug_transport="dmi",
         waveform_name="debug_module",
-        duration=30_000,
+        duration=45_000,
         request=request,
     )
 
@@ -69,6 +73,17 @@ def test_debug_module_jtag(sim_env, repo_root: Path, request: pytest.FixtureRequ
         repo_root,
         debug_transport="jtag",
         waveform_name="debug_module_jtag",
+        duration=15_000_000,
+        request=request,
+    )
+
+
+def test_debug_module_jtagg(sim_env, repo_root: Path, request: pytest.FixtureRequest):
+    _run_debug_module_test(
+        sim_env,
+        repo_root,
+        debug_transport="jtagg",
+        waveform_name="debug_module_jtagg",
         duration=15_000_000,
         request=request,
     )

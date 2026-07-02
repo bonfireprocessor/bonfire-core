@@ -10,8 +10,61 @@
 #define MONITOR_DUMP_WORDS 64u
 #define GPIO_TEST_MASK 0xffu
 #define GPIO_TIMEOUT_READS 64u
+#define GPIO_PROBE_PATTERN_A 0x5au
+#define GPIO_PROBE_PATTERN_B 0xa5u
+#define SPI_PROBE_PATTERN_A 0x155u
+#define SPI_PROBE_PATTERN_B 0x2aau
+#define SPI_CLOCK_MASK 0x3ffu
 
 static uint32_t dump_address = BONFIRE_SRAM_BASE;
+
+static int wishbone_dummy_detected(void)
+{
+    return bonfire_read32(BONFIRE_SPI_FLASH_BASE + BONFIRE_SPI_STATUS)
+           == BONFIRE_WISHBONE_DUMMY_SIGNATURE;
+}
+
+static int gpio_detected(void)
+{
+    uint32_t address = BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_XOR;
+    uint32_t original;
+    uint32_t first;
+    uint32_t second;
+
+    if (wishbone_dummy_detected()) {
+        return 0;
+    }
+
+    original = bonfire_read32(address);
+    bonfire_write32(address, GPIO_PROBE_PATTERN_A);
+    first = bonfire_read32(address) & GPIO_TEST_MASK;
+    bonfire_write32(address, GPIO_PROBE_PATTERN_B);
+    second = bonfire_read32(address) & GPIO_TEST_MASK;
+    bonfire_write32(address, original);
+
+    return first == GPIO_PROBE_PATTERN_A && second == GPIO_PROBE_PATTERN_B;
+}
+
+static int spi_detected(void)
+{
+    uint32_t address = BONFIRE_SPI_FLASH_BASE + BONFIRE_SPI_CLOCK;
+    uint32_t original;
+    uint32_t first;
+    uint32_t second;
+
+    if (wishbone_dummy_detected()) {
+        return 0;
+    }
+
+    original = bonfire_read32(address);
+    bonfire_write32(address, SPI_PROBE_PATTERN_A);
+    first = bonfire_read32(address) & SPI_CLOCK_MASK;
+    bonfire_write32(address, SPI_PROBE_PATTERN_B);
+    second = bonfire_read32(address) & SPI_CLOCK_MASK;
+    bonfire_write32(address, original);
+
+    return first == SPI_PROBE_PATTERN_A && second == SPI_PROBE_PATTERN_B;
+}
 
 static char read_char(void)
 {
@@ -128,11 +181,13 @@ static void print_info(void)
     printk("  extended_enable=0x%x\n", uart_control_extended);
     printk("sram_base=0x%x\n", BONFIRE_SRAM_BASE);
     printk("sram_size=%u\n", BONFIRE_SRAM_SIZE);
+    printk("wishbone_dummy=%s\n", wishbone_dummy_detected() ? "yes" : "no");
+    printk("gpio=%s\n", gpio_detected() ? "detected" : "not detected");
+    printk("spi=%s\n", spi_detected() ? "detected" : "not detected");
     printk("commands: I=info D [addr]=dump R addr=read W addr value=write\n");
     printk("          G=gpio test S=spi loopback\n");
 }
 
-#if BONFIRE_ENABLE_GPIO
 static int gpio_wait_for_value(uint32_t expected, uint32_t *actual)
 {
     uint32_t timeout;
@@ -147,16 +202,19 @@ static int gpio_wait_for_value(uint32_t expected, uint32_t *actual)
 
     return 0;
 }
-#endif
 
 static void test_gpio(void)
 {
-#if BONFIRE_ENABLE_GPIO
     static const uint8_t patterns[] = {
         0x00u, 0x01u, 0x02u, 0x04u, 0x08u, 0x10u,
         0x20u, 0x40u, 0x80u, 0x55u, 0xaau, 0xffu,
     };
     uint32_t index;
+
+    if (!gpio_detected()) {
+        printk("GPIO test: unavailable (GPIO not detected)\n");
+        return;
+    }
 
     printk("GPIO test: start\n");
     bonfire_write32(BONFIRE_GPIO_BASE + BONFIRE_GPIO_OUTPUT_VAL, 0u);
@@ -179,15 +237,17 @@ static void test_gpio(void)
     }
 
     printk("GPIO test: OK\n");
-#else
-    printk("GPIO test: unavailable on this platform\n");
-#endif
 }
 
 static void test_spi_loopback(void)
 {
     static const uint8_t patterns[] = {0x00u, 0x55u, 0xa5u, 0xffu};
     uint32_t index;
+
+    if (!spi_detected()) {
+        printk("SPI loopback test: unavailable (SPI not detected)\n");
+        return;
+    }
 
     printk("SPI loopback test: start\n");
     bonfire_write32(BONFIRE_SPI_FLASH_BASE + BONFIRE_SPI_CLOCK, 1u);

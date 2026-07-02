@@ -9,10 +9,10 @@ import warnings
 from pathlib import Path
 
 import pytest
-from myhdl import ResetSignal, Signal, ToVHDLWarning, always_comb, block, instances, intbv
+from myhdl import ResetSignal, Signal, ToVHDLWarning, always_comb, block, instances, intbv, modbv
 
 from rtl import bonfire_core_top, bonfire_interfaces, config
-from rtl.debug import DmiBundle
+from rtl.debug import DmiBundle, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
 from rtl.divider import DividerBundle
 from rtl.debug.jtag_dtm import JtagDTM
 from rtl.soc.bonfire_core_soc import BonfireCoreSoC
@@ -157,14 +157,38 @@ def test_jtag_dtm_vhdl_conversion(repo_root: Path):
     _assert_vhdl_file(output_dir, name)
 
 
+def test_ecp5_jtagg_client_vhdl_conversion(repo_root: Path):
+    name = "ecp5_jtagg_client"
+    output_dir = _conversion_output_dir(repo_root, name)
+
+    conf = config.BonfireConfig()
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+    dtm = DmiBundle(conf)
+    jtagg_i = Ecp5JtaggInputBundle()
+    jtagg_o = Ecp5JtaggOutputBundle()
+
+    dut = Ecp5JtaggClient(conf, clock, reset, jtagg_i, jtagg_o, dtm)
+    dut.convert(hdl="VHDL", path=str(output_dir), name=name)
+
+    vhdl_file = _assert_vhdl_file(output_dir, name)
+    _analyze_with_ghdl(output_dir, vhdl_file)
+
+
 @pytest.mark.parametrize(
-    ("enable_jtag_debug", "name"),
+    ("enable_jtag_debug", "debug_jtag_transport", "name"),
     [
-        (False, "bonfire_core_soc_top"),
-        (True, "bonfire_core_soc_top_jtag"),
+        (False, "native", "bonfire_core_soc_top"),
+        (True, "native", "bonfire_core_soc_top_jtag"),
+        (True, "ecp5_jtagg", "bonfire_core_soc_top_jtagg"),
     ],
 )
-def test_soc_top_vhdl_conversion(enable_jtag_debug: bool, name: str, repo_root: Path):
+def test_soc_top_vhdl_conversion(
+    enable_jtag_debug: bool,
+    debug_jtag_transport: str,
+    name: str,
+    repo_root: Path,
+):
     hex_path = repo_root / "code" / "build" / "soc" / "sim" / "led.hex"
     if not hex_path.is_file():
         pytest.skip(f"SoC HEX file not found: {hex_path}")
@@ -175,14 +199,35 @@ def test_soc_top_vhdl_conversion(enable_jtag_debug: bool, name: str, repo_root: 
     soc = BonfireCoreSoC(
         conf,
         hexfile=str(hex_path),
-        soc_config={"numLeds": 4, "enableJtagDebug": enable_jtag_debug},
+        soc_config={
+            "numLeds": 4,
+            "enableJtagDebug": enable_jtag_debug,
+            "debugJtagTransport": debug_jtag_transport,
+        },
     )
 
     output_dir = _conversion_output_dir(repo_root, name)
     BonfireCoreSoCInstanceGenerator(soc).convert("VHDL", name, str(output_dir), handleWarnings="ignore")
 
     vhdl_file = _assert_vhdl_file(output_dir, name)
-    _analyze_with_ghdl(output_dir, vhdl_file)
+    content = vhdl_file.read_text()
+    if debug_jtag_transport == "native" and enable_jtag_debug:
+        assert "jtag_tck" in content
+        assert "JTAGG" not in content
+        _analyze_with_ghdl(output_dir, vhdl_file)
+    elif debug_jtag_transport == "ecp5_jtagg":
+        assert "jtag_tck" not in content
+        assert "jtagg_i_jtck" in content
+        assert "jtagg_i_jrt1" in content
+        assert "jtagg_i_jrt2" in content
+        assert "jtagg_o_jtdo1" in content
+        assert "jtagg_o_jtdo2" in content
+        assert "JTAGG" not in content
+        _analyze_with_ghdl(output_dir, vhdl_file)
+    else:
+        assert "jtag_tck" not in content
+        assert "JTAGG" not in content
+        _analyze_with_ghdl(output_dir, vhdl_file)
 
 
 @pytest.mark.parametrize(

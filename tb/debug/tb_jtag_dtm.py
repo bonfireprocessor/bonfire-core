@@ -1,5 +1,5 @@
 """
-JTAG DTM testbench helpers.
+JTAG DTM testbench.
 (c) 2026 The Bonfire Project
 License: See LICENSE
 """
@@ -42,6 +42,9 @@ class JtagBFM:
         tdo: BitSignal,
         last_scan: Any,
         verbose: bool = True,
+        setup_delay: int = 20,
+        high_delay: int = 50,
+        low_delay: int = 50,
     ) -> None:
         self.tck = tck
         self.tms = tms
@@ -50,6 +53,9 @@ class JtagBFM:
         self.last_tdo = 0
         self.last_scan = last_scan
         self.verbose = verbose
+        self.setup_delay = setup_delay
+        self.high_delay = high_delay
+        self.low_delay = low_delay
 
     def log(self, message: str) -> None:
         if self.verbose:
@@ -58,12 +64,12 @@ class JtagBFM:
     def cycle(self, tms: int, tdi: int = 0) -> Generator[Any, None, None]:
         self.tms.next = bool(tms)
         self.tdi.next = bool(tdi)
-        yield delay(20)
+        yield delay(self.setup_delay)
         self.last_tdo = int(self.tdo)
         self.tck.next = True
-        yield delay(50)
+        yield delay(self.high_delay)
         self.tck.next = False
-        yield delay(50)
+        yield delay(self.low_delay)
 
     def reset(self) -> Generator[Any, None, None]:
         self.log("reset TAP with TMS high for 6 TCK cycles")
@@ -72,13 +78,13 @@ class JtagBFM:
         yield self.cycle(0)
         self.log("TAP moved to Run-Test/Idle")
 
-    def set_ir(self, instruction: int) -> Generator[Any, None, None]:
+    def set_ir(self, instruction: int, width: int = JTAG_IR_WIDTH) -> Generator[Any, None, None]:
         self.log("IR scan start: instruction={}".format(hex(instruction)))
         yield self.cycle(1)
         yield self.cycle(1)
         yield self.cycle(0)
         yield self.cycle(0)
-        bits = _bits_lsb_first(instruction, JTAG_IR_WIDTH)
+        bits = _bits_lsb_first(instruction, width)
         for index, bit in enumerate(bits):
             yield self.cycle(1 if index == len(bits) - 1 else 0, bit)
         yield self.cycle(1)
@@ -164,8 +170,8 @@ TAP_TRANSITIONS = (
 
 
 @block
-def jtag_dtm_testbench(verbose: bool = True):
-    conf = BonfireConfig()
+def jtag_dtm_testbench(conf: BonfireConfig | None = None, verbose: bool = True):
+    conf = conf or BonfireConfig()
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
     tck = Signal(bool(0))
@@ -196,7 +202,17 @@ def jtag_dtm_testbench(verbose: bool = True):
 
     @instance
     def stimulus():
-        bfm = JtagBFM(tck, tms, tdi, tdo, last_scan, verbose=verbose)
+        bfm = JtagBFM(
+            tck,
+            tms,
+            tdi,
+            tdo,
+            last_scan,
+            verbose=verbose,
+            setup_delay=17,
+            high_delay=47,
+            low_delay=53,
+        )
         dmi_width = conf.dmi_adr_width + 34
 
         def check_state(expected: Any, context: str) -> None:
@@ -261,6 +277,7 @@ def jtag_dtm_testbench(verbose: bool = True):
         yield bfm.scan_dr(0, 32)
         dtmcs = modbv(int(bfm.last_scan))[32:]
         print("@{}ns [jtag-tb] DTMCS read {} version={} abits={} dmistat={} idle={}".format(now(), hex(int(dtmcs)), int(dtmcs[3:0]), int(dtmcs[9:4]), int(dtmcs[12:10]), int(dtmcs[15:12])))
+        assert int(dtmcs) == 0x00001061
         assert dtmcs[3:0] == 1
         assert dtmcs[9:4] == conf.dmi_adr_width
         assert dtmcs[12:10] == 0

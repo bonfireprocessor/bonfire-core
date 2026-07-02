@@ -22,5 +22,3 @@ class BonfireConfig:
             self.ip_low=1
         else:
             self.ip_low=2    
-
-        
