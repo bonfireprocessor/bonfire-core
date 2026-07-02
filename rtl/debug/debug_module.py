@@ -57,7 +57,6 @@ class DebugHartControlBundle:
         self.data0 = Signal(modbv(0)[32:])
         self.exec = Signal(bool(0))
         self.ebreak_halt_req = Signal(bool(0))
-        self.step_armed = Signal(bool(0))
         self.step_halt_pending = Signal(bool(0))
 
 
@@ -115,24 +114,25 @@ def DebugModuleController(
             debugCSRUpdateBundle.cause.next = 1
             debugCSRUpdateBundle.we_cause.next = True
             debug_control.halt.next = True
-            debug_control.step_armed.next = False
             step_wait_first_instruction.next = False
             debug_control.step_halt_pending.next = False
 
         # Single-step entry is retire-based: first let exactly one resumed
         # instruction complete, then capture the registered retire DPC.
-        elif debug_control.step_halt_pending and debugRegisterBundle.instr_retired:
-            debugCSRUpdateBundle.dpc.next = debugRegisterBundle.instr_retire_dpc
-            debugCSRUpdateBundle.we_dpc.next = True
-            debugCSRUpdateBundle.cause.next = 4
-            debugCSRUpdateBundle.we_cause.next = True
-            debug_control.halt.next = True
-            debug_control.step_armed.next = False
-            step_wait_first_instruction.next = False
-            debug_control.step_halt_pending.next = False
+        elif debug_control.step_halt_pending:
+            if debugRegisterBundle.instr_retired:
+                debugCSRUpdateBundle.dpc.next = debugRegisterBundle.instr_retire_dpc
+                debugCSRUpdateBundle.we_dpc.next = True
+                debugCSRUpdateBundle.cause.next = 4
+                debugCSRUpdateBundle.we_cause.next = True
+                debug_control.halt.next = True
+                step_wait_first_instruction.next = False
+                debug_control.step_halt_pending.next = False
 
-        if not debug_control.ebreak_halt_req and not debug_control.step_halt_pending and \
-           not decode_view.downstream_busy and not debugRegisterBundle.req_ack:
+        # Debug entry events above take priority over external halt/resume
+        # requests. req_ack is intentionally tested at its value from the
+        # beginning of the cycle so each acknowledgement remains a pulse.
+        elif not decode_view.downstream_busy and not debugRegisterBundle.req_ack:
             if debugRegisterBundle.haltreq and decode_view.en_i and not decode_view.kill_i:
                 debugRegisterBundle.req_ack.next = True
                 debugCSRUpdateBundle.dpc.next = decode_view.current_ip_i[config.xlen:config.ip_low]
@@ -140,7 +140,6 @@ def DebugModuleController(
                 debugCSRUpdateBundle.cause.next = 3
                 debugCSRUpdateBundle.we_cause.next = True
                 debug_control.halt.next = True
-                debug_control.step_armed.next = False
                 step_wait_first_instruction.next = False
             elif debugRegisterBundle.resumereq:
                 # When stepping, do not arm from a fixed cycle count. Wait
@@ -148,7 +147,6 @@ def DebugModuleController(
                 debugRegisterBundle.req_ack.next = True
                 debug_control.halt.next = False
                 debugRegisterBundle.dpc_jump.next = True
-                debug_control.step_armed.next = False
                 step_wait_first_instruction.next = debugCSRBundle.step
 
         # This handshake makes single-step independent of fetch latency and
@@ -156,7 +154,6 @@ def DebugModuleController(
         if step_wait_first_instruction and not debug_control.step_halt_pending and not debug_control.halt and \
            not debug_control.kill and not decode_view.downstream_busy and decode_view.en_i and not decode_view.kill_i and \
            not debug_control.ebreak_halt_req:
-            debug_control.step_armed.next = True
             debug_control.step_halt_pending.next = True
             step_wait_first_instruction.next = False
 

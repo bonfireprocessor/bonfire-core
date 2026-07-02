@@ -134,7 +134,6 @@ class DecodeBundle(PipelineControl):
         dm_exec = debug_control.exec
         dm_break = debug_decode_view.dm_break
         dm_ebreak_halt_req = debug_control.ebreak_halt_req
-        dm_step_armed = debug_control.step_armed
         dm_step_halt_pending = debug_control.step_halt_pending
 
         ins_word = Signal(modbv(0)[32:])
@@ -248,7 +247,6 @@ class DecodeBundle(PipelineControl):
                 dm_data0.next = 0
                 dm_exec.next = False
                 dm_ebreak_halt_req.next = False
-                dm_step_armed.next = False
                 dm_step_halt_pending.next = False
 
                 if not downstream_busy:
