@@ -253,6 +253,19 @@ class BonfireCoreDebugTestbench:
             yield api.check_halted()
         yield self.check_dpc(api, 0x100, "taken branch target breakpoint halt")
 
+        # A breakpoint immediately following a not-taken branch is the real
+        # next instruction. The speculative-breakpoint drain must release it
+        # once the branch has resolved and enter Debug Mode at the fall-through
+        # PC rather than keeping decode blocked.
+        yield api.writeMemory(memadr=0x100, memvalue=BNE_ZERO_ZERO_PLUS_8)
+        yield api.writeMemory(memadr=0x104, memvalue=EBREAK)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x100)
+        yield self.resume_without_running_assert(api)
+        yield api.check_halted()
+        while not api.halted:
+            yield api.check_halted()
+        yield self.check_dpc(api, 0x104, "not-taken branch fall-through breakpoint halt")
+
         yield self.set_and_check_dcsr(api, breakm=False, step=True)
 
         yield api.writeMemory(memadr=0x110, memvalue=ECALL)

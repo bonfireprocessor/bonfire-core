@@ -12,6 +12,7 @@ from rtl.instructions import PrivFunct12
 from rtl.util import signed_resize
 from rtl.debug import *
 from rtl.debug.debug_module import DebugHartControlBundle, DebugModuleController, DebugHartViewBundle
+from rtl.debug.debug_entry import DebugEntryController, DebugEntryOutputs
 
 from rtl.pipeline_control import *
 
@@ -54,7 +55,7 @@ class DecodeBundle(PipelineControl):
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
         self.kill_i = Signal(bool(0)) # kill current instruction
         self.execute_redirect_i = Signal(bool(0))
-        self.fetch_redirect_ack_i = Signal(bool(0))
+        self.fetch_redirect_pending_i = Signal(bool(0))
 
 
         # Register file interface
@@ -136,13 +137,11 @@ class DecodeBundle(PipelineControl):
         dm_exec = debug_control.exec
         dm_break = debug_decode_view.dm_break
 
-        step_wait_first_instruction = Signal(bool(0))
-        step_resolve_instruction = Signal(bool(0))
-        step_wait_next_instruction = Signal(bool(0))
-        control_redirect_pending = Signal(bool(0))
-        control_redirect_acknowledged = Signal(bool(0))
-        ebreak_wait = Signal(bool(0))
-        debug_halt_event = Signal(bool(0))
+        debug_entry = DebugEntryOutputs()
+        debug_pipeline_hold = debug_entry.pipeline_hold
+        step_resolve_active = debug_entry.step_resolve
+        ebreak_wait = debug_entry.ebreak_wait
+        debug_halt_event = debug_entry.halt_event
 
         ins_word = Signal(modbv(0)[32:])
 
@@ -162,8 +161,7 @@ class DecodeBundle(PipelineControl):
             else:
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
-            self.busy_o.next = downstream_busy or dm_halt or step_resolve_instruction or \
-                (step_wait_next_instruction and control_redirect_pending) or ebreak_wait
+            self.busy_o.next = downstream_busy or dm_halt or debug_pipeline_hold or ebreak_wait
 
 
             # Operand output side
@@ -234,116 +232,32 @@ class DecodeBundle(PipelineControl):
                 progbuf_last,
             )
 
-            instruction_ready = Signal(bool(0))
-            ebreak_halt_event = Signal(bool(0))
-            step_halt_event = Signal(bool(0))
-            haltreq_event = Signal(bool(0))
+            ebreak_detected = Signal(bool(0))
 
             @always_comb
-            def debug_event_comb():
-                instruction_ready.next = self.en_i and not downstream_busy and \
-                    not self.kill_i and not dm_kill and not self.execute_redirect_i and \
-                    not control_redirect_pending
-                ebreak_wait.next = not dm_halt and self.en_i and self.valid_o and \
-                    self.debugCSRBundle.ebreakm and not dm_exec and \
-                    not self.kill_i and not dm_kill and \
+            def ebreak_decode():
+                ebreak_detected.next = self.debugCSRBundle.ebreakm and not dm_exec and \
                     opcode == op.RV32_SYSTEM and \
                     ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
                     ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK
-                ebreak_halt_event.next = not dm_halt and instruction_ready and not self.valid_o and \
-                    self.debugCSRBundle.ebreakm and not dm_exec and \
-                    opcode == op.RV32_SYSTEM and \
-                    ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
-                    ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK
-                step_halt_event.next = not dm_halt and step_wait_next_instruction and instruction_ready
-                haltreq_event.next = not dm_halt and debugRegisterBundle.haltreq and \
-                    instruction_ready and not debugRegisterBundle.req_ack
-                debug_halt_event.next = not dm_halt and self.en_i and \
-                    not self.kill_i and not dm_kill and not self.execute_redirect_i and \
-                    not control_redirect_pending and ( \
-                    step_wait_next_instruction or \
-                    (debugRegisterBundle.haltreq and not debugRegisterBundle.req_ack) or \
-                    (self.debugCSRBundle.ebreakm and not dm_exec and \
-                     not self.valid_o and \
-                     opcode == op.RV32_SYSTEM and \
-                     ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
-                     ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK))
 
-            @always(clock.posedge)
-            def debug_state_seq():
-                debugRegisterBundle.req_ack.next = False
-                self.debugCSRUpdateBundle.we_dpc.next = False
-                self.debugCSRUpdateBundle.we_cause.next = False
-
-                if debugRegisterBundle.dpc_jump:
-                    debugRegisterBundle.dpc_jump.next = False
-
-                if self.execute_redirect_i:
-                    control_redirect_pending.next = True
-                    control_redirect_acknowledged.next = False
-                if (control_redirect_pending or self.execute_redirect_i) and self.fetch_redirect_ack_i:
-                    control_redirect_acknowledged.next = True
-                if (control_redirect_pending or self.execute_redirect_i) and \
-                   (control_redirect_acknowledged or self.fetch_redirect_ack_i) and not self.en_i:
-                    control_redirect_pending.next = False
-                    control_redirect_acknowledged.next = False
-
-                if dm_halt:
-                    if debugRegisterBundle.resumereq and not downstream_busy and \
-                       not debugRegisterBundle.req_ack:
-                        debugRegisterBundle.req_ack.next = True
-                        dm_halt.next = False
-                        debugRegisterBundle.dpc_jump.next = True
-                        step_wait_first_instruction.next = self.debugCSRBundle.step
-                        step_resolve_instruction.next = False
-                        step_wait_next_instruction.next = False
-                        control_redirect_pending.next = False
-                        control_redirect_acknowledged.next = False
-
-                elif ebreak_halt_event:
-                    self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[self.xlen:self.config.ip_low]
-                    self.debugCSRUpdateBundle.we_dpc.next = True
-                    self.debugCSRUpdateBundle.cause.next = 1
-                    self.debugCSRUpdateBundle.we_cause.next = True
-                    dm_halt.next = True
-                    step_wait_first_instruction.next = False
-                    step_resolve_instruction.next = False
-                    step_wait_next_instruction.next = False
-                    control_redirect_pending.next = False
-                    control_redirect_acknowledged.next = False
-
-                elif step_halt_event:
-                    self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[self.xlen:self.config.ip_low]
-                    self.debugCSRUpdateBundle.we_dpc.next = True
-                    self.debugCSRUpdateBundle.cause.next = 4
-                    self.debugCSRUpdateBundle.we_cause.next = True
-                    dm_halt.next = True
-                    step_resolve_instruction.next = False
-                    step_wait_next_instruction.next = False
-                    control_redirect_pending.next = False
-                    control_redirect_acknowledged.next = False
-
-                elif haltreq_event:
-                    debugRegisterBundle.req_ack.next = True
-                    self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[self.xlen:self.config.ip_low]
-                    self.debugCSRUpdateBundle.we_dpc.next = True
-                    self.debugCSRUpdateBundle.cause.next = 3
-                    self.debugCSRUpdateBundle.we_cause.next = True
-                    dm_halt.next = True
-                    step_wait_first_instruction.next = False
-                    step_resolve_instruction.next = False
-                    step_wait_next_instruction.next = False
-                    control_redirect_pending.next = False
-                    control_redirect_acknowledged.next = False
-
-                elif step_resolve_instruction:
-                    if not downstream_busy:
-                        step_resolve_instruction.next = False
-                        step_wait_next_instruction.next = True
-
-                elif step_wait_first_instruction and instruction_ready:
-                    step_wait_first_instruction.next = False
-                    step_resolve_instruction.next = True
+            debug_entry_inst = DebugEntryController(
+                self.config,
+                clock,
+                debugRegisterBundle,
+                self.debugCSRBundle,
+                self.debugCSRUpdateBundle,
+                debug_control,
+                self.current_ip_i,
+                self.en_i,
+                self.valid_o,
+                downstream_busy,
+                self.kill_i,
+                self.execute_redirect_i,
+                self.fetch_redirect_pending_i,
+                ebreak_detected,
+                debug_entry,
+            )
 
         else:
             @always_comb
@@ -356,6 +270,8 @@ class DecodeBundle(PipelineControl):
                 dm_regno.next = 0
                 dm_data0.next = 0
                 dm_exec.next = False
+                debug_pipeline_hold.next = False
+                step_resolve_active.next = False
                 ebreak_wait.next = False
                 debug_halt_event.next = False
 
@@ -531,7 +447,7 @@ class DecodeBundle(PipelineControl):
                 self.invalid_opcode.next = False
                 dm_break.next = False
 
-            if step_resolve_instruction and not dm_exec:
+            if step_resolve_active and not dm_exec:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
                 dm_break.next = False
