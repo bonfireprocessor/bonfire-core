@@ -86,6 +86,8 @@ class FetchUnit(PipelineControl):
         @always_seq(clock.posedge,reset=reset)
         def fetch_proc():
 
+            fetch.redirect_ack_i.next = False
+
             if en and not ibus.ack_i:
                 outstanding.next = True
             elif not en and ibus.ack_i:
@@ -104,6 +106,7 @@ class FetchUnit(PipelineControl):
                     # assert self.jump_dest_i[2:]==0,"misaligned jump detected"
                     ip.next = self.jump_dest_i
                     jump_taken.next = True
+                    fetch.redirect_ack_i.next = True
                     valid.next = False
                     busy.next = False 
                 else:    

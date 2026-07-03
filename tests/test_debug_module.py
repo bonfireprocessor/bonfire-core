@@ -67,6 +67,21 @@ def test_debug_module(sim_env, repo_root: Path, request: pytest.FixtureRequest):
     )
 
 
+def test_debug_module_registered_jump(sim_env, repo_root: Path, request: pytest.FixtureRequest):
+    def configure(conf: config.BonfireConfig) -> None:
+        conf.jump_bypass = False
+
+    _run_debug_module_test(
+        sim_env,
+        repo_root,
+        debug_transport="dmi",
+        waveform_name="debug_module_registered_jump",
+        duration=55_000,
+        request=request,
+        configure_debug=configure,
+    )
+
+
 def test_debug_module_jtag(sim_env, repo_root: Path, request: pytest.FixtureRequest):
     _run_debug_module_test(
         sim_env,

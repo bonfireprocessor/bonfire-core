@@ -29,9 +29,11 @@ CSRW_DCSR_S0 = 0x7B041073
 CSRW_DPC_A0 = 0x7B151073
 EBREAK = 0x00100073
 ECALL = 0x00000073
+FENCE = 0x0000000F
 DEBUG_LOOP_J = 0x0000006F
 BEQ_ZERO_ZERO_PLUS_8 = 0x00000463
 BNE_ZERO_ZERO_PLUS_8 = 0x00001463
+BLTU_T0_T1_MINUS_8 = 0xFE62ECE3
 
 
 class BonfireCoreDebugTestbench:
@@ -225,6 +227,34 @@ class BonfireCoreDebugTestbench:
             yield api.check_halted()
         yield self.check_dpc(api, 0x104, "single step not-taken branch halt")
 
+        yield api.writeMemory(memadr=0x108, memvalue=BLTU_T0_T1_MINUS_8)
+        yield api.writeGPR(regno=5, value=1)
+        yield api.writeGPR(regno=6, value=2)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x108)
+        yield self.resume_without_running_assert(api)
+        yield api.check_halted()
+        while not api.halted:
+            yield api.check_halted()
+        yield self.check_dpc(api, 0x100, "single step backward taken branch halt")
+
+        # A software breakpoint in the fall-through path of a taken branch is
+        # speculative and must not enter Debug Mode. Halt at the breakpoint on
+        # the actual branch target instead.
+        yield self.set_and_check_dcsr(api, breakm=True, step=False)
+        yield api.writeMemory(memadr=0x100, memvalue=EBREAK)
+        yield api.writeMemory(memadr=0x108, memvalue=BLTU_T0_T1_MINUS_8)
+        yield api.writeMemory(memadr=0x10C, memvalue=EBREAK)
+        yield api.writeGPR(regno=5, value=1)
+        yield api.writeGPR(regno=6, value=2)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x108)
+        yield self.resume_without_running_assert(api)
+        yield api.check_halted()
+        while not api.halted:
+            yield api.check_halted()
+        yield self.check_dpc(api, 0x100, "taken branch target breakpoint halt")
+
+        yield self.set_and_check_dcsr(api, breakm=False, step=True)
+
         yield api.writeMemory(memadr=0x110, memvalue=ECALL)
         yield api.writeCSR(csr_adr=0x300 | CSRAdr.tvec, value=0x120)
         yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x110)
@@ -233,6 +263,17 @@ class BonfireCoreDebugTestbench:
         while not api.halted:
             yield api.check_halted()
         yield self.check_dpc(api, 0x120, "single step trap halt")
+
+        # FENCE is implemented as a decode-stage NOP and therefore has no
+        # execute-stage valid pulse. Single-step must still stop at its
+        # architectural successor.
+        yield api.writeMemory(memadr=0x114, memvalue=FENCE)
+        yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x114)
+        yield self.resume_without_running_assert(api)
+        yield api.check_halted()
+        while not api.halted:
+            yield api.check_halted()
+        yield self.check_dpc(api, 0x118, "single step fence halt")
 
         yield api.writeCSR(csr_adr=0x700 | CSRAdr.dpc, value=0x10)
         dcsr_value = modbv(0)[32:]

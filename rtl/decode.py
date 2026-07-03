@@ -53,6 +53,8 @@ class DecodeBundle(PipelineControl):
         self.current_ip_i = Signal(modbv(0)[xlen:])
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
         self.kill_i = Signal(bool(0)) # kill current instruction
+        self.execute_redirect_i = Signal(bool(0))
+        self.fetch_redirect_ack_i = Signal(bool(0))
 
 
         # Register file interface
@@ -133,8 +135,14 @@ class DecodeBundle(PipelineControl):
         dm_data0 = debug_control.data0
         dm_exec = debug_control.exec
         dm_break = debug_decode_view.dm_break
-        dm_ebreak_halt_req = debug_control.ebreak_halt_req
-        dm_step_halt_pending = debug_control.step_halt_pending
+
+        step_wait_first_instruction = Signal(bool(0))
+        step_resolve_instruction = Signal(bool(0))
+        step_wait_next_instruction = Signal(bool(0))
+        control_redirect_pending = Signal(bool(0))
+        control_redirect_acknowledged = Signal(bool(0))
+        ebreak_wait = Signal(bool(0))
+        debug_halt_event = Signal(bool(0))
 
         ins_word = Signal(modbv(0)[32:])
 
@@ -145,24 +153,17 @@ class DecodeBundle(PipelineControl):
 
         @always_comb
         def comb():
-            debug_decode_view.current_ip_i.next = self.current_ip_i
-            debug_decode_view.word_i.next = self.word_i
-            debug_decode_view.en_i.next = self.en_i
-            debug_decode_view.kill_i.next = self.kill_i
             debug_decode_view.rs1_data_i.next = self.rs1_data_i
             debug_decode_view.valid_o.next = self.valid_o
             debug_decode_view.stall_i.next = self.stall_i
-            debug_decode_view.downstream_busy.next = downstream_busy
-            debug_decode_view.ebreak_i.next =  ins_word[7:2] == op.RV32_SYSTEM and \
-                    ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
-                    ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK
 
             if not downstream_busy:
                 self.rs2_adr_o.next = ins_word[25:20]
             else:
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
-            self.busy_o.next = downstream_busy or dm_halt
+            self.busy_o.next = downstream_busy or dm_halt or step_resolve_instruction or \
+                (step_wait_next_instruction and control_redirect_pending) or ebreak_wait
 
 
             # Operand output side
@@ -227,13 +228,122 @@ class DecodeBundle(PipelineControl):
                 self.config,
                 clock,
                 debugRegisterBundle,
-                self.debugCSRBundle,
-                self.debugCSRUpdateBundle,
                 debug_decode_view,
                 debug_control,
                 progbuf_pointer,
                 progbuf_last,
             )
+
+            instruction_ready = Signal(bool(0))
+            ebreak_halt_event = Signal(bool(0))
+            step_halt_event = Signal(bool(0))
+            haltreq_event = Signal(bool(0))
+
+            @always_comb
+            def debug_event_comb():
+                instruction_ready.next = self.en_i and not downstream_busy and \
+                    not self.kill_i and not dm_kill and not self.execute_redirect_i and \
+                    not control_redirect_pending
+                ebreak_wait.next = not dm_halt and self.en_i and self.valid_o and \
+                    self.debugCSRBundle.ebreakm and not dm_exec and \
+                    not self.kill_i and not dm_kill and \
+                    opcode == op.RV32_SYSTEM and \
+                    ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
+                    ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK
+                ebreak_halt_event.next = not dm_halt and instruction_ready and not self.valid_o and \
+                    self.debugCSRBundle.ebreakm and not dm_exec and \
+                    opcode == op.RV32_SYSTEM and \
+                    ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
+                    ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK
+                step_halt_event.next = not dm_halt and step_wait_next_instruction and instruction_ready
+                haltreq_event.next = not dm_halt and debugRegisterBundle.haltreq and \
+                    instruction_ready and not debugRegisterBundle.req_ack
+                debug_halt_event.next = not dm_halt and self.en_i and \
+                    not self.kill_i and not dm_kill and not self.execute_redirect_i and \
+                    not control_redirect_pending and ( \
+                    step_wait_next_instruction or \
+                    (debugRegisterBundle.haltreq and not debugRegisterBundle.req_ack) or \
+                    (self.debugCSRBundle.ebreakm and not dm_exec and \
+                     not self.valid_o and \
+                     opcode == op.RV32_SYSTEM and \
+                     ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
+                     ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK))
+
+            @always(clock.posedge)
+            def debug_state_seq():
+                debugRegisterBundle.req_ack.next = False
+                self.debugCSRUpdateBundle.we_dpc.next = False
+                self.debugCSRUpdateBundle.we_cause.next = False
+
+                if debugRegisterBundle.dpc_jump:
+                    debugRegisterBundle.dpc_jump.next = False
+
+                if self.execute_redirect_i:
+                    control_redirect_pending.next = True
+                    control_redirect_acknowledged.next = False
+                if (control_redirect_pending or self.execute_redirect_i) and self.fetch_redirect_ack_i:
+                    control_redirect_acknowledged.next = True
+                if (control_redirect_pending or self.execute_redirect_i) and \
+                   (control_redirect_acknowledged or self.fetch_redirect_ack_i) and not self.en_i:
+                    control_redirect_pending.next = False
+                    control_redirect_acknowledged.next = False
+
+                if dm_halt:
+                    if debugRegisterBundle.resumereq and not downstream_busy and \
+                       not debugRegisterBundle.req_ack:
+                        debugRegisterBundle.req_ack.next = True
+                        dm_halt.next = False
+                        debugRegisterBundle.dpc_jump.next = True
+                        step_wait_first_instruction.next = self.debugCSRBundle.step
+                        step_resolve_instruction.next = False
+                        step_wait_next_instruction.next = False
+                        control_redirect_pending.next = False
+                        control_redirect_acknowledged.next = False
+
+                elif ebreak_halt_event:
+                    self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[self.xlen:self.config.ip_low]
+                    self.debugCSRUpdateBundle.we_dpc.next = True
+                    self.debugCSRUpdateBundle.cause.next = 1
+                    self.debugCSRUpdateBundle.we_cause.next = True
+                    dm_halt.next = True
+                    step_wait_first_instruction.next = False
+                    step_resolve_instruction.next = False
+                    step_wait_next_instruction.next = False
+                    control_redirect_pending.next = False
+                    control_redirect_acknowledged.next = False
+
+                elif step_halt_event:
+                    self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[self.xlen:self.config.ip_low]
+                    self.debugCSRUpdateBundle.we_dpc.next = True
+                    self.debugCSRUpdateBundle.cause.next = 4
+                    self.debugCSRUpdateBundle.we_cause.next = True
+                    dm_halt.next = True
+                    step_resolve_instruction.next = False
+                    step_wait_next_instruction.next = False
+                    control_redirect_pending.next = False
+                    control_redirect_acknowledged.next = False
+
+                elif haltreq_event:
+                    debugRegisterBundle.req_ack.next = True
+                    self.debugCSRUpdateBundle.dpc.next = self.current_ip_i[self.xlen:self.config.ip_low]
+                    self.debugCSRUpdateBundle.we_dpc.next = True
+                    self.debugCSRUpdateBundle.cause.next = 3
+                    self.debugCSRUpdateBundle.we_cause.next = True
+                    dm_halt.next = True
+                    step_wait_first_instruction.next = False
+                    step_resolve_instruction.next = False
+                    step_wait_next_instruction.next = False
+                    control_redirect_pending.next = False
+                    control_redirect_acknowledged.next = False
+
+                elif step_resolve_instruction:
+                    if not downstream_busy:
+                        step_resolve_instruction.next = False
+                        step_wait_next_instruction.next = True
+
+                elif step_wait_first_instruction and instruction_ready:
+                    step_wait_first_instruction.next = False
+                    step_resolve_instruction.next = True
 
         else:
             @always_comb
@@ -246,8 +356,8 @@ class DecodeBundle(PipelineControl):
                 dm_regno.next = 0
                 dm_data0.next = 0
                 dm_exec.next = False
-                dm_ebreak_halt_req.next = False
-                dm_step_halt_pending.next = False
+                ebreak_wait.next = False
+                debug_halt_event.next = False
 
                 if not downstream_busy:
                     self.rs1_adr_o.next = self.word_i[20:15]
@@ -286,7 +396,7 @@ class DecodeBundle(PipelineControl):
                 self.sys_cmd.next = False
                 dm_break.next = False
 
-            elif (self.kill_i or dm_kill or dm_halt or dm_ebreak_halt_req or dm_step_halt_pending) and not dm_exec:
+            elif (self.kill_i or dm_kill or dm_halt) and not dm_exec:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
                 dm_break.next = False
@@ -411,5 +521,24 @@ class DecodeBundle(PipelineControl):
                 else:
                     self.valid_o.next=False
                     dm_break.next = False
+
+            # A debug entry consumes the current fetch instruction as the DPC
+            # boundary but must not let it reach execute. Keep this override
+            # local to validity so debug control does not add a mux level to
+            # every decoded command and operand register.
+            if debug_halt_event and not downstream_busy and not dm_exec:
+                self.valid_o.next = False
+                self.invalid_opcode.next = False
+                dm_break.next = False
+
+            if step_resolve_instruction and not dm_exec:
+                self.valid_o.next = False
+                self.invalid_opcode.next = False
+                dm_break.next = False
+
+            if ebreak_wait and not downstream_busy and not dm_exec:
+                self.valid_o.next = False
+                self.invalid_opcode.next = False
+                dm_break.next = False
 
         return instances()

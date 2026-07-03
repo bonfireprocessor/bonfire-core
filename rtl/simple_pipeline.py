@@ -23,6 +23,7 @@ class FetchInputBundle:
         self.word_i = Signal(intbv(0)[xlen:]) # actual instruction to decode
         self.current_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of current instruction 
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction 
+        self.redirect_ack_i = Signal(bool(0))
 
 class BackendOutputBundle:
     def __init__(self,config=def_config):
@@ -80,6 +81,7 @@ class SimpleBackend:
             self.decode.word_i.next = fetchBundle.word_i
             self.decode.current_ip_i.next = fetchBundle.current_ip_i
             self.decode.next_ip_i.next  = fetchBundle.next_ip_i 
+            self.decode.fetch_redirect_ack_i.next = fetchBundle.redirect_ack_i
 
 
         @always_comb

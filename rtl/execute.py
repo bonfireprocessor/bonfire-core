@@ -68,7 +68,6 @@ class ExecuteBundle(PipelineControl):
         jump_busy = Signal(bool(0)) # Only used when not config.jump_bypass
 
         jump_we = Signal(bool(0)) # rd write enable on jal/jalr
-        debug_control_flow_r = Signal(bool(0))
         debug_redirect_kill = Signal(bool(0))
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
@@ -87,36 +86,22 @@ class ExecuteBundle(PipelineControl):
 
         if self.config.enableDebugModule:
             @always_seq(clock.posedge, reset=reset)
-            def debug_retire_seq():
+            def debug_redirect_seq():
                 debug_redirect_kill.next = debugRegisterBundle.dpc_jump
-                control_flow_retired = self.taken and (decode.branch_cmd or decode.sys_cmd)
-                debugRegisterBundle.instr_retired.next = valid or control_flow_retired
-                if control_flow_retired:
-                    if jump:
-                        debugRegisterBundle.instr_retire_dpc.next = jump_dest[self.config.xlen:self.config.ip_low]
-                    else:
-                        debugRegisterBundle.instr_retire_dpc.next = decode.next_ip_o[self.config.xlen:self.config.ip_low]
-                elif valid:
-                    debugRegisterBundle.instr_retire_dpc.next = decode.next_ip_o[self.config.xlen:self.config.ip_low]
-                    if decode.jump_cmd:
-                        debugRegisterBundle.instr_retire_dpc.next = decode.jump_dest_o[self.config.xlen:self.config.ip_low]
-                    elif debug_control_flow_r and jump_r:
-                        debugRegisterBundle.instr_retire_dpc.next = jump_dest_r[self.config.xlen:self.config.ip_low]
 
 
         @always_seq(clock.posedge,reset=reset)
         def seq():
 
             jump_busy.next = False
-            debug_control_flow_r.next = False
+            decode.execute_redirect_i.next = False
             if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
                 jump_busy.next = jump and not self.config.jump_bypass
-                debug_control_flow_r.next = decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd
-
-
+                if jump:
+                    decode.execute_redirect_i.next = True
                 # # Debug code
                 # if self.debug_exec_jump.next:
                 #     print(now(), "jump or branch")

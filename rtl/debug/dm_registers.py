@@ -71,11 +71,6 @@ class DebugModuleRegisterBundle:
         # resumeack bit, used for dmstatus all/any resumeack
         self.resumeack = Signal(bool(0))
 
-        # Internal core-to-debug signal. It marks that the currently accepted
-        # pipeline instruction reached the execute result/commit point.
-        self.instr_retired = Signal(bool(0))
-        self.instr_retire_dpc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
-
         assert config.numdata <= 16, "maximum allowed debug Data Registers are 16"
 
         # dpc, written by debug core
