@@ -55,6 +55,7 @@ class DecodeBundle(PipelineControl):
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
         self.kill_i = Signal(bool(0)) # kill current instruction
         self.execute_redirect_i = Signal(bool(0))
+        self.execute_ebreak_i = Signal(bool(0))
         self.fetch_redirect_pending_i = Signal(bool(0))
 
 
@@ -140,7 +141,6 @@ class DecodeBundle(PipelineControl):
         debug_entry = DebugEntryOutputs()
         debug_pipeline_hold = debug_entry.pipeline_hold
         step_resolve_active = debug_entry.step_resolve
-        ebreak_wait = debug_entry.ebreak_wait
         debug_halt_event = debug_entry.halt_event
 
         ins_word = Signal(modbv(0)[32:])
@@ -161,7 +161,7 @@ class DecodeBundle(PipelineControl):
             else:
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
-            self.busy_o.next = downstream_busy or dm_halt or debug_pipeline_hold or ebreak_wait
+            self.busy_o.next = downstream_busy or dm_halt or debug_pipeline_hold
 
 
             # Operand output side
@@ -232,15 +232,6 @@ class DecodeBundle(PipelineControl):
                 progbuf_last,
             )
 
-            ebreak_detected = Signal(bool(0))
-
-            @always_comb
-            def ebreak_decode():
-                ebreak_detected.next = self.debugCSRBundle.ebreakm and not dm_exec and \
-                    opcode == op.RV32_SYSTEM and \
-                    ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
-                    ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK
-
             debug_entry_inst = DebugEntryController(
                 self.config,
                 clock,
@@ -249,13 +240,13 @@ class DecodeBundle(PipelineControl):
                 self.debugCSRUpdateBundle,
                 debug_control,
                 self.current_ip_i,
+                self.mepc_o,
                 self.en_i,
-                self.valid_o,
                 downstream_busy,
                 self.kill_i,
                 self.execute_redirect_i,
                 self.fetch_redirect_pending_i,
-                ebreak_detected,
+                self.execute_ebreak_i,
                 debug_entry,
             )
 
@@ -272,7 +263,6 @@ class DecodeBundle(PipelineControl):
                 dm_exec.next = False
                 debug_pipeline_hold.next = False
                 step_resolve_active.next = False
-                ebreak_wait.next = False
                 debug_halt_event.next = False
 
                 if not downstream_busy:
@@ -448,11 +438,6 @@ class DecodeBundle(PipelineControl):
                 dm_break.next = False
 
             if step_resolve_active and not dm_exec:
-                self.valid_o.next = False
-                self.invalid_opcode.next = False
-                dm_break.next = False
-
-            if ebreak_wait and not downstream_busy and not dm_exec:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
                 dm_break.next = False
