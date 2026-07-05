@@ -110,6 +110,7 @@ def DebugModuleController(
         # EBREAK entry is a decode-stage event: halt before executing the
         # instruction, and report the EBREAK PC as DPC.
         if debug_control.ebreak_halt_req:
+            print(f'[DBG ebreak_halt_req] @{now()} ip=0x{int(decode_view.current_ip_i):08x}', flush=True)
             debugCSRUpdateBundle.dpc.next = decode_view.current_ip_i[config.xlen:config.ip_low]
             debugCSRUpdateBundle.we_dpc.next = True
             debugCSRUpdateBundle.cause.next = 1

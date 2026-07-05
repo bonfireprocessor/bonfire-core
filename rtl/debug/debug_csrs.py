@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from myhdl import Signal, modbv, block, always, always_comb, instances
+from myhdl import Signal, modbv, block, always, always_comb, instances, now
 
 from rtl.debug.dm_registers import DebugModuleRegisterBundle
 from rtl.instructions import CSRAdr
@@ -75,11 +75,13 @@ class DebugCSRBundle:
                     self.ebreakm.next = data[15]
                     self.step.next = data[2]
                 elif adr == CSRAdr.dpc:
+                    print(f'[DPC via we] @{now()} adr=0x{int(adr):02x} data=0x{int(data):08x} dpc.next=0x{int(data[upper:lower]):04x}', flush=True)
                     debugRegs.dpc.next = data[upper:lower]
             else:
                 if update.we_cause:
                     self.cause.next = update.cause
                 if update.we_dpc:
+                    print(f'[DPC via update] @{now()} dpc.next=0x{int(update.dpc):04x}', flush=True)
                     debugRegs.dpc.next = update.dpc
 
         return instances()
