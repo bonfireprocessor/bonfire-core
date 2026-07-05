@@ -271,10 +271,15 @@ class RSPHandler(object):
                 if len(subcmd) < 33 * 8:
                     self.send('E01')
                     return
-                values = []
-                for i in range(33):
-                    raw = bytes.fromhex(subcmd[i * 8:(i + 1) * 8])
-                    values.append(int.from_bytes(raw, byteorder='little'))
+                try:
+                    values = []
+                    for i in range(33):
+                        raw = bytes.fromhex(subcmd[i * 8:(i + 1) * 8])
+                        values.append(int.from_bytes(raw, byteorder='little'))
+                except ValueError:
+                    self.log.error('G command: invalid hex data')
+                    self.send('E01')
+                    return
                 # x0 is always 0; skip writing it (write x1..x31)
                 for i in range(1, 32):
                     yield self.debugAPI.writeReg(regno=i + 0x1000, value=values[i])
@@ -307,9 +312,14 @@ class RSPHandler(object):
                 self.send('OK')
 
             def handle_Z(subcmd: str) -> Generator[Any, None, None]:
-                kind, addr, size = subcmd.split(',')
-                addr = int(addr, 16)
-                size = int(size, 16)
+                try:
+                    kind, addr, size = subcmd.split(',')
+                    addr = int(addr, 16)
+                    size = int(size, 16)
+                except ValueError:
+                    self.log.error('Z command: malformed packet %r' % subcmd)
+                    self.send('E01')
+                    return
                 if kind != '0':
                     self.send('')
                     return
@@ -326,9 +336,14 @@ class RSPHandler(object):
                 self.send('OK')
 
             def handle_z(subcmd: str) -> Generator[Any, None, None]:
-                kind, addr, size = subcmd.split(',')
-                addr = int(addr, 16)
-                size = int(size, 16)
+                try:
+                    kind, addr, size = subcmd.split(',')
+                    addr = int(addr, 16)
+                    size = int(size, 16)
+                except ValueError:
+                    self.log.error('z command: malformed packet %r' % subcmd)
+                    self.send('E01')
+                    return
                 if kind != '0':
                     self.send('')
                     return
@@ -420,7 +435,9 @@ class RSPHandler(object):
                 if c == b'$':
                     state = 'Finding EOP'
             elif state == 'Finding EOP':
-                # Always add raw byte to checksum before unescape.
+                # Per RSP spec, the checksum covers all raw (escaped) bytes
+                # between '$' and '#', including the '}' escape prefix byte
+                # and the XOR'd byte that follows it.
                 csum = (csum + ord(c)) & 0xFF
                 if escaped:
                     # Unescape: XOR with 0x20.
