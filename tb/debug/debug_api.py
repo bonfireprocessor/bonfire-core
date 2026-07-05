@@ -179,12 +179,16 @@ class DebugAPI:
         yield self.readReg(transfer=False, postexec=True)
         yield self.writeGPR(regno=scratch_reg, value=scratch_save)
 
-    def ResetCore(self) -> None:
+    def ResetCore(self) -> Generator[Any, None, None]:
+        # Assert ndmreset (bit 1) while keeping dmactive (bit 0) set.
         c = modbv(0)[32:]
-        c[1] = True
-        self.dmi_write(0x10, c)
-        c[1] = False
-        self.dmi_write(0x10, c)
+        c[1] = True   # ndmreset
+        c[0] = True   # dmactive
+        yield self.dmi_write(0x10, c)
+        # De-assert ndmreset to let the core come out of reset.
+        c = modbv(0)[32:]
+        c[0] = True   # dmactive
+        yield self.dmi_write(0x10, c)
 
     def readMemory(self, HartId: int = 0, memadr: int = 0, readbyte: bool = False) -> Generator[Any, None, None]:
         yield self.writeProgbuf0(0x00044403 if readbyte else 0x00042403)
