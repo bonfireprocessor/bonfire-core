@@ -54,7 +54,6 @@ class DecodeBundle(PipelineControl):
         self.current_ip_i = Signal(modbv(0)[xlen:])
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
         self.kill_i = Signal(bool(0)) # kill current instruction
-        self.execute_redirect_i = Signal(bool(0))
         self.execute_ebreak_i = Signal(bool(0))
         self.fetch_redirect_pending_i = Signal(bool(0))
 
@@ -139,7 +138,6 @@ class DecodeBundle(PipelineControl):
         dm_break = debug_decode_view.dm_break
 
         debug_entry = DebugEntryOutputs()
-        debug_pipeline_hold = debug_entry.pipeline_hold
         step_resolve_active = debug_entry.step_resolve
         debug_halt_event = debug_entry.halt_event
 
@@ -161,7 +159,7 @@ class DecodeBundle(PipelineControl):
             else:
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
-            self.busy_o.next = downstream_busy or dm_halt or debug_pipeline_hold
+            self.busy_o.next = downstream_busy or dm_halt or step_resolve_active
 
 
             # Operand output side
@@ -244,7 +242,6 @@ class DecodeBundle(PipelineControl):
                 self.en_i,
                 downstream_busy,
                 self.kill_i,
-                self.execute_redirect_i,
                 self.fetch_redirect_pending_i,
                 self.execute_ebreak_i,
                 debug_entry,
@@ -261,7 +258,6 @@ class DecodeBundle(PipelineControl):
                 dm_regno.next = 0
                 dm_data0.next = 0
                 dm_exec.next = False
-                debug_pipeline_hold.next = False
                 step_resolve_active.next = False
                 debug_halt_event.next = False
 

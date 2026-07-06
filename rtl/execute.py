@@ -97,14 +97,11 @@ class ExecuteBundle(PipelineControl):
         def seq():
 
             jump_busy.next = False
-            decode.execute_redirect_i.next = False
             if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
                 jump_busy.next = jump and not self.config.jump_bypass
-                if jump:
-                    decode.execute_redirect_i.next = True
                 # # Debug code
                 # if self.debug_exec_jump.next:
                 #     print(now(), "jump or branch")

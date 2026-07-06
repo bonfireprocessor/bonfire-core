@@ -13,7 +13,6 @@ t_debug_entry_state = enum(
 
 class DebugEntryOutputs:
     def __init__(self):
-        self.pipeline_hold = Signal(bool(0))
         self.step_resolve = Signal(bool(0))
         self.halt_event = Signal(bool(0))
 
@@ -31,7 +30,6 @@ def DebugEntryController(
     decode_enable,
     downstream_busy,
     decode_kill,
-    execute_redirect,
     fetch_redirect_pending,
     execute_ebreak,
     outputs,
@@ -45,23 +43,33 @@ def DebugEntryController(
 
     @always_comb
     def debug_event_comb():
-        outputs.pipeline_hold.next = state == t_debug_entry_state.step_resolve
+        # Give the instruction being stepped one cycle to resolve in Execute.
+        # Decode is held during this state so no younger instruction can enter
+        # Execute before the next architectural PC is known.
         outputs.step_resolve.next = state == t_debug_entry_state.step_resolve
 
+        # A halt boundary is valid only for a real, non-speculative Decode
+        # instruction. decode_kill covers the immediate redirect cycle while
+        # fetch_redirect_pending covers Fetch refilling from the target PC.
         instruction_ready.next = decode_enable and not downstream_busy and \
             not decode_kill and not debug_control.kill and \
-            not execute_redirect and not fetch_redirect_pending
+            not fetch_redirect_pending
 
+        # Single-step stops at the first valid instruction after the stepped
+        # instruction; that instruction is suppressed by halt_event below.
         step_halt_event.next = not debug_control.halt and \
             state == t_debug_entry_state.step_next and instruction_ready
 
         haltreq_event.next = not debug_control.halt and debug_registers.haltreq and \
             instruction_ready and not debug_registers.req_ack
 
+        # Execute reports EBREAK only after it has become architectural, so it
+        # may enter Debug Mode directly. Step and haltreq still use the guarded
+        # Decode boundary to avoid stopping on a wrong-path instruction.
         outputs.halt_event.next = execute_ebreak or ( \
             not debug_control.halt and decode_enable and \
             not decode_kill and not debug_control.kill and \
-            not execute_redirect and not fetch_redirect_pending and ( \
+            not fetch_redirect_pending and ( \
             state == t_debug_entry_state.step_next or \
             (debug_registers.haltreq and not debug_registers.req_ack)))
 
