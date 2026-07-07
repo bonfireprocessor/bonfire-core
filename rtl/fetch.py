@@ -80,6 +80,7 @@ class FetchUnit(PipelineControl):
             fetch.word_i.next = current_word[0]
             fetch.next_ip_i.next = current_ip[0] + 4 # TODO: look for better solution...
             fetch.current_ip_i.next = current_ip[0]
+            fetch.redirect_pending_i.next = jump_taken and not valid
            
 
        

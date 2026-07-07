@@ -12,6 +12,7 @@ from rtl.instructions import PrivFunct12
 from rtl.util import signed_resize
 from rtl.debug import *
 from rtl.debug.debug_module import DebugHartControlBundle, DebugModuleController, DebugHartViewBundle
+from rtl.debug.debug_entry import DebugEntryController, DebugEntryOutputs
 
 from rtl.pipeline_control import *
 
@@ -53,6 +54,8 @@ class DecodeBundle(PipelineControl):
         self.current_ip_i = Signal(modbv(0)[xlen:])
         self.next_ip_i = Signal(modbv(0)[xlen:]) # ip (PC) of next instruction
         self.kill_i = Signal(bool(0)) # kill current instruction
+        self.execute_ebreak_i = Signal(bool(0))
+        self.fetch_redirect_pending_i = Signal(bool(0))
 
 
         # Register file interface
@@ -133,9 +136,10 @@ class DecodeBundle(PipelineControl):
         dm_data0 = debug_control.data0
         dm_exec = debug_control.exec
         dm_break = debug_decode_view.dm_break
-        dm_ebreak_halt_req = debug_control.ebreak_halt_req
-        dm_step_armed = debug_control.step_armed
-        dm_step_halt_pending = debug_control.step_halt_pending
+
+        debug_entry = DebugEntryOutputs()
+        step_resolve_active = debug_entry.step_resolve
+        debug_halt_event = debug_entry.halt_event
 
         ins_word = Signal(modbv(0)[32:])
 
@@ -146,24 +150,16 @@ class DecodeBundle(PipelineControl):
 
         @always_comb
         def comb():
-            debug_decode_view.current_ip_i.next = self.current_ip_i
-            debug_decode_view.word_i.next = self.word_i
-            debug_decode_view.en_i.next = self.en_i
-            debug_decode_view.kill_i.next = self.kill_i
             debug_decode_view.rs1_data_i.next = self.rs1_data_i
             debug_decode_view.valid_o.next = self.valid_o
             debug_decode_view.stall_i.next = self.stall_i
-            debug_decode_view.downstream_busy.next = downstream_busy
-            debug_decode_view.ebreak_i.next =  ins_word[7:2] == op.RV32_SYSTEM and \
-                    ins_word[15:12] == SystemFunct3.RV32_F3_PRIV and \
-                    ins_word[32:20] == PrivFunct12.RV32_F12_EBREAK
 
             if not downstream_busy:
                 self.rs2_adr_o.next = ins_word[25:20]
             else:
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
-            self.busy_o.next = downstream_busy or dm_halt
+            self.busy_o.next = downstream_busy or dm_halt or step_resolve_active
 
 
             # Operand output side
@@ -228,12 +224,27 @@ class DecodeBundle(PipelineControl):
                 self.config,
                 clock,
                 debugRegisterBundle,
-                self.debugCSRBundle,
-                self.debugCSRUpdateBundle,
                 debug_decode_view,
                 debug_control,
                 progbuf_pointer,
                 progbuf_last,
+            )
+
+            debug_entry_inst = DebugEntryController(
+                self.config,
+                clock,
+                debugRegisterBundle,
+                self.debugCSRBundle,
+                self.debugCSRUpdateBundle,
+                debug_control,
+                self.current_ip_i,
+                self.mepc_o,
+                self.en_i,
+                downstream_busy,
+                self.kill_i,
+                self.fetch_redirect_pending_i,
+                self.execute_ebreak_i,
+                debug_entry,
             )
 
         else:
@@ -247,9 +258,8 @@ class DecodeBundle(PipelineControl):
                 dm_regno.next = 0
                 dm_data0.next = 0
                 dm_exec.next = False
-                dm_ebreak_halt_req.next = False
-                dm_step_armed.next = False
-                dm_step_halt_pending.next = False
+                step_resolve_active.next = False
+                debug_halt_event.next = False
 
                 if not downstream_busy:
                     self.rs1_adr_o.next = self.word_i[20:15]
@@ -288,7 +298,7 @@ class DecodeBundle(PipelineControl):
                 self.sys_cmd.next = False
                 dm_break.next = False
 
-            elif (self.kill_i or dm_kill or dm_halt or dm_ebreak_halt_req or dm_step_halt_pending) and not dm_exec:
+            elif (self.kill_i or dm_kill or dm_halt) and not dm_exec:
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
                 dm_break.next = False
@@ -413,5 +423,19 @@ class DecodeBundle(PipelineControl):
                 else:
                     self.valid_o.next=False
                     dm_break.next = False
+
+            # A debug entry consumes the current fetch instruction as the DPC
+            # boundary but must not let it reach execute. Keep this override
+            # local to validity so debug control does not add a mux level to
+            # every decoded command and operand register.
+            if debug_halt_event and not downstream_busy and not dm_exec:
+                self.valid_o.next = False
+                self.invalid_opcode.next = False
+                dm_break.next = False
+
+            if step_resolve_active and not dm_exec:
+                self.valid_o.next = False
+                self.invalid_opcode.next = False
+                dm_break.next = False
 
         return instances()
