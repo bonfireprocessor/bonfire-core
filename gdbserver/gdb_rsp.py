@@ -40,6 +40,11 @@ def checksum(data: str) -> int:
     return checksum & 0xFF
 
 
+def _hex_encode_text(text: str) -> str:
+    """Encode an ASCII string as hex bytes for qRcmd / console output."""
+    return text.encode('ascii', errors='replace').hex().upper()
+
+
 class RSPHandler(object):
     def __init__(self, clientsocket: Any, debugAPI: Any, readySignal: Any) -> None:
         self.clientsocket = clientsocket
@@ -113,7 +118,7 @@ class RSPHandler(object):
             def handle_q(subcmd: str) -> Generator[Any, None, None]:
                 if subcmd.startswith('Supported'):
                     self.log.info('Received qSupported command')
-                    self.send('PacketSize=%x' % 4096)
+                    self.send('PacketSize=%x;swbreak+' % 4096)
                 elif subcmd.startswith('Attached'):
                     self.log.info('Received qAttached command')
                     self.log.info('Trying to halt core')
@@ -123,6 +128,26 @@ class RSPHandler(object):
                 elif subcmd.startswith('C'):
                     # Reply with a proper qC thread-id response.
                     self.send('QC0')
+                elif subcmd.startswith('Rcmd,'):
+                    hex_cmd = subcmd[5:]
+                    try:
+                        cmd_text = bytes.fromhex(hex_cmd).decode('ascii', errors='replace').strip().lower()
+                    except ValueError:
+                        self.send('E01')
+                        return
+                    self.log.info('monitor command: %r' % cmd_text)
+                    if cmd_text == 'halt':
+                        yield self.debugAPI.halt()
+                        self.send('OK')
+                    elif cmd_text == 'resume':
+                        yield self.debugAPI.resume()
+                        self.send(_hex_encode_text('Core resumed\n'))
+                    elif cmd_text == 'reset':
+                        yield self.debugAPI.ResetCore()
+                        yield self.debugAPI.halt()
+                        self.send('OK')
+                    else:
+                        self.send(_hex_encode_text('Unknown monitor command: %s\n' % cmd_text))
                 else:
                     self.log.error('This subcommand %r is not implemented in q' % subcmd)
                     self.send('')
@@ -238,65 +263,137 @@ class RSPHandler(object):
                             self.send('T%.2x' % GDB_SIGNAL_TRAP)
                             return
 
-            # GDB can already fall back to software breakpoints via plain
-            # memory read/write packets if Z/z is not supported. Keep this
-            # prototype as a commented reference, but do not enable it yet.
-            # def handle_Z(subcmd):
-            #     kind, addr, size = subcmd.split(',')
-            #     addr = int(addr, 16)
-            #     size = int(size, 16)
-            #     if kind != '0':
-            #         self.send('')
-            #         return
-            #     if not self._memory_range_valid(addr, size):
-            #         self.send("E01")
-            #         return
-            #     if addr not in self.breakpoints:
-            #         original = bytearray()
-            #         for i in range(addr, addr + size):
-            #             yield self.debugAPI.readMemory(memadr=i, readbyte=True)
-            #             original.append(self.debugAPI.cmd_result() & 0xFF)
-            #         self.breakpoints[addr] = bytes(original)
-            #         yield self._write_memory_bytes(addr, EBREAK_INSN.to_bytes(4, byteorder='little')[:size])
-            #     self.send('OK')
-            #
-            # def handle_z(subcmd):
-            #     kind, addr, size = subcmd.split(',')
-            #     addr = int(addr, 16)
-            #     size = int(size, 16)
-            #     if kind != '0':
-            #         self.send('')
-            #         return
-            #     if not self._memory_range_valid(addr, size):
-            #         self.send("E01")
-            #         return
-            #     original = self.breakpoints.pop(addr, None)
-            #     if original is not None:
-            #         yield self._write_memory_bytes(addr, original)
-            #     if not self.breakpoints:
-            #         yield self._update_dcsr(ebreakm=False)
-            #     self.send('OK')
+            def handle_G(subcmd: str) -> Generator[Any, None, None]:
+                from rtl.instructions import CSRAdr
+
+                self.log.info('Write all registers command')
+                # subcmd is 33 * 8 hex chars = 264 chars (32 GPRs + PC)
+                if len(subcmd) < 33 * 8:
+                    self.send('E01')
+                    return
+                try:
+                    values = []
+                    for i in range(33):
+                        raw = bytes.fromhex(subcmd[i * 8:(i + 1) * 8])
+                        values.append(int.from_bytes(raw, byteorder='little'))
+                except ValueError:
+                    self.log.error('G command: invalid hex data')
+                    self.send('E01')
+                    return
+                # x0 is always 0; skip writing it (write x1..x31)
+                for i in range(1, 32):
+                    yield self.debugAPI.writeReg(regno=i + 0x1000, value=values[i])
+                yield self.debugAPI.writeCSR(csr_adr=(0x700 | CSRAdr.dpc), value=values[32])
+                self.send('OK')
+
+            def handle_X(subcmd: str) -> Generator[Any, None, None]:
+                colon = subcmd.find(':')
+                if colon == -1:
+                    self.send('E01')
+                    return
+                addr_size = subcmd[:colon]
+                binary_data = subcmd[colon + 1:]
+                addr, size = addr_size.split(',')
+                addr = int(addr, 16)
+                size = int(size, 16)
+                if size == 0:
+                    # GDB probes support with a zero-length write; just acknowledge.
+                    self.send('OK')
+                    return
+                if not self._memory_range_valid(addr, size):
+                    self.send('E01')
+                    return
+                # binary_data was decoded with latin-1 so each char maps to one byte.
+                data_bytes = binary_data[:size].encode('latin-1')
+                if len(data_bytes) != size:
+                    self.send('E01')
+                    return
+                yield self._write_memory_bytes(addr, data_bytes)
+                self.send('OK')
+
+            def handle_Z(subcmd: str) -> Generator[Any, None, None]:
+                try:
+                    kind, addr, size = subcmd.split(',')
+                    addr = int(addr, 16)
+                    size = int(size, 16)
+                except ValueError:
+                    self.log.error('Z command: malformed packet %r' % subcmd)
+                    self.send('E01')
+                    return
+                if kind != '0':
+                    self.send('')
+                    return
+                if not self._memory_range_valid(addr, size):
+                    self.send("E01")
+                    return
+                if addr not in self.breakpoints:
+                    original = bytearray()
+                    for i in range(addr, addr + size):
+                        yield self.debugAPI.readMemory(memadr=i, readbyte=True)
+                        original.append(self.debugAPI.cmd_result() & 0xFF)
+                    self.breakpoints[addr] = bytes(original)
+                    yield self._write_memory_bytes(addr, EBREAK_INSN.to_bytes(4, byteorder='little')[:size])
+                self.send('OK')
+
+            def handle_z(subcmd: str) -> Generator[Any, None, None]:
+                try:
+                    kind, addr, size = subcmd.split(',')
+                    addr = int(addr, 16)
+                    size = int(size, 16)
+                except ValueError:
+                    self.log.error('z command: malformed packet %r' % subcmd)
+                    self.send('E01')
+                    return
+                if kind != '0':
+                    self.send('')
+                    return
+                if not self._memory_range_valid(addr, size):
+                    self.send("E01")
+                    return
+                original = self.breakpoints.pop(addr, None)
+                if original is not None:
+                    yield self._write_memory_bytes(addr, original)
+                if not self.breakpoints:
+                    yield self._update_dcsr(ebreakm=False)
+                self.send('OK')
 
             def handle_D(subcmd: str) -> None:
                 # Acknowledge detach explicitly.
                 self.send('OK')
 
-            def handle_v(subcmd: str) -> None:
-                # Answer unknown v-packets with an empty response.
-                self.send('')
+            def handle_v(subcmd: str) -> Generator[Any, None, None]:
+                if subcmd == 'Cont?':
+                    # Report supported vCont actions: continue, step.
+                    self.send('vCont;c;s')
+                elif subcmd.startswith('Cont;'):
+                    actions = subcmd[5:].split(';')
+                    # Use the first action that applies to all threads or thread 1.
+                    action = actions[0].split(':')[0] if actions else ''
+                    if action == 'c':
+                        yield handle_c('')
+                    elif action == 's':
+                        yield handle_s('')
+                    else:
+                        self.log.info('vCont action %r not handled' % action)
+                        self.send('')
+                else:
+                    # Answer unknown v-packets with an empty response.
+                    self.send('')
 
             dispatchers: dict[str, Callable[[str], object]] = {
                 'q': handle_q,
                 'H': handle_h,
                 '?': handle_qmark,
                 'g': handle_g,
+                'G': handle_G,
                 'm': handle_m,
                 's': handle_s,
                 'c': handle_c,
                 'M': handle_M,
+                'X': handle_X,
                 'P': handle_P,
-                # 'Z': handle_Z,
-                # 'z': handle_z,
+                'Z': handle_Z,
+                'z': handle_z,
                 'D': handle_D,
                 'v': handle_v,
             }
@@ -321,11 +418,11 @@ class RSPHandler(object):
     # Renamed from 'bytes' to 'packet_bytes' to avoid shadowing Python's
     # built-in bytes type.
     def receive(self, packet_bytes: bytes) -> str:
-
         csum = 0
         state = 'Finding SOP'
         packet = ''
         self.netin = BytesIO(packet_bytes)
+        escaped = False
         while True:
             c = self.netin.read(1)
             if c == b'\x03':
@@ -338,14 +435,29 @@ class RSPHandler(object):
                 if c == b'$':
                     state = 'Finding EOP'
             elif state == 'Finding EOP':
-                if c == b'#':
+                # Per RSP spec, the checksum covers all raw (escaped) bytes
+                # between '$' and '#', including the '}' escape prefix byte
+                # and the XOR'd byte that follows it.
+                csum = (csum + ord(c)) & 0xFF
+                if escaped:
+                    # Unescape: XOR with 0x20.
+                    packet += chr(ord(c) ^ 0x20)
+                    escaped = False
+                elif c == b'}':
+                    # RSP escape prefix; next byte will be XOR'd with 0x20.
+                    escaped = True
+                elif c == b'#':
+                    # End-of-packet marker: remove the '#' contribution from
+                    # the checksum (it was added above before we detected it).
+                    csum = (csum - ord(c)) & 0xFF
                     if csum != int(self.netin.read(2), 16):
                         raise Exception('invalid checksum')
                     self.last_pkt = packet
                     return 'Good'
                 else:
-                    packet += c.decode(encoding="ASCII", errors="ignore")
-                    csum = (csum + ord(c)) & 0xFF
+                    # Use latin-1 so that all byte values 0x00–0xFF survive
+                    # the decode round-trip (needed for binary X packets).
+                    packet += c.decode('latin-1')
             else:
                 raise Exception('should not be here')
 
