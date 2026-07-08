@@ -140,7 +140,7 @@ class RSPHandler(object):
                         yield self.debugAPI.halt()
                         self.send('OK')
                     elif cmd_text == 'resume':
-                        yield self.debugAPI.resume()
+                        yield self.debugAPI.request_resume()
                         self.send(_hex_encode_text('Core resumed\n'))
                     elif cmd_text == 'reset':
                         yield self.debugAPI.ResetCore()
@@ -229,7 +229,7 @@ class RSPHandler(object):
                 self.log.info('Received a "single step" command')
                 # Try to map GDB single-step onto dcsr.step.
                 yield self._update_dcsr(ebreakm=bool(self.breakpoints), step=True)
-                yield self.debugAPI.resume()
+                yield self.debugAPI.request_resume()
                 while True:
                     yield self.debugAPI.yield_clock()
                     yield self.debugAPI.check_halted()
@@ -252,7 +252,7 @@ class RSPHandler(object):
                     # enable dcsr.ebreakm before resuming.
                     yield self._update_dcsr(ebreakm=True)
 
-                yield self.debugAPI.resume()
+                yield self.debugAPI.request_resume()
                 self.log.info('Core resumed')
 
                 if self.breakpoints:

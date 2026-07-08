@@ -65,15 +65,18 @@ class DebugAPI:
 
         return True
 
-    def resume(self, HartId: int = 0) -> Generator[Any, None, None]:
+    def request_resume(self, HartId: int = 0) -> Generator[Any, None, None]:
         yield self.check_halted()
         if self.halted:
             c = modbv(0)[32:]
             c[30] = True
             yield self.dmi_write(0x10, c)
             yield self.wait_resume_ack()
-            yield self.check_halted()
-            assert not self.halted, "debug_api.resume error: Core still halted after resume_ack"
+
+    def resume(self, HartId: int = 0) -> Generator[Any, None, None]:
+        yield self.request_resume(HartId=HartId)
+        yield self.check_halted()
+        assert not self.halted, "debug_api.resume error: Core still halted after resume_ack"
 
     def dmi_read(self, adr: int) -> Generator[Any, None, None]:
         self.__not_implemented()
