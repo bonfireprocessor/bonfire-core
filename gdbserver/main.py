@@ -7,6 +7,7 @@ License: See LICENSE
 from __future__ import annotations
 
 import argparse
+import logging
 import socket
 import threading
 from dataclasses import dataclass, field
@@ -22,6 +23,8 @@ from tb.debug import DmiDebugAPI
 DEFAULT_GDBSERVER_PORT_BASE = 5500
 DEFAULT_GDBSERVER_PORT_SPAN = 51
 DEFAULT_HEX_PATH = Path("code/build/debug-tests/endless.hex")
+
+LOG = logging.getLogger("gdbserver.main")
 
 
 @dataclass
@@ -55,6 +58,10 @@ def _bind_server_socket(host: str, port: int | None) -> socket.socket:
     return server_socket
 
 
+def _configure_logging() -> None:
+    logging.basicConfig(level=logging.INFO)
+
+
 @block
 def tcp_server(dtm_bundle: Any, clock: Any, control: ServerControl | None = None):
     """Expose a simulated Bonfire core over the GDB remote serial protocol."""
@@ -62,6 +69,7 @@ def tcp_server(dtm_bundle: Any, clock: Any, control: ServerControl | None = None
     import select
 
     control = control or ServerControl()
+    _configure_logging()
 
     @instance
     def server():
@@ -74,7 +82,7 @@ def tcp_server(dtm_bundle: Any, clock: Any, control: ServerControl | None = None
         control.port = server_socket.getsockname()[1]
         control.ready_event.set()
 
-        print(f"GDB server listening on {control.host}:{control.port}")
+        LOG.info("GDB server listening on %s:%s", control.host, control.port)
 
         poll_object = select.poll()
         poll_object.register(server_socket, select.POLLIN)
@@ -94,7 +102,7 @@ def tcp_server(dtm_bundle: Any, clock: Any, control: ServerControl | None = None
                     if fd == server_socket.fileno():
                         if not client_handler:
                             client_socket, client_address = server_socket.accept()
-                            print(f"Connection from {client_address}")
+                            LOG.info("Connection from %s", client_address)
                             poll_object.register(client_socket, select.POLLIN)
                             fd_to_socket[client_socket.fileno()] = client_socket
                             client_handler = RSPHandler(
@@ -103,7 +111,7 @@ def tcp_server(dtm_bundle: Any, clock: Any, control: ServerControl | None = None
                                 readySignal=ready_signal,
                             )
                         else:
-                            print("Server already busy")
+                            LOG.warning("Server already busy")
 
                     elif event & select.POLLIN:
                         client_socket = fd_to_socket[fd]
@@ -115,13 +123,11 @@ def tcp_server(dtm_bundle: Any, clock: Any, control: ServerControl | None = None
                             client_handler = None
                             continue
 
-                        print(f"@{now()} Received: {data.decode(encoding='ASCII', errors='ignore')}")
                         ready_signal.next = False
                         yield clock.posedge
                         assert client_handler is not None
                         yield client_handler.run_cmd(data)
                         yield ready_signal
-                        print(f"@{now()} run_cmd done")
         finally:
             for sock in list(fd_to_socket.values()):
                 try:
@@ -171,7 +177,7 @@ def serve_gdb(hexfile: Path, host: str = "127.0.0.1", port: int | None = None, r
         while thread.is_alive():
             thread.join(timeout=0.2)
     except KeyboardInterrupt:
-        print("Stopping gdbserver...")
+        LOG.info("Stopping gdbserver...")
         control.stop_event.set()
         thread.join(timeout=5.0)
     finally:

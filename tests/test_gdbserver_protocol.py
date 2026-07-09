@@ -31,6 +31,11 @@ def _read_u32_le(client: GDBServerTestClient, addr: int) -> int:
     return int.from_bytes(client.decode_memory_bytes(payload), byteorder="little", signed=False)
 
 
+def _read_bytes(client: GDBServerTestClient, addr: int, size: int) -> bytes:
+    payload = client.send_packet(f"m{addr:x},{size:x}")
+    return client.decode_memory_bytes(payload)
+
+
 def _start_testbench(
     sim_env: dict,
     hex_path: Path,
@@ -331,3 +336,75 @@ def test_gdbserver_vcont(sim_env, repo_root: Path):
     if sim_error:
         raise sim_error[0]
 
+
+def test_gdbserver_binary_write_x_command(sim_env, repo_root: Path):
+    """X command should accept binary payloads, including escaped bytes."""
+    hex_path = _get_hex_path(repo_root)
+    if not hex_path.is_file():
+        pytest.skip(f"GDB server HEX file not found: {hex_path}")
+
+    _gdb_tb, control, thread, sim_error = _start_testbench(sim_env, hex_path)
+
+    try:
+        assert control.ready_event.wait(timeout=5.0), "gdbserver did not become ready in time"
+
+        assert control.port is not None
+        with GDBServerTestClient(control.host, control.port, timeout=5.0) as client:
+            client.send_packet("qAttached")
+
+            data = bytes([0x24, 0x23, 0x7D, 0x2A, 0x11, 0x22, 0x33, 0x44])
+            reply = client.send_binary_packet("X40,8:", data)
+            assert reply == "OK", f"X command returned: {reply!r}"
+
+            read_back = _read_bytes(client, 0x40, len(data))
+            assert read_back == data, f"X write read back as {read_back!r}, expected {data!r}"
+    finally:
+        control.stop_event.set()
+        thread.join(timeout=5.0)
+
+    if thread.is_alive():
+        raise AssertionError("gdbserver simulation thread did not stop cleanly")
+
+    if sim_error:
+        raise sim_error[0]
+
+
+def test_gdbserver_reset_then_load_starts_from_zero(sim_env, repo_root: Path):
+    """monitor reset + load should restart execution from address 0 on the next step."""
+    hex_path = _get_hex_path(repo_root)
+    if not hex_path.is_file():
+        pytest.skip(f"GDB server HEX file not found: {hex_path}")
+
+    _gdb_tb, control, thread, sim_error = _start_testbench(sim_env, hex_path)
+
+    try:
+        assert control.ready_event.wait(timeout=5.0), "gdbserver did not become ready in time"
+
+        assert control.port is not None
+        with GDBServerTestClient(control.host, control.port, timeout=5.0) as client:
+            client.send_packet("qAttached")
+
+            # Move DPC away from reset so the test proves the pending restart address is applied.
+            assert client.send_packet("P20=40") == "OK"
+
+            reset_hex = "reset".encode("ascii").hex()
+            assert client.send_packet(f"qRcmd,{reset_hex}") == "OK"
+
+            nop_stream = bytes.fromhex("1300000013000000")
+            assert client.send_binary_packet("X0,8:", nop_stream) == "OK"
+
+            step_reply = client.send_packet("s")
+            assert step_reply == "T05"
+
+            registers_after = client.send_packet("g")
+            pc_after = client.decode_u32_le_words(registers_after)[32]
+            assert pc_after == 0x4, f"PC after reset+load+step was {pc_after:#x}, expected 0x4"
+    finally:
+        control.stop_event.set()
+        thread.join(timeout=5.0)
+
+    if thread.is_alive():
+        raise AssertionError("gdbserver simulation thread did not stop cleanly")
+
+    if sim_error:
+        raise sim_error[0]

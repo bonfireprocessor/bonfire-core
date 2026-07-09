@@ -41,6 +41,21 @@ class GDBServerTestClient:
     def _checksum(payload: str) -> int:
         return sum(ord(ch) for ch in payload) & 0xFF
 
+    @staticmethod
+    def _checksum_bytes(payload: bytes) -> int:
+        return sum(payload) & 0xFF
+
+    @staticmethod
+    def _escape_binary_payload(payload: bytes) -> bytes:
+        escaped = bytearray()
+        for value in payload:
+            if value in (0x23, 0x24, 0x2A, 0x7D):
+                escaped.append(0x7D)
+                escaped.append(value ^ 0x20)
+            else:
+                escaped.append(value)
+        return bytes(escaped)
+
     def _recv_exact(self, size: int) -> bytes:
         sock = self._require_socket()
         data = bytearray()
@@ -80,6 +95,18 @@ class GDBServerTestClient:
 
     def send_packet(self, payload: str) -> str:
         self._send_packet_and_ack(payload)
+        return self._recv_packet().payload
+
+    def send_binary_packet(self, prefix: str, payload: bytes) -> str:
+        sock = self._require_socket()
+        prefix_bytes = prefix.encode("ascii")
+        escaped_payload = self._escape_binary_payload(payload)
+        checksum_payload = prefix_bytes + escaped_payload
+        packet = b"$" + checksum_payload + f"#{self._checksum_bytes(checksum_payload):02x}".encode("ascii")
+        sock.sendall(packet)
+        ack = self._recv_exact(1)
+        if ack != b"+":
+            raise AssertionError(f"expected '+' ack, got {ack!r}")
         return self._recv_packet().payload
 
     def send_packet_no_response(self, payload: str) -> None:
