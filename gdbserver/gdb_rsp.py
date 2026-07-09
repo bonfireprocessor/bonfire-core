@@ -45,6 +45,19 @@ def _hex_encode_text(text: str) -> str:
     return text.encode('ascii', errors='replace').hex().upper()
 
 
+def _format_le_words(data: bytes) -> str:
+    if not data:
+        return "[]"
+    words: list[str] = []
+    for i in range(0, len(data), 4):
+        chunk = data[i:i + 4]
+        if len(chunk) == 4:
+            words.append(f"0x{int.from_bytes(chunk, byteorder='little'):08x}")
+        else:
+            words.append(f"tail[{len(chunk)}]={chunk.hex().upper()}")
+    return '[' + ', '.join(words) + ']'
+
+
 class RSPHandler(object):
     def __init__(self, clientsocket: Any, debugAPI: Any, readySignal: Any) -> None:
         self.clientsocket = clientsocket
@@ -54,15 +67,13 @@ class RSPHandler(object):
         self.readySignal = readySignal
         self.breakpoints: dict[int, bytes] = {}
 
-        logging.basicConfig(level=logging.WARN)
-        for logger in 'rsphandler runner main'.split(' '):
-            logging.getLogger(logger).setLevel(level=logging.INFO)
-
         self.log = logging.getLogger('rsphandler')
         self.last_pkt: str | None = None
+        self._current_command_label: str = '<none>'
         # Allow the simulation wrapper to expose a RAM size so out-of-range
         # memory reads/writes return an RSP error instead of hanging.
         self.memory_size_bytes: int | None = getattr(debugAPI, 'memory_size_bytes', None)
+        self.pending_resume_addr: int | None = None
 
     def close(self) -> None:
         # Close netin only when it was created.
@@ -85,6 +96,26 @@ class RSPHandler(object):
     def _write_memory_bytes(self, addr: int, data: bytes) -> Generator[Any, None, None]:
         for offset, value in enumerate(data):
             yield self.debugAPI.writeMemory(memadr=addr + offset, memvalue=value, writeByte=True)
+
+    def _log_command(self, cmd: str, detail: str = '') -> None:
+        suffix = f' {detail}' if detail else ''
+        self._current_command_label = f'{cmd}{suffix}'
+        self.log.info('RSP %s%s', cmd, suffix)
+
+    def _log_action(self, message: str) -> None:
+        self.log.info('RSP %s %s', self._current_command_label, message)
+
+    def _log_command_complete(self, cmd: str) -> None:
+        label = self._current_command_label if self._current_command_label != '<none>' else cmd
+        self.log.info('RSP %s done', label)
+
+    def _consume_resume_addr(self, explicit_addr: int | None = None) -> int | None:
+        if explicit_addr is not None:
+            self.pending_resume_addr = None
+            return explicit_addr
+        addr = self.pending_resume_addr
+        self.pending_resume_addr = None
+        return addr
 
     # Manipulate dcsr bits needed by the single-step / breakpoint-related flows.
     def _update_dcsr(self, ebreakm: bool | None = None, step: bool | None = None) -> Generator[Any, None, None]:
@@ -112,21 +143,22 @@ class RSPHandler(object):
         if result == 'Good':
             pkt = self.last_pkt
             assert pkt is not None
-            self.log.debug('receive(%r)' % pkt)
+            cmd, subcmd = pkt[0], pkt[1:]
+            self._current_command_label = cmd
             self.send_raw('+')
 
             def handle_q(subcmd: str) -> Generator[Any, None, None]:
                 if subcmd.startswith('Supported'):
-                    self.log.info('Received qSupported command')
+                    self._log_command('qSupported')
                     self.send('PacketSize=%x;swbreak+' % 4096)
                 elif subcmd.startswith('Attached'):
-                    self.log.info('Received qAttached command')
-                    self.log.info('Trying to halt core')
+                    self._log_command('qAttached', 'halting core')
                     yield self.debugAPI.halt()
-                    self.log.info('Core Halted')
+                    self._log_action('core halted')
                     self.send('0')
                 elif subcmd.startswith('C'):
                     # Reply with a proper qC thread-id response.
+                    self._log_command('qC')
                     self.send('QC0')
                 elif subcmd.startswith('Rcmd,'):
                     hex_cmd = subcmd[5:]
@@ -135,16 +167,20 @@ class RSPHandler(object):
                     except ValueError:
                         self.send('E01')
                         return
-                    self.log.info('monitor command: %r' % cmd_text)
+                    self._log_command('qRcmd', cmd_text)
                     if cmd_text == 'halt':
                         yield self.debugAPI.halt()
+                        self._log_action('core halted')
                         self.send('OK')
                     elif cmd_text == 'resume':
                         yield self.debugAPI.request_resume()
+                        self._log_action('resume requested')
                         self.send(_hex_encode_text('Core resumed\n'))
                     elif cmd_text == 'reset':
                         yield self.debugAPI.ResetCore()
                         yield self.debugAPI.halt()
+                        self.pending_resume_addr = 0
+                        self._log_action('core reset, halted, pending restart at 0x00000000')
                         self.send('OK')
                     else:
                         self.send(_hex_encode_text('Unknown monitor command: %s\n' % cmd_text))
@@ -153,16 +189,18 @@ class RSPHandler(object):
                     self.send('')
 
             def handle_h(subcmd: str) -> None:
+                self._log_command('H', subcmd)
                 self.send('OK')
 
             def handle_qmark(subcmd: str) -> None:
+                self._log_command('?')
                 self.send('S%.2x' % GDB_SIGNAL_TRAP)
 
             def handle_g(subcmd: str) -> Generator[Any, None, None]:
                 from rtl.instructions import CSRAdr
 
                 if subcmd == '':
-                    self.log.info('Register Read subcommand')
+                    self._log_command('g')
                     registers = [0 for _ in range(33)]
                     registers[0] = 0
                     for i in range(1, 32):
@@ -177,13 +215,14 @@ class RSPHandler(object):
                         p = struct.pack('<I', r)
                         for b in p:
                             s += ("{:02X}".format(b))
+                    self._log_action('read all registers incl. dpc')
                     self.send(s)
 
             def handle_m(subcmd: str) -> Generator[Any, None, None]:
                 addr, size = subcmd.split(',')
                 addr = int(addr, 16)
                 size = int(size, 16)
-                self.log.info('Received a "read memory" command (@%#.8x : %d bytes)' % (addr, size))
+                self._log_command('m', 'addr=0x%08x size=%d' % (addr, size))
                 if not self._memory_range_valid(addr, size):
                     self.send("E01")
                     return
@@ -191,6 +230,7 @@ class RSPHandler(object):
                 for i in range(addr, addr + size):
                     yield self.debugAPI.readMemory(memadr=i, readbyte=True)
                     s += ("{:02X}".format(self.debugAPI.cmd_result()))
+                self._log_action('memory read completed')
                 self.send(s)
 
             def handle_M(subcmd: str) -> Generator[Any, None, None]:
@@ -199,12 +239,22 @@ class RSPHandler(object):
                 addr = int(addr, 16)
                 size = int(size, 16)
                 if not self._memory_range_valid(addr, size):
+                    self._log_command('M', 'addr=0x%08x size=%d out-of-range' % (addr, size))
                     self.send("E01")
                 elif size * 2 != len(hexstring):
+                    self._log_command('M', 'addr=0x%08x size=%d invalid-length' % (addr, size))
                     self.log.error('Memory Write Command, size mismatch')
                     self.send("E01")
                 else:
-                    yield self._write_memory_bytes(addr, bytes.fromhex(hexstring))
+                    try:
+                        data_bytes = bytes.fromhex(hexstring)
+                    except ValueError:
+                        self._log_command('M', 'addr=0x%08x size=%d invalid-hex' % (addr, size))
+                        self.send("E01")
+                        return
+                    self._log_command('M', 'addr=0x%08x size=%d data=%s' % (addr, size, _format_le_words(data_bytes)))
+                    yield self._write_memory_bytes(addr, data_bytes)
+                    self._log_action('memory write completed')
                     self.send("OK")
 
             def handle_P(subcmd: str) -> Generator[Any, None, None]:
@@ -213,11 +263,15 @@ class RSPHandler(object):
                 regnum, value = subcmd.split('=')
                 regnum = int(regnum, 16)
                 value = int(value, 16)
+                self._log_command('P', 'reg=0x%x value=0x%08x' % (regnum, value))
                 if regnum in range(0, 32):
                     regnum += 0x1000
                     yield self.debugAPI.writeReg(regno=regnum, value=value)
+                    self._log_action('wrote cpu register x%d' % (regnum - 0x1000))
                 elif regnum == 32:
+                    self.pending_resume_addr = None
                     yield self.debugAPI.writeCSR(csr_adr=(0x700 | CSRAdr.dpc), value=value)
+                    self._log_action('wrote dpc')
                 else:
                     self.log.error('invalid register number %d in P command' % (regnum))
                     self.send("E01")
@@ -226,47 +280,58 @@ class RSPHandler(object):
                 self.send("OK")
 
             def handle_s(subcmd: str) -> Generator[Any, None, None]:
-                self.log.info('Received a "single step" command')
+                self._log_command('s', 'arg=%s' % (subcmd or '<current>'))
+                from rtl.instructions import CSRAdr
+
+                addr = self._consume_resume_addr(int(subcmd, 16) if subcmd else None)
+                if addr is not None:
+                    yield self.debugAPI.writeCSR(csr_adr=(0x700 | CSRAdr.dpc), value=addr)
+                    self._log_action('set dpc for single-step to 0x%08x' % addr)
                 # Try to map GDB single-step onto dcsr.step.
                 yield self._update_dcsr(ebreakm=bool(self.breakpoints), step=True)
+                self._log_action('enabled single-step in dcsr')
                 yield self.debugAPI.request_resume()
+                self._log_action('resume requested for single-step')
                 while True:
                     yield self.debugAPI.yield_clock()
                     yield self.debugAPI.check_halted()
                     if self.debugAPI.halted:
                         yield self._update_dcsr(step=False)
+                        self._log_action('single-step trap, core halted')
                         self.send('T%.2x' % GDB_SIGNAL_TRAP)
                         return
 
             def handle_c(subcmd: str) -> Generator[Any, None, None]:
                 from rtl.instructions import CSRAdr
 
-                self.log.info("Received continue command")
-                if subcmd:
-                    addr = int(subcmd, 16)
-                    self.log.info(' continue at (@%#.8x )' % (addr))
+                self._log_command('c', 'arg=%s' % (subcmd or '<current>'))
+                addr = self._consume_resume_addr(int(subcmd, 16) if subcmd else None)
+                if addr is not None:
                     yield self.debugAPI.writeCSR(csr_adr=(0x700 | CSRAdr.dpc), value=addr)
+                    self._log_action('set dpc for continue to 0x%08x' % addr)
 
                 if self.breakpoints:
                     # If software breakpoints were patched into memory,
                     # enable dcsr.ebreakm before resuming.
                     yield self._update_dcsr(ebreakm=True)
+                    self._log_action('enabled breakpoint handling in dcsr')
 
                 yield self.debugAPI.request_resume()
-                self.log.info('Core resumed')
+                self._log_action('resume requested')
 
                 if self.breakpoints:
                     while True:
                         yield self.debugAPI.yield_clock()
                         yield self.debugAPI.check_halted()
                         if self.debugAPI.halted:
+                            self._log_action('breakpoint trap, core halted')
                             self.send('T%.2x' % GDB_SIGNAL_TRAP)
                             return
 
             def handle_G(subcmd: str) -> Generator[Any, None, None]:
                 from rtl.instructions import CSRAdr
 
-                self.log.info('Write all registers command')
+                self._log_command('G', 'write all registers')
                 # subcmd is 33 * 8 hex chars = 264 chars (32 GPRs + PC)
                 if len(subcmd) < 33 * 8:
                     self.send('E01')
@@ -283,7 +348,9 @@ class RSPHandler(object):
                 # x0 is always 0; skip writing it (write x1..x31)
                 for i in range(1, 32):
                     yield self.debugAPI.writeReg(regno=i + 0x1000, value=values[i])
+                self.pending_resume_addr = None
                 yield self.debugAPI.writeCSR(csr_adr=(0x700 | CSRAdr.dpc), value=values[32])
+                self._log_action('wrote full register file incl. dpc')
                 self.send('OK')
 
             def handle_X(subcmd: str) -> Generator[Any, None, None]:
@@ -308,7 +375,9 @@ class RSPHandler(object):
                 if len(data_bytes) != size:
                     self.send('E01')
                     return
+                self._log_command('X', 'addr=0x%08x size=%d data=%s' % (addr, size, _format_le_words(data_bytes)))
                 yield self._write_memory_bytes(addr, data_bytes)
+                self._log_action('binary memory write completed')
                 self.send('OK')
 
             def handle_Z(subcmd: str) -> Generator[Any, None, None]:
@@ -323,6 +392,7 @@ class RSPHandler(object):
                 if kind != '0':
                     self.send('')
                     return
+                self._log_command('Z', 'kind=%s addr=0x%08x size=%d' % (kind, addr, size))
                 if not self._memory_range_valid(addr, size):
                     self.send("E01")
                     return
@@ -333,6 +403,7 @@ class RSPHandler(object):
                         original.append(self.debugAPI.cmd_result() & 0xFF)
                     self.breakpoints[addr] = bytes(original)
                     yield self._write_memory_bytes(addr, EBREAK_INSN.to_bytes(4, byteorder='little')[:size])
+                self._log_action('software breakpoint inserted')
                 self.send('OK')
 
             def handle_z(subcmd: str) -> Generator[Any, None, None]:
@@ -347,6 +418,7 @@ class RSPHandler(object):
                 if kind != '0':
                     self.send('')
                     return
+                self._log_command('z', 'kind=%s addr=0x%08x size=%d' % (kind, addr, size))
                 if not self._memory_range_valid(addr, size):
                     self.send("E01")
                     return
@@ -355,20 +427,24 @@ class RSPHandler(object):
                     yield self._write_memory_bytes(addr, original)
                 if not self.breakpoints:
                     yield self._update_dcsr(ebreakm=False)
+                self._log_action('software breakpoint removed')
                 self.send('OK')
 
             def handle_D(subcmd: str) -> None:
                 # Acknowledge detach explicitly.
+                self._log_command('D')
                 self.send('OK')
 
             def handle_v(subcmd: str) -> Generator[Any, None, None]:
                 if subcmd == 'Cont?':
                     # Report supported vCont actions: continue, step.
+                    self._log_command('vCont?')
                     self.send('vCont;c;s')
                 elif subcmd.startswith('Cont;'):
                     actions = subcmd[5:].split(';')
                     # Use the first action that applies to all threads or thread 1.
                     action = actions[0].split(':')[0] if actions else ''
+                    self._log_command('vCont', action)
                     if action == 'c':
                         yield handle_c('')
                     elif action == 's':
@@ -398,8 +474,8 @@ class RSPHandler(object):
                 'v': handle_v,
             }
 
-            cmd, subcmd = pkt[0], pkt[1:]
             if cmd == 'k':
+                self._log_command('k')
                 pass
 
             if cmd not in dispatchers:
@@ -407,11 +483,14 @@ class RSPHandler(object):
                 self.send('')
             else:
                 yield dispatchers[cmd](subcmd)
+            self._log_command_complete(cmd)
         elif result == "Break":
+            self._current_command_label = 'break'
             self.log.info("Break received, halting core")
             yield self.debugAPI.halt()
-            self.log.info("Core halted")
+            self._log_action('core halted')
             self.send('T%.2x' % GDB_SIGNAL_TRAP)
+            self._log_command_complete('break')
 
         self.readySignal.next = True
 
@@ -425,13 +504,12 @@ class RSPHandler(object):
         escaped = False
         while True:
             c = self.netin.read(1)
-            if c == b'\x03':
-                return 'Break'
-
             if len(c) != 1:
                 return 'Error: EOF'
 
             if state == 'Finding SOP':
+                if c == b'\x03':
+                    return 'Break'
                 if c == b'$':
                     state = 'Finding EOP'
             elif state == 'Finding EOP':
