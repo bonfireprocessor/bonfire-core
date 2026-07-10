@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 import pytest
 
 from rtl import config
@@ -11,6 +13,13 @@ from rtl.soc.bonfire_core_soc_generator import (
 from tests.conversion.helpers import analyze_with_ghdl, assert_vhdl_file, conversion_output_dir
 
 pytestmark = pytest.mark.filterwarnings("ignore::myhdl.ToVHDLWarning")
+
+
+def _soc_conversion_hex_path(repo_root):
+    hex_override = os.environ.get("BONFIRE_SOC_CONVERSION_HEX", "").strip()
+    if hex_override:
+        return repo_root / hex_override
+    return repo_root / "code" / "build" / "soc" / "sim" / "dummy.hex"
 
 
 @pytest.mark.parametrize(
@@ -27,7 +36,7 @@ def test_soc_top_vhdl_conversion(
     name: str,
     repo_root,
 ):
-    hex_path = repo_root / "code" / "build" / "soc" / "sim" / "led.hex"
+    hex_path = _soc_conversion_hex_path(repo_root)
     if not hex_path.is_file():
         pytest.skip(f"SoC HEX file not found: {hex_path}")
 
@@ -76,7 +85,7 @@ def test_soc_top_vhdl_conversion(
     ],
 )
 def test_soc_testbench_vhdl_conversion(enable_jtag_debug: bool, name: str, repo_root):
-    hex_path = repo_root / "code" / "build" / "soc" / "sim" / "led.hex"
+    hex_path = _soc_conversion_hex_path(repo_root)
     if not hex_path.is_file():
         pytest.skip(f"SoC HEX file not found: {hex_path}")
 

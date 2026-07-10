@@ -19,31 +19,56 @@ jobs:
           - name: pure tests
             pytest-command: pytest -vv tests/pure
             build-hex: false
+            apt-packages: ""
             diagnostic-command: ""
+            prepare-command: ""
           - name: system core+soc tests
             pytest-command: pytest -vv tests/system/core tests/system/soc
             build-hex: true
+            apt-packages: >-
+              binutils-riscv64-unknown-elf
+              gcc-riscv64-unknown-elf
+              bc
+              bsdextrautils
+              ghdl
+              openocd
             diagnostic-command: ""
+            prepare-command: ""
           - name: system debug + fusesoc tests
             pytest-command: pytest -vv -m "not diagnostic" tests/system/debug tests/fusesoc
             build-hex: true
+            apt-packages: >-
+              binutils-riscv64-unknown-elf
+              gcc-riscv64-unknown-elf
+              bc
+              bsdextrautils
+              ghdl
+              openocd
             diagnostic-command: pytest -vv -m diagnostic tests/system/debug/test_openocd_remote_bitbang.py
+            prepare-command: ""
           - name: conversion tests
             pytest-command: pytest -vv tests/conversion
-            build-hex: true
+            build-hex: false
+            apt-packages: >-
+              ghdl
             diagnostic-command: ""
+            prepare-command: >-
+              mkdir -p code/build/soc/sim &&
+              printf '00000013\n' > code/build/soc/sim/dummy.hex
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Cache apt packages
+        if: ${{ matrix.apt-packages != '' }}
         uses: actions/cache@v4
         with:
           path: ~/.cache/apt/archives
-          key: apt-${{ runner.os }}-riscv-ghdl-${{ hashFiles('.github/workflows/tests.yml') }}
+          key: apt-${{ runner.os }}-${{ matrix.name }}-${{ hashFiles('.github/workflows/tests.yml') }}
           restore-keys: |
-            apt-${{ runner.os }}-riscv-ghdl-
+            apt-${{ runner.os }}-${{ matrix.name }}-
+            apt-${{ runner.os }}-
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -51,20 +76,17 @@ jobs:
           python-version: '3.13'
           cache: 'pip'
 
-      - name: Install RISC-V toolchain + build deps (apt)
+      - name: Install apt dependencies
+        if: ${{ matrix.apt-packages != '' }}
+        env:
+          APT_PACKAGES: ${{ matrix.apt-packages }}
         run: |
           # Restore cached .deb files if available
           if [ -d ~/.cache/apt/archives ]; then
             sudo cp ~/.cache/apt/archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
           fi
           sudo apt-get update
-          sudo apt-get install -y \
-            binutils-riscv64-unknown-elf \
-            gcc-riscv64-unknown-elf \
-            bc \
-            bsdextrautils \
-            ghdl \
-            openocd
+          sudo apt-get install -y $APT_PACKAGES
           # Copy downloaded .deb files to user cache for next run
           mkdir -p ~/.cache/apt/archives
           sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
@@ -75,6 +97,13 @@ jobs:
           . .venv/bin/activate
           python -m pip install -U pip
           python -m pip install -r requirements.txt
+
+      - name: Prepare test inputs
+        if: ${{ matrix.prepare-command != '' }}
+        env:
+          PREPARE_COMMAND: ${{ matrix.prepare-command }}
+        run: |
+          bash -lc "$PREPARE_COMMAND"
 
       - name: Build core integration test programs (HEX)
         if: ${{ matrix.build-hex }}
@@ -111,9 +140,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/apt/archives
-          key: apt-${{ runner.os }}-riscv-ghdl-${{ hashFiles('.github/workflows/tests.yml') }}
+          key: apt-${{ runner.os }}-riscv-compliance-${{ hashFiles('.github/workflows/tests.yml') }}
           restore-keys: |
-            apt-${{ runner.os }}-riscv-ghdl-
+            apt-${{ runner.os }}-riscv-compliance-
+            apt-${{ runner.os }}-
 
       - name: Set up Python
         uses: actions/setup-python@v5
