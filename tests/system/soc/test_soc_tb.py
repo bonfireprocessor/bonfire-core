@@ -10,7 +10,7 @@ from rtl.soc.bonfire_core_soc import BonfireCoreSoC
 from rtl.uncore.dbus_interconnect import DbusInterConnects
 from tb.soc.bonfire_core_soc_tb import BonfireCoreSoCTestbench
 
-from .conftest import run_sim, waveform_config
+from tests.conftest import run_sim, waveform_config
 
 
 def test_soc_native_io_address_map():

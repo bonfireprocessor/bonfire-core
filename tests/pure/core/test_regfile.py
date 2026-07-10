@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from tb import tb_regfile
 
-from .conftest import run_sim
+from tests.conftest import run_sim
 
 
 def test_regfile(sim_env):

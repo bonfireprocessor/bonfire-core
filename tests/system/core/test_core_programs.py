@@ -8,7 +8,7 @@ import pytest
 from rtl import config
 from tb import tb_core
 
-from .conftest import assert_monitor_pass, run_sim, waveform_config
+from tests.conftest import assert_monitor_pass, run_sim, waveform_config
 
 
 def _opt_env(name: str) -> str | None:
