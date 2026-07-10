@@ -8,7 +8,7 @@ import pytest
 from rtl import config
 from tb.debug.tb_debug_module import BonfireCoreDebugTestbench
 
-from .conftest import SimFailure, run_sim, waveform_config
+from tests.conftest import SimFailure, run_sim, waveform_config
 
 
 def _run_debug_module_test(

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from tb import tb_barrel_shifter
 
-from .conftest import run_sim
+from tests.conftest import run_sim
 
 
 def test_barrel_left_shift_comb(sim_env):

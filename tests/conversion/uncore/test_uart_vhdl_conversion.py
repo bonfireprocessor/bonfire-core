@@ -7,42 +7,6 @@ from myhdl import ResetSignal, Signal, ToVHDLWarning
 from rtl import config
 from rtl.bonfire_interfaces import DbusBundle
 from rtl.uncore.uart import BonfireUart
-from tb.uncore.uart import tb_uart
-
-from .conftest import run_sim, waveform_config
-
-
-def test_uart_registers(request, sim_env):
-    trace, filename = waveform_config(request, sim_env, "uart_registers")
-    run_sim(
-        tb_uart.tb_uart_registers(),
-        trace=trace,
-        filename=filename,
-        waveforms_dir=sim_env["waveforms_dir"],
-        duration=5000,
-    )
-
-
-def test_uart_tx_capture(request, sim_env):
-    trace, filename = waveform_config(request, sim_env, "uart_tx_capture")
-    run_sim(
-        tb_uart.tb_uart_tx_capture(),
-        trace=trace,
-        filename=filename,
-        waveforms_dir=sim_env["waveforms_dir"],
-        duration=20000,
-    )
-
-
-def test_uart_rx(request, sim_env):
-    trace, filename = waveform_config(request, sim_env, "uart_rx")
-    run_sim(
-        tb_uart.tb_uart_rx(),
-        trace=trace,
-        filename=filename,
-        waveforms_dir=sim_env["waveforms_dir"],
-        duration=10000,
-    )
 
 
 def test_uart_vhdl_conversion(repo_root):

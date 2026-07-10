@@ -8,7 +8,7 @@ from typing import Callable
 from myhdl import ToVHDLWarning
 
 from tests.conftest import run_sim, waveform_config
-from tests.test_dbus_interconnect import (
+from tests.pure.uncore.test_dbus_interconnect import (
     dbus_interconnect_master8_vhdl_tb,
     dbus_interconnect_signal_array_vhdl_tb,
 )

@@ -12,7 +12,7 @@ from myhdl import *
 from rtl.divider import DividerBundle
 from rtl import config
 
-from .conftest import run_sim
+from tests.conftest import run_sim
 
 
 def divider_testbench(signed_mode: bool = False, test_remainder: bool = False):

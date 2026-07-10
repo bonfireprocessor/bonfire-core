@@ -5,7 +5,7 @@ import pytest
 from rtl import config
 from tb import tb_loadstore
 
-from .conftest import run_sim
+from tests.conftest import run_sim
 
 
 @pytest.mark.parametrize(

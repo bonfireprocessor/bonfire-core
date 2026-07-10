@@ -3,7 +3,7 @@ from __future__ import annotations
 from rtl import config
 from tb import tb_fetch, tb_simple_pipeline
 
-from .conftest import run_sim
+from tests.conftest import run_sim
 
 
 def test_simple_pipeline_comb_shifter(sim_env):

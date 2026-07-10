@@ -22,7 +22,7 @@ from openocd_bitbang.probe import RemoteBitbangClient, ScanResult
 from rtl.debug.ecp5_jtagg_client import ECP5_JTAGG_IR_ER1, ECP5_JTAGG_IR_ER2, ECP5_JTAGG_IR_WIDTH
 from rtl.debug.ecp5_jtagg_tap import ECP5_JTAG_EXPECTED_IDCODES, ECP5_JTAG_IDCODE_DEFAULT
 from rtl.debug.jtag_dtm import JTAG_IDCODE, JTAG_IR_WIDTH
-from .conftest import waveform_config
+from tests.conftest import waveform_config
 
 OPENOCD_TIMEOUT_SECONDS = 60.0
 OPENOCD_CORE_TARGET_TIMEOUT_SECONDS = 60.0

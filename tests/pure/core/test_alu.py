@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from tb import tb_alu
 
-from .conftest import run_sim
+from tests.conftest import run_sim
 
 
 def test_alu_behavioral(sim_env):
