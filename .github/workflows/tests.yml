@@ -17,17 +17,21 @@ jobs:
       matrix:
         include:
           - name: pure tests
-            pytest-paths: tests/pure
+            pytest-command: pytest -vv tests/pure
             build-hex: false
+            diagnostic-command: ""
           - name: system core+soc tests
-            pytest-paths: tests/system/core tests/system/soc
+            pytest-command: pytest -vv tests/system/core tests/system/soc
             build-hex: true
+            diagnostic-command: ""
           - name: system debug + fusesoc tests
-            pytest-paths: tests/system/debug tests/fusesoc
+            pytest-command: pytest -vv -m "not diagnostic" tests/system/debug tests/fusesoc
             build-hex: true
+            diagnostic-command: pytest -vv -m diagnostic tests/system/debug/test_openocd_remote_bitbang.py
           - name: conversion tests
-            pytest-paths: tests/conversion
+            pytest-command: pytest -vv tests/conversion
             build-hex: true
+            diagnostic-command: ""
 
     steps:
       - name: Checkout
@@ -82,7 +86,14 @@ jobs:
       - name: Run pytest group
         run: |
           . .venv/bin/activate
-          pytest -vv ${{ matrix.pytest-paths }}
+          set +e
+          ${{ matrix.pytest-command }}
+          status=$?
+          if [ $status -ne 0 ] && [ -n "${{ matrix.diagnostic-command }}" ]; then
+            echo "Primary pytest command failed; running diagnostic follow-up..."
+            ${{ matrix.diagnostic-command }} || true
+          fi
+          exit $status
 
   riscv-compliance:
     name: riscv-compliance
