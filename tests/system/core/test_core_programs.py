@@ -52,7 +52,7 @@ def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
     if "hex_path" not in metafunc.fixturenames:
         return
 
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[3]
     selected_hex = metafunc.config.getoption("--bonfire-hex")
     metafunc.parametrize("hex_path", _hex_files(repo_root, selected_hex))
 
@@ -106,7 +106,7 @@ def test_core(
     hex_path: str,
     enable_debug_module: bool,
 ):
-    repo_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[3]
     hex_file, elf_file, sig_file = _paths_for_hex(repo_root, request, hex_path)
 
     verbose = _opt_env("BONFIRE_CORE_VERBOSE") in ("1", "true", "yes", "on")
