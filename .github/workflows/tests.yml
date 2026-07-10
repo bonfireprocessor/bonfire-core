@@ -84,14 +84,17 @@ jobs:
           make -C code clean all TARGET_PREFIX=riscv64-unknown-elf
 
       - name: Run pytest group
+        env:
+          PYTEST_COMMAND: ${{ matrix.pytest-command }}
+          DIAGNOSTIC_COMMAND: ${{ matrix.diagnostic-command }}
         run: |
           . .venv/bin/activate
           set +e
-          ${{ matrix.pytest-command }}
+          bash -lc "$PYTEST_COMMAND"
           status=$?
-          if [ $status -ne 0 ] && [ -n "${{ matrix.diagnostic-command }}" ]; then
+          if [ $status -ne 0 ] && [ -n "$DIAGNOSTIC_COMMAND" ]; then
             echo "Primary pytest command failed; running diagnostic follow-up..."
-            ${{ matrix.diagnostic-command }} || true
+            bash -lc "$DIAGNOSTIC_COMMAND" || true
           fi
           exit $status
 
