@@ -22,8 +22,9 @@ jobs:
             apt-packages: ""
             diagnostic-command: ""
             prepare-command: ""
+            pip-packages: ""
           - name: system core+soc tests
-            pytest-command: pytest -vv tests/system/core tests/system/soc
+            pytest-command: pytest -vv -n auto tests/system/core && pytest -vv tests/system/soc
             build-hex: true
             apt-packages: >-
               binutils-riscv64-unknown-elf
@@ -34,6 +35,7 @@ jobs:
               openocd
             diagnostic-command: ""
             prepare-command: ""
+            pip-packages: pytest-xdist
           - name: system debug + fusesoc tests
             pytest-command: pytest -vv -m "not diagnostic" tests/system/debug tests/fusesoc
             build-hex: true
@@ -46,6 +48,7 @@ jobs:
               openocd
             diagnostic-command: pytest -vv -m diagnostic tests/system/debug/test_openocd_remote_bitbang.py
             prepare-command: ""
+            pip-packages: ""
           - name: conversion tests
             pytest-command: pytest -vv tests/conversion
             build-hex: false
@@ -55,6 +58,7 @@ jobs:
             prepare-command: >-
               mkdir -p code/build/soc/sim &&
               printf '0000006f\n' > code/build/soc/sim/dummy.hex
+            pip-packages: ""
 
     steps:
       - name: Checkout
@@ -97,6 +101,14 @@ jobs:
           . .venv/bin/activate
           python -m pip install -U pip
           python -m pip install -r requirements.txt
+
+      - name: Install extra Python packages
+        if: ${{ matrix.pip-packages != '' }}
+        env:
+          PIP_PACKAGES: ${{ matrix.pip-packages }}
+        run: |
+          . .venv/bin/activate
+          python -m pip install $PIP_PACKAGES
 
       - name: Prepare test inputs
         if: ${{ matrix.prepare-command != '' }}
