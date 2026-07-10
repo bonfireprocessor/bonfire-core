@@ -54,7 +54,7 @@ jobs:
             diagnostic-command: ""
             prepare-command: >-
               mkdir -p code/build/soc/sim &&
-              printf '00000013\n' > code/build/soc/sim/dummy.hex
+              printf '0000006f\n' > code/build/soc/sim/dummy.hex
 
     steps:
       - name: Checkout
