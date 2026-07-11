@@ -23,6 +23,14 @@ jobs:
             diagnostic-command: ""
             prepare-command: ""
             pip-packages: ""
+          - name: dbus interconnect tests
+            pytest-command: pytest -vv tests/dbus_interconnect
+            build-hex: false
+            apt-packages: >-
+              ghdl
+            diagnostic-command: ""
+            prepare-command: ""
+            pip-packages: ""
           - name: system core+soc tests
             pytest-command: pytest -vv -n auto tests/system/core && pytest -vv tests/system/soc
             build-hex: true
