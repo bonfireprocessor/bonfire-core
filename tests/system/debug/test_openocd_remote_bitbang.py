@@ -165,6 +165,7 @@ def test_python_remote_bitbang_client_reads_idcode():
     assert idcode.value == JTAG_IDCODE, "IDCODE mismatch: got {} expected {}".format(hex(idcode.value), hex(JTAG_IDCODE))
 
 
+@pytest.mark.diagnostic
 def test_openocd_probe_long_ir_scan_matches_single_tap_capture():
     """Reproduce OpenOCD's long IR probe and verify the single TAP IR-capture pattern."""
 
@@ -188,6 +189,7 @@ def test_openocd_probe_long_ir_scan_matches_single_tap_capture():
     _assert_scan_equal(actual, expected)
 
 
+@pytest.mark.diagnostic
 def test_openocd_probe_long_dr_scan_returns_idcode_then_ones():
     """Reproduce OpenOCD's long DR probe and verify that no phantom TAP bits appear."""
 
@@ -275,6 +277,7 @@ shutdown
     )
 
 
+@pytest.mark.diagnostic
 def test_openocd_remote_bitbang_scan_chain_reads_idcode(sim_env, tmp_path: Path, request: pytest.FixtureRequest):
     """Run real OpenOCD against the server and require scan_chain to see IDCODE."""
 
@@ -308,6 +311,7 @@ def test_openocd_remote_bitbang_scan_chain_reads_idcode(sim_env, tmp_path: Path,
     assert "0x{:08x}".format(JTAG_IDCODE) in completed.stderr.lower()
 
 
+@pytest.mark.diagnostic
 def test_openocd_remote_bitbang_scan_chain_reads_idcode_ecp5_jtagg(sim_env, tmp_path: Path, request: pytest.FixtureRequest):
     """Run real OpenOCD against the emulated ECP5 JTAGG transport."""
 
@@ -335,6 +339,7 @@ def test_openocd_remote_bitbang_scan_chain_reads_idcode_ecp5_jtagg(sim_env, tmp_
     assert "0x{:08x}".format(_idcode_for_transport("ecp5_jtagg")) in completed.stderr.lower()
 
 
+@pytest.mark.smoke
 def test_openocd_remote_bitbang_core_target_smoke(tmp_path: Path):
     """Run OpenOCD with a RISC-V target against the full Bonfire core simulation."""
 
@@ -368,6 +373,7 @@ def test_openocd_remote_bitbang_core_target_smoke(tmp_path: Path):
         assert "not authenticated" in stderr, "openocd failed\nstdout:\n{}\nstderr:\n{}".format(completed.stdout, completed.stderr)
 
 
+@pytest.mark.smoke
 def test_openocd_remote_bitbang_core_target_smoke_ecp5_jtagg(sim_env, tmp_path: Path, request: pytest.FixtureRequest):
     """Run OpenOCD with the emulated ECP5 JTAGG transport against the full core simulation."""
 

@@ -24,6 +24,8 @@ pytest
 
 ```text
 tests/
+  dbus_interconnect/
+
   pure/
     core/
     debug/
@@ -67,12 +69,24 @@ pytest -vv tests/pure/core
 Purpose: validate standalone uncore blocks without firmware images.
 
 Pytest files:
-- `tests/pure/uncore/test_dbus_interconnect.py`
 - `tests/pure/uncore/test_uart.py`
 
 Run:
 ```bash
 pytest -vv tests/pure/uncore
+```
+
+### DBus interconnect tests
+Purpose: validate the DBus interconnect as one independent group across pure MyHDL behavior, VHDL conversion, and FuseSoC/GHDL execution.
+
+Pytest files:
+- `tests/dbus_interconnect/test_myhdl.py`
+- `tests/dbus_interconnect/test_conversion.py`
+- `tests/dbus_interconnect/test_fusesoc.py`
+
+Run:
+```bash
+pytest -vv tests/dbus_interconnect
 ```
 
 ### Pure debug tests
@@ -155,23 +169,29 @@ Pytest files:
 - `tests/conversion/soc/test_vhdl_conversion_soc.py`
 - `tests/conversion/uncore/test_uart_vhdl_conversion.py`
 
+Notes:
+- DBus interconnect conversion coverage lives in the dedicated `tests/dbus_interconnect/` group.
+
 Run:
 ```bash
 pytest -vv tests/conversion
 ```
 
 ### FuseSoC tests
-Purpose: validate FuseSoC-level packaging/build and converted-VHDL execution paths.
+Purpose: validate FuseSoC-level packaging/build and converted-VHDL execution paths that still benefit from a pytest wrapper.
 
 Pytest files:
 - `tests/fusesoc/test_core.py`
-- `tests/fusesoc/test_dbus_interconnect.py`
-- `tests/fusesoc/test_soc.py`
 
 Run:
 ```bash
 pytest -vv tests/fusesoc
 ```
+
+Notes:
+- DBus interconnect FuseSoC coverage lives in the dedicated `tests/dbus_interconnect/` group.
+- The self-checking SoC FuseSoC simulation targets `sim` and `sim_extended` are intentionally not wrapped by pytest.
+- They are run directly in CI via `fusesoc run --target=... ::bonfire-core-soc:0`.
 
 ## Waveforms
 

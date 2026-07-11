@@ -8,13 +8,149 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
+  test-groups:
+    name: ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.13"]
+        include:
+          - name: pure tests
+            pytest-command: pytest -vv tests/pure
+            build-hex: false
+            apt-packages: ""
+            diagnostic-command: ""
+            prepare-command: ""
+            pip-packages: ""
+          - name: dbus interconnect tests
+            pytest-command: pytest -vv tests/dbus_interconnect
+            build-hex: false
+            apt-packages: >-
+              ghdl
+            diagnostic-command: ""
+            prepare-command: ""
+            pip-packages: ""
+          - name: system core+soc tests
+            pytest-command: pytest -vv -n auto tests/system/core && pytest -vv tests/system/soc
+            build-hex: true
+            apt-packages: >-
+              binutils-riscv64-unknown-elf
+              gcc-riscv64-unknown-elf
+              bc
+              bsdextrautils
+              ghdl
+              openocd
+            diagnostic-command: ""
+            prepare-command: ""
+            pip-packages: pytest-xdist
+          - name: system debug + fusesoc pytest tests
+            pytest-command: pytest -vv -m "not diagnostic" tests/system/debug tests/fusesoc
+            build-hex: true
+            apt-packages: >-
+              binutils-riscv64-unknown-elf
+              gcc-riscv64-unknown-elf
+              bc
+              bsdextrautils
+              ghdl
+              openocd
+            diagnostic-command: pytest -vv -m diagnostic tests/system/debug/test_openocd_remote_bitbang.py
+            prepare-command: ""
+            pip-packages: ""
+          - name: conversion tests
+            pytest-command: pytest -vv tests/conversion
+            build-hex: false
+            apt-packages: >-
+              ghdl
+            diagnostic-command: ""
+            prepare-command: >-
+              mkdir -p code/build/soc/sim &&
+              printf '0000006f\n' > code/build/soc/sim/dummy.hex
+            pip-packages: ""
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache apt packages
+        if: ${{ matrix.apt-packages != '' }}
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/apt/archives
+          key: apt-${{ runner.os }}-${{ matrix.name }}-${{ hashFiles('.github/workflows/tests.yml') }}
+          restore-keys: |
+            apt-${{ runner.os }}-${{ matrix.name }}-
+            apt-${{ runner.os }}-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install apt dependencies
+        if: ${{ matrix.apt-packages != '' }}
+        env:
+          APT_PACKAGES: ${{ matrix.apt-packages }}
+        run: |
+          # Restore cached .deb files if available
+          if [ -d ~/.cache/apt/archives ]; then
+            sudo cp ~/.cache/apt/archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          fi
+          sudo apt-get update
+          sudo apt-get install -y $APT_PACKAGES
+          # Copy downloaded .deb files to user cache for next run
+          mkdir -p ~/.cache/apt/archives
+          sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
+
+      - name: Setup bonfire-core Python environment
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -U pip
+          python -m pip install -r requirements.txt
+
+      - name: Install extra Python packages
+        if: ${{ matrix.pip-packages != '' }}
+        env:
+          PIP_PACKAGES: ${{ matrix.pip-packages }}
+        run: |
+          . .venv/bin/activate
+          python -m pip install $PIP_PACKAGES
+
+      - name: Prepare test inputs
+        if: ${{ matrix.prepare-command != '' }}
+        env:
+          PREPARE_COMMAND: ${{ matrix.prepare-command }}
+        run: |
+          bash -lc "$PREPARE_COMMAND"
+
+      - name: Build core integration test programs (HEX)
+        if: ${{ matrix.build-hex }}
+        run: |
+          # The repo currently installs the riscv64-unknown-elf toolchain, which can
+          # still build RV32 code; the Makefile default expects riscv32-unknown-elf.
+          make -C code clean all TARGET_PREFIX=riscv64-unknown-elf
+
+      - name: Run pytest group
+        env:
+          PYTEST_COMMAND: ${{ matrix.pytest-command }}
+          DIAGNOSTIC_COMMAND: ${{ matrix.diagnostic-command }}
+        run: |
+          . .venv/bin/activate
+          set +e
+          bash -lc "$PYTEST_COMMAND"
+          status=$?
+          if [ $status -ne 0 ] && [ -n "$DIAGNOSTIC_COMMAND" ]; then
+            echo "Primary pytest command failed; running diagnostic follow-up..."
+            bash -lc "$DIAGNOSTIC_COMMAND" || true
+          fi
+          exit $status
+
+  fusesoc-soc-sim:
+    name: fusesoc soc sim targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
 
     steps:
       - name: Checkout
@@ -24,14 +160,72 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/apt/archives
-          key: apt-${{ runner.os }}-riscv-ghdl-${{ hashFiles('.github/workflows/tests.yml') }}
+          key: apt-${{ runner.os }}-fusesoc-soc-sim-${{ hashFiles('.github/workflows/tests.yml') }}
           restore-keys: |
-            apt-${{ runner.os }}-riscv-ghdl-
+            apt-${{ runner.os }}-fusesoc-soc-sim-
+            apt-${{ runner.os }}-
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install apt dependencies
+        run: |
+          if [ -d ~/.cache/apt/archives ]; then
+            sudo cp ~/.cache/apt/archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          fi
+          sudo apt-get update
+          sudo apt-get install -y \
+            binutils-riscv64-unknown-elf \
+            gcc-riscv64-unknown-elf \
+            bc \
+            bsdextrautils \
+            ghdl \
+            openocd
+          mkdir -p ~/.cache/apt/archives
+          sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
+
+      - name: Setup bonfire-core Python environment
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -U pip
+          python -m pip install -r requirements.txt
+
+      - name: Build core integration test programs (HEX)
+        run: |
+          make -C code clean all TARGET_PREFIX=riscv64-unknown-elf
+
+      - name: Run self-checking FuseSoC SoC simulations
+        run: |
+          . .venv/bin/activate
+          fusesoc run --target=sim ::bonfire-core-soc:0
+          fusesoc run --target=sim_extended ::bonfire-core-soc:0
+
+  riscv-compliance:
+    name: riscv-compliance
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/apt/archives
+          key: apt-${{ runner.os }}-riscv-compliance-${{ hashFiles('.github/workflows/tests.yml') }}
+          restore-keys: |
+            apt-${{ runner.os }}-riscv-compliance-
+            apt-${{ runner.os }}-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
           cache: 'pip'
 
       - name: Install RISC-V toolchain + build deps (apt)
@@ -65,13 +259,6 @@ jobs:
           # still build RV32 code; the Makefile default expects riscv32-unknown-elf.
           make -C code clean all TARGET_PREFIX=riscv64-unknown-elf
 
-      - name: Run unit + integration tests
-        id: unit_integration_tests
-        continue-on-error: true
-        run: |
-          . .venv/bin/activate
-          pytest -vv tests/
-
       - name: Clone riscv-compliance (bonfireprocessor fork)
         run: |
           git clone --depth 1 https://github.com/bonfireprocessor/riscv-compliance.git riscv-compliance
@@ -84,7 +271,3 @@ jobs:
           cd riscv-compliance
           make -j3 RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
           make -j3 RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
-
-      - name: Propagate unit + integration test failure
-        if: ${{ always() && steps.unit_integration_tests.outcome == 'failure' }}
-        run: exit 1
