@@ -253,11 +253,14 @@ SoC in three modes:
 The separate FuseSoC target `sim_converted` runs the original simple LED test
 using the testbench converted directly from MyHDL.
 
+The self-checking FuseSoC/GHDL targets `sim` and `sim_extended` are intended to
+run directly rather than through a pytest wrapper.
+
 Run the generated-SoC GHDL test through FuseSoC with:
 
 ```sh
 fusesoc run --target=sim ::bonfire-core-soc:0
-fusesoc run --target=sim_converted ::bonfire-core-soc:0
+fusesoc run --target=sim_extended ::bonfire-core-soc:0
 ```
 
 The older `uncore/tb_soc.py` testbench for `bonfireCoreExtendedInterface` has

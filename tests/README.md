@@ -161,17 +161,20 @@ pytest -vv tests/conversion
 ```
 
 ### FuseSoC tests
-Purpose: validate FuseSoC-level packaging/build and converted-VHDL execution paths.
+Purpose: validate FuseSoC-level packaging/build and converted-VHDL execution paths that still benefit from a pytest wrapper.
 
 Pytest files:
 - `tests/fusesoc/test_core.py`
 - `tests/fusesoc/test_dbus_interconnect.py`
-- `tests/fusesoc/test_soc.py`
 
 Run:
 ```bash
 pytest -vv tests/fusesoc
 ```
+
+Notes:
+- The self-checking SoC FuseSoC simulation targets `sim` and `sim_extended` are intentionally not wrapped by pytest.
+- They are run directly in CI via `fusesoc run --target=... ::bonfire-core-soc:0`.
 
 ## Waveforms
 
