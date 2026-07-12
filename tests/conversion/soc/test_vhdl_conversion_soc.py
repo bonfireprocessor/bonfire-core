@@ -15,11 +15,14 @@ from tests.conversion.helpers import analyze_with_ghdl, assert_vhdl_file, conver
 pytestmark = pytest.mark.filterwarnings("ignore::myhdl.ToVHDLWarning")
 
 
-def _soc_conversion_hex_path(repo_root):
+def _soc_conversion_hex_path(repo_root, tmp_path):
     hex_override = os.environ.get("BONFIRE_SOC_CONVERSION_HEX", "").strip()
     if hex_override:
         return repo_root / hex_override
-    return repo_root / "code" / "build" / "soc" / "sim" / "dummy.hex"
+
+    hex_path = tmp_path / "dummy.hex"
+    hex_path.write_text("0000006f\n", encoding="utf-8")
+    return hex_path
 
 
 @pytest.mark.parametrize(
@@ -35,8 +38,9 @@ def test_soc_top_vhdl_conversion(
     debug_jtag_transport: str,
     name: str,
     repo_root,
+    tmp_path,
 ):
-    hex_path = _soc_conversion_hex_path(repo_root)
+    hex_path = _soc_conversion_hex_path(repo_root, tmp_path)
     if not hex_path.is_file():
         pytest.skip(f"SoC HEX file not found: {hex_path}")
 
@@ -84,8 +88,8 @@ def test_soc_top_vhdl_conversion(
         (True, "tb_bonfire_core_soc_jtag"),
     ],
 )
-def test_soc_testbench_vhdl_conversion(enable_jtag_debug: bool, name: str, repo_root):
-    hex_path = _soc_conversion_hex_path(repo_root)
+def test_soc_testbench_vhdl_conversion(enable_jtag_debug: bool, name: str, repo_root, tmp_path):
+    hex_path = _soc_conversion_hex_path(repo_root, tmp_path)
     if not hex_path.is_file():
         pytest.skip(f"SoC HEX file not found: {hex_path}")
 

@@ -132,13 +132,51 @@
             "console": "integratedTerminal"
         },
         {
-            "name": "openocd_bitbang_server ",
+            "name": "Debug openocd_bitbang_server ",
             "cwd": "${workspaceFolder}",
             "module": "openocd_bitbang",
             "type": "debugpy",
             "request": "launch",
             "console": "integratedTerminal",
             "args": ["--port=3335","--debug-trace"]
+        },
+        {
+            "name": "GDB debug on FPGA: Ice Pi Zero monitor (OpenOCD/JTAGG)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/code/build/soc/icepizero/monitor.elf",
+            "cwd": "${workspaceFolder}",
+            "MIMode": "gdb",
+            "stopAtEntry": true,
+            // cppdbg has no RISC-V value and otherwise aborts while parsing the ELF.
+            // This only selects a 32-bit MIEngine code path; GDB still detects RISC-V.
+            "targetArchitecture": "arm",
+            "miDebuggerPath": "/opt/homebrew/bin/gdb",
+            "miDebuggerServerAddress": "localhost:3333",
+            "debugServerPath": "/opt/homebrew/bin/openocd",
+            "debugServerArgs": "-f ${workspaceFolder}/openocd/ecp5_jtagg.cfg",
+            "serverStarted": "Listening on port 3333 for gdb connections",
+            "filterStderr": true,
+            "customLaunchSetupCommands": [
+                 {
+                    "description": "set Architecture",
+                    "text": "set arch riscv:rv32",
+                    "ignoreFailures": true
+                },
+                {
+                    "text": "-file-exec-and-symbols ${workspaceFolder}/code/build/soc/icepizero/monitor.elf"
+                },
+                {
+                    "text": "-target-select extended-remote localhost:3333"
+                },
+                {
+                    "text": "-interpreter-exec console \"monitor reset\""
+                },
+                {
+                    "text": "-interpreter-exec console \"load\""
+                }
+            ],
+            "launchCompleteCommand": "None"
         }
 
     ]
