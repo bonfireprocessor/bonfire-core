@@ -1,0 +1,112 @@
+name: fpga artifacts
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-icepizero-bitstreams:
+    name: ${{ matrix.target }} bitstream
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - icepizero_extended
+          - icepizero_jtagg
+          - icepizero
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Cache apt packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/apt/archives
+          key: apt-${{ runner.os }}-fpga-artifacts-${{ hashFiles('.github/workflows/fpga-artifacts.yml') }}
+          restore-keys: |
+            apt-${{ runner.os }}-fpga-artifacts-
+            apt-${{ runner.os }}-
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+
+      - name: Install apt dependencies
+        run: |
+          if [ -d ~/.cache/apt/archives ]; then
+            sudo cp ~/.cache/apt/archives/*.deb /var/cache/apt/archives/ 2>/dev/null || true
+          fi
+          sudo apt-get update
+          sudo apt-get install -y \
+            binutils-riscv64-unknown-elf \
+            gcc-riscv64-unknown-elf \
+            bc \
+            bsdextrautils \
+            ghdl \
+            openocd
+          mkdir -p ~/.cache/apt/archives
+          sudo cp /var/cache/apt/archives/*.deb ~/.cache/apt/archives/ 2>/dev/null || true
+
+      - name: Setup bonfire-core Python environment
+        run: |
+          python -m venv .venv
+          . .venv/bin/activate
+          python -m pip install -U pip
+          python -m pip install -r requirements.txt
+
+      - name: Download latest OSS CAD Suite nightly
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          api_url="https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/latest"
+          asset_url=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            "$api_url" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(a["browser_download_url"] for a in data["assets"] if a["name"].startswith("oss-cad-suite-linux-x64-") and a["name"].endswith(".tgz")))')
+          mkdir -p .tools
+          curl -fsSL "$asset_url" -o .tools/oss-cad-suite.tgz
+          rm -rf .tools/oss-cad-suite
+          mkdir -p .tools/oss-cad-suite
+          tar -xzf .tools/oss-cad-suite.tgz -C .tools/oss-cad-suite --strip-components=1
+          echo "OSS_CAD_SUITE_ENV=$GITHUB_WORKSPACE/.tools/oss-cad-suite/environment" >> "$GITHUB_ENV"
+
+      - name: Build core integration test programs (HEX)
+        run: |
+          make -C code clean all TARGET_PREFIX=riscv64-unknown-elf
+
+      - name: Build FPGA target
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          . .venv/bin/activate
+          . "$OSS_CAD_SUITE_ENV"
+          export PATH="$GITHUB_WORKSPACE/.venv/bin:$PATH"
+          hash -r
+          command -v python3
+          command -v yosys
+          command -v nextpnr-ecp5
+          command -v fusesoc
+          fusesoc run --target="$TARGET" ::bonfire-core-soc:0
+
+      - name: Collect build artifacts
+        env:
+          TARGET: ${{ matrix.target }}
+        run: |
+          set -euo pipefail
+          build_dir="build/bonfire-core-soc_0/${TARGET}-trellis"
+          mkdir -p artifacts
+          cp "$build_dir/bonfire-core-soc_0.bit" "artifacts/${TARGET}.bit"
+          cp "$build_dir/next.log" "artifacts/${TARGET}-next.log"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}-artifacts
+          path: artifacts/
+          if-no-files-found: error
