@@ -5,16 +5,9 @@ on:
 
 jobs:
   build-icepizero-bitstreams:
-    name: ${{ matrix.target }} bitstream
+    name: build icepizero bitstreams
     runs-on: ubuntu-latest
     timeout-minutes: 120
-    strategy:
-      fail-fast: false
-      matrix:
-        target:
-          - icepizero_extended
-          - icepizero_jtagg
-          - icepizero
 
     steps:
       - name: Checkout
@@ -79,9 +72,7 @@ jobs:
         run: |
           make -C code clean all TARGET_PREFIX=riscv64-unknown-elf
 
-      - name: Build FPGA target
-        env:
-          TARGET: ${{ matrix.target }}
+      - name: Build FPGA targets
         run: |
           set -euo pipefail
           . .venv/bin/activate
@@ -92,21 +83,34 @@ jobs:
           command -v yosys
           command -v nextpnr-ecp5
           command -v fusesoc
-          fusesoc run --target="$TARGET" ::bonfire-core-soc:0
 
-      - name: Collect build artifacts
-        env:
-          TARGET: ${{ matrix.target }}
-        run: |
-          set -euo pipefail
-          build_dir="build/bonfire-core-soc_0/${TARGET}-trellis"
-          mkdir -p artifacts
-          cp "$build_dir/bonfire-core-soc_0.bit" "artifacts/${TARGET}.bit"
-          cp "$build_dir/next.log" "artifacts/${TARGET}-next.log"
+          fusesoc run --target=icepizero ::bonfire-core-soc:0
+          fusesoc run --target=icepizero_jtagg ::bonfire-core-soc:0
+          fusesoc run --target=icepizero_extended --flag=fw_monitor ::bonfire-core-soc:0
 
-      - name: Upload build artifacts
+      - name: Upload icepizero artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.target }}-artifacts
-          path: artifacts/
+          name: icepizero-artifacts
+          path: |
+            build/bonfire-core-soc_0/icepizero-trellis/bonfire-core-soc_0.bit
+            build/bonfire-core-soc_0/icepizero-trellis/next.log
+          if-no-files-found: error
+
+      - name: Upload icepizero_jtagg artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: icepizero_jtagg-artifacts
+          path: |
+            build/bonfire-core-soc_0/icepizero_jtagg-trellis/bonfire-core-soc_0.bit
+            build/bonfire-core-soc_0/icepizero_jtagg-trellis/next.log
+          if-no-files-found: error
+
+      - name: Upload icepizero_extended artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: icepizero_extended-artifacts
+          path: |
+            build/bonfire-core-soc_0/icepizero_extended-trellis/bonfire-core-soc_0.bit
+            build/bonfire-core-soc_0/icepizero_extended-trellis/next.log
           if-no-files-found: error
