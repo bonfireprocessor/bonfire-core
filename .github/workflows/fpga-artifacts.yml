@@ -100,9 +100,9 @@ jobs:
           export PATH="$GITHUB_WORKSPACE/.venv/bin:$PATH"
           hash -r
 
-          export YOSYS_VERSION="$(yosys --version)"
-          export NEXTPNR_VERSION="$(nextpnr-ecp5 --version | head -n 1)"
-          export GHDL_VERSION="$(ghdl --version | head -n 1)"
+          export YOSYS_VERSION="$(yosys --version 2>&1 | head -n 1)"
+          export NEXTPNR_VERSION="$(nextpnr-ecp5 --version 2>&1 | head -n 1)"
+          export GHDL_VERSION="$(ghdl --version 2>&1 | head -n 1)"
 
           python3 - <<'PY'
           import os
