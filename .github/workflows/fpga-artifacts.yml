@@ -57,16 +57,20 @@ jobs:
         run: |
           set -euo pipefail
           api_url="https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/latest"
-          asset_url=$(curl -fsSL \
+          release_json=$(curl -fsSL \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
-            "$api_url" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(a["browser_download_url"] for a in data["assets"] if a["name"].startswith("oss-cad-suite-linux-x64-") and a["name"].endswith(".tgz")))')
+            "$api_url")
+          asset_name=$(printf '%s' "$release_json" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(a["name"] for a in data["assets"] if a["name"].startswith("oss-cad-suite-linux-x64-") and a["name"].endswith(".tgz")))')
+          asset_url=$(printf '%s' "$release_json" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(a["browser_download_url"] for a in data["assets"] if a["name"].startswith("oss-cad-suite-linux-x64-") and a["name"].endswith(".tgz")))')
           mkdir -p .tools
           curl -fsSL "$asset_url" -o .tools/oss-cad-suite.tgz
           rm -rf .tools/oss-cad-suite
           mkdir -p .tools/oss-cad-suite
           tar -xzf .tools/oss-cad-suite.tgz -C .tools/oss-cad-suite --strip-components=1
           echo "OSS_CAD_SUITE_ENV=$GITHUB_WORKSPACE/.tools/oss-cad-suite/environment" >> "$GITHUB_ENV"
+          echo "OSS_CAD_SUITE_ASSET_NAME=$asset_name" >> "$GITHUB_ENV"
+          echo "OSS_CAD_SUITE_ASSET_URL=$asset_url" >> "$GITHUB_ENV"
 
       - name: Build core integration test programs (HEX)
         run: |
@@ -88,6 +92,41 @@ jobs:
           fusesoc run --target=icepizero_jtagg ::bonfire-core-soc:0
           fusesoc run --target=icepizero_extended --flag=fw_monitor ::bonfire-core-soc:0
 
+      - name: Write build facts
+        run: |
+          set -euo pipefail
+          . .venv/bin/activate
+          . "$OSS_CAD_SUITE_ENV"
+          export PATH="$GITHUB_WORKSPACE/.venv/bin:$PATH"
+          hash -r
+
+          export YOSYS_VERSION="$(yosys --version)"
+          export NEXTPNR_VERSION="$(nextpnr-ecp5 --version | head -n 1)"
+          export GHDL_VERSION="$(ghdl --version | head -n 1)"
+
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          content = "\n".join([
+              "# Build facts",
+              "",
+              f"- OSS CAD Suite nightly asset: `{os.environ['OSS_CAD_SUITE_ASSET_NAME']}`",
+              f"- OSS CAD Suite nightly URL: <{os.environ['OSS_CAD_SUITE_ASSET_URL']}>",
+              f"- yosys: `{os.environ['YOSYS_VERSION']}`",
+              f"- nextpnr-ecp5: `{os.environ['NEXTPNR_VERSION']}`",
+              f"- ghdl: `{os.environ['GHDL_VERSION']}`",
+              "",
+          ])
+
+          for rel_dir in [
+              "build/bonfire-core-soc_0/icepizero-trellis",
+              "build/bonfire-core-soc_0/icepizero_jtagg-trellis",
+              "build/bonfire-core-soc_0/icepizero_extended-trellis",
+          ]:
+              Path(rel_dir, "build-facts.md").write_text(content)
+          PY
+
       - name: Upload icepizero artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -95,6 +134,8 @@ jobs:
           path: |
             build/bonfire-core-soc_0/icepizero-trellis/bonfire-core-soc_0.bit
             build/bonfire-core-soc_0/icepizero-trellis/next.log
+            build/bonfire-core-soc_0/icepizero-trellis/yosys.log
+            build/bonfire-core-soc_0/icepizero-trellis/build-facts.md
           if-no-files-found: error
 
       - name: Upload icepizero_jtagg artifacts
@@ -104,6 +145,8 @@ jobs:
           path: |
             build/bonfire-core-soc_0/icepizero_jtagg-trellis/bonfire-core-soc_0.bit
             build/bonfire-core-soc_0/icepizero_jtagg-trellis/next.log
+            build/bonfire-core-soc_0/icepizero_jtagg-trellis/yosys.log
+            build/bonfire-core-soc_0/icepizero_jtagg-trellis/build-facts.md
           if-no-files-found: error
 
       - name: Upload icepizero_extended artifacts
@@ -113,4 +156,6 @@ jobs:
           path: |
             build/bonfire-core-soc_0/icepizero_extended-trellis/bonfire-core-soc_0.bit
             build/bonfire-core-soc_0/icepizero_extended-trellis/next.log
+            build/bonfire-core-soc_0/icepizero_extended-trellis/yosys.log
+            build/bonfire-core-soc_0/icepizero_extended-trellis/build-facts.md
           if-no-files-found: error
