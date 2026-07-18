@@ -124,9 +124,14 @@ targets:
     toplevel: tb_bonfire_core_soc
 
   sim:
-    default_tool: ghdl
+    flow: sim
+    flow_options:
+      tool: ghdl
+      analyze_options: [ --ieee=synopsys, -frelaxed-rules ]
+      run_options: [ --ieee=synopsys, -frelaxed-rules ]
+      sim_options: [ --ieee-asserts=disable, --stop-time=60000ns, --wave=cpu.ghw ]
     filesets: [ soc_uart_sim ]
-    generate: 
+    generate:
       - soc_top:
          hexfile: "../code/build/soc/sim/uart_echo.hex"
          num_leds: 4
@@ -134,17 +139,15 @@ targets:
          expose_wishbone_master: false
          enable_jtag_debug: true
          enable_debug_ndmreset: true
-         
-    tools:
-      ghdl:
-        analyze_options: [ --ieee=synopsys,  -frelaxed-rules ]
-        run_options: [ --ieee-asserts=disable, --stop-time=60000ns, --wave=cpu.ghw ]
-      xsim:
-        xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core_soc
 
   sim_extended:
-    default_tool: ghdl
+    flow: sim
+    flow_options:
+      tool: ghdl
+      analyze_options: [ --ieee=synopsys, -frelaxed-rules, -Wno-specs ]
+      run_options: [ --ieee=synopsys, -frelaxed-rules, -Wno-specs ]
+      sim_options: [ --ieee-asserts=disable, --stop-time=100000us ] # --wave=cpu.ghw ]
     filesets: [ soc_io ]
     generate:
     - soc_top:
@@ -161,13 +164,6 @@ targets:
         num_gpio: 8
     flags:
       simulation_target : true
-   
-    tools:
-      ghdl:
-        analyze_options: [ --ieee=synopsys,  -frelaxed-rules, -Wno-specs ]
-        run_options: [ --ieee-asserts=disable, --stop-time=100000us ] # --wave=cpu.ghw ]
-      xsim:
-        xelab_options: [ "--debug typical" ]
     toplevel: tb_soc
 
   FireAnt:
