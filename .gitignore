@@ -32,6 +32,9 @@ fusesoc_libraries/
 temp/
 .venv
 
+# Project-local OSS CAD Suite
+/.tools/oss-cad-suite/
+
 # Generated site output
 site/
 

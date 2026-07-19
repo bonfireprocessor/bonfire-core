@@ -43,6 +43,22 @@ pip install myhdl==0.11.51 pyelftools pytest
 - **pytest** (test runner / framework)
 - **pyelftools** (required for extracting signature symbols when running the riscv-compliance suite)
 
+### Isolated OSS CAD Suite
+
+FuseSoC and its generators run in the project `.venv`. Edalize launches only
+the EDA commands in the project-local OSS CAD Suite through
+`scripts/oss-cad-suite-launcher`. Configure the launcher once in your shell and
+activate only the Python environment for a build:
+
+```bash
+export EDALIZE_LAUNCHER="$PWD/scripts/oss-cad-suite-launcher"
+source .venv/bin/activate
+fusesoc run --target=sim_extended ::bonfire-core-soc:0
+```
+
+The launcher sources `.tools/oss-cad-suite/environment` in a child process, so
+the suite's embedded Python does not replace the generator interpreter.
+
 ### RISC-V toolchain
 - RISC-V non-Linux toolchain (`riscv64-unknown-elf-*`) with support for `rv32i` (multilib)
 
@@ -248,10 +264,9 @@ https://github.com/YosysHQ/oss-cad-suite-build
 
 
 ````
-# Activate the oss-cad enviornment - replace ~/opt/oss-cad-suite with your installation path
-source ~/opt/oss-cad-suite/environment
+source .venv/bin/activate
+export EDALIZE_LAUNCHER="$PWD/scripts/oss-cad-suite-launcher"
 fusesoc --cores-root . run --target ulx3s bonfire-core-soc
-
 ````
 
 ### Bonfire extended core

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+OSS_CAD_SUITE_ENV="${OSS_CAD_SUITE_ENV:-$ROOT_DIR/.tools/oss-cad-suite/environment}"
+
+if [[ $# -eq 0 ]]; then
+  echo "ERROR: oss-cad-suite-launcher requires a command to execute" >&2
+  exit 2
+fi
+
+if [[ ! -f "$OSS_CAD_SUITE_ENV" ]]; then
+  echo "ERROR: OSS CAD Suite environment not found: $OSS_CAD_SUITE_ENV" >&2
+  exit 2
+fi
+
+# shellcheck disable=SC1090
+. "$OSS_CAD_SUITE_ENV"
+
+exec "$@"
