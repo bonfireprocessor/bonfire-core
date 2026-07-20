@@ -272,7 +272,11 @@ https://github.com/YosysHQ/oss-cad-suite-build
 source .venv/bin/activate
 export EDALIZE_LAUNCHER="$PWD/scripts/oss-cad-suite-launcher"
 fusesoc --cores-root . run --target ulx3s bonfire-core-soc
+fusesoc --cores-root . run --target ulx3s_jtagg bonfire-core-soc
 ````
+
+The `ulx3s_jtagg` target connects the debug module to the ECP5's internal
+JTAGG interface, matching the `icepizero_jtagg` debug transport.
 
 The ECP5 targets use Edalize's `trellis` Flow API. Their build directories are
 named after the target without a `-trellis` suffix, for example
