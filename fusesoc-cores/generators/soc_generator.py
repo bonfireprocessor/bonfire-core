@@ -54,16 +54,10 @@ class SoCGenerator:
         ]
         testbench_files = []
 
-        if generation_config.uses_ecp5_jtagg_wrapper:
-            renderer = VhdlTemplateRenderer(files_root, gen_path)
-            filelist.append(renderer.copy_ecp5_jtagg_bridge())
-            filelist.append(
-                renderer.render_basic_jtagg_wrapper(
-                    generation_config.names,
-                    generation_config.soc_config,
-                )
-            )
-        elif generation_config.is_extended:
+        if generation_config.is_extended:
+            if generation_config.uses_ecp5_jtagg_wrapper:
+                renderer = VhdlTemplateRenderer(files_root, gen_path)
+                filelist.append(renderer.copy_ecp5_jtagg_bridge())
             extra_files, testbench_files = self._generate_extended_templates(
                 files_root,
                 gen_path,
@@ -72,7 +66,15 @@ class SoCGenerator:
                 include_testbench=include_extended_testbench,
             )
             filelist.extend(extra_files)
-
+        elif generation_config.uses_ecp5_jtagg_wrapper:
+            renderer = VhdlTemplateRenderer(files_root, gen_path)
+            filelist.append(renderer.copy_ecp5_jtagg_bridge())
+            filelist.append(
+                renderer.render_basic_jtagg_wrapper(
+                    generation_config.names,
+                    generation_config.soc_config,
+                )
+            )
         if write_core:
             GeneratedCoreWriter(gen_path).write(
                 vlnv,

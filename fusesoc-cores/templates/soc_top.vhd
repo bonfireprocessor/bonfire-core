@@ -87,7 +87,7 @@ component {myhdlEntityName} is
         wb_master_wbm_adr_o: out std_logic_vector(29 downto 0);
         wb_master_wbm_db_o: out std_logic_vector(31 downto 0);
         wb_master_wbm_db_i: in std_logic_vector(31 downto 0);
-        wb_master_wbm_sel_o: out std_logic_vector(3 downto 0)
+        wb_master_wbm_sel_o: out std_logic_vector(3 downto 0){jtaggComponentPorts}
     );
 end component {myhdlEntityName};
 
@@ -102,8 +102,10 @@ signal io_dat_rd,io_dat_wr : std_logic_vector(31 downto 0);
 signal io_adr : std_logic_vector(io_adr_high downto 2);
 
 signal reset_sync : std_logic := '0';
+{jtaggSignals}
 
 begin
+{jtaggBridge}
 
 U_BONFIRE_CORE: {myhdlEntityName}
     port map(
@@ -114,6 +116,7 @@ U_BONFIRE_CORE: {myhdlEntityName}
         led => led,
         o_resetn => o_resetn,
         i_locked => i_locked,
+{jtaggPortMap}
         wb_master_wbm_cyc_o => io_cyc,
         wb_master_wbm_stb_o => io_stb,
         wb_master_wbm_ack_i => io_ack,

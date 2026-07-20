@@ -273,10 +273,18 @@ source .venv/bin/activate
 export EDALIZE_LAUNCHER="$PWD/scripts/oss-cad-suite-launcher"
 fusesoc --cores-root . run --target ulx3s bonfire-core-soc
 fusesoc --cores-root . run --target ulx3s_jtagg bonfire-core-soc
+fusesoc --cores-root . run --target ulx3s_extended_jtagg --flag=fw_monitor bonfire-core-soc
 ````
 
 The `ulx3s_jtagg` target connects the debug module to the ECP5's internal
 JTAGG interface, matching the `icepizero_jtagg` debug transport.
+The `ulx3s_extended_jtagg` and `icepizero_extended_jtagg` targets combine that
+transport with the external Wishbone peripherals of their corresponding
+extended targets. The iCEpiZero variant can be built with:
+
+````
+fusesoc --cores-root . run --target icepizero_extended_jtagg --flag=fw_monitor bonfire-core-soc
+````
 
 The ECP5 targets use Edalize's `trellis` Flow API. Their build directories are
 named after the target without a `-trellis` suffix, for example

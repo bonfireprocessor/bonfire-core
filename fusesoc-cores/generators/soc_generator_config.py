@@ -49,7 +49,7 @@ class SoCGenerationConfig:
     @property
     def uses_ecp5_jtagg_wrapper(self):
         return (
-            self.generation_kind == GenerationKind.BASIC_SOC_TOP
+            not self.is_testbench
             and self.soc_config["enableJtagDebug"]
             and self.soc_config["debugJtagTransport"] == "ecp5_jtagg"
         )
