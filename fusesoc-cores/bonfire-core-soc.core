@@ -124,12 +124,7 @@ targets:
     toplevel: tb_bonfire_core_soc
 
   sim:
-    flow: sim
-    flow_options:
-      tool: ghdl
-      analyze_options: [ --ieee=synopsys, -frelaxed-rules ]
-      run_options: [ --ieee=synopsys, -frelaxed-rules ]
-      sim_options: [ --ieee-asserts=disable, --stop-time=60000ns, --wave=cpu.ghw ]
+    default_tool: ghdl
     filesets: [ soc_uart_sim ]
     generate:
       - soc_top:
@@ -139,15 +134,16 @@ targets:
          expose_wishbone_master: false
          enable_jtag_debug: true
          enable_debug_ndmreset: true
+    tools:
+      ghdl:
+        analyze_options: [ --ieee=synopsys, -frelaxed-rules ]
+        run_options: [ --ieee-asserts=disable, --stop-time=60000ns, --wave=cpu.ghw ]
+      xsim:
+        xelab_options: [ "--debug typical" ]
     toplevel: tb_bonfire_core_soc
 
   sim_extended:
-    flow: sim
-    flow_options:
-      tool: ghdl
-      analyze_options: [ --ieee=synopsys, -frelaxed-rules, -Wno-specs ]
-      run_options: [ --ieee=synopsys, -frelaxed-rules, -Wno-specs ]
-      sim_options: [ --ieee-asserts=disable, --stop-time=100000us ] # --wave=cpu.ghw ]
+    default_tool: ghdl
     filesets: [ soc_io ]
     generate:
     - soc_top:
@@ -164,6 +160,12 @@ targets:
         num_gpio: 8
     flags:
       simulation_target : true
+    tools:
+      ghdl:
+        analyze_options: [ --ieee=synopsys, -frelaxed-rules, -Wno-specs ]
+        run_options: [ --ieee-asserts=disable, --stop-time=100000us ] # --wave=cpu.ghw ]
+      xsim:
+        xelab_options: [ "--debug typical" ]
     toplevel: tb_soc
 
   FireAnt:
@@ -260,16 +262,17 @@ targets:
     toplevel: bonfire_core_soc_top
 
   ulx3s: &target_ulx3s
-    default_tool: trellis
+    <<: &target_ecp5
+      flow: trellis
+      flow_options:
+        flow_make_options: ['-B']
+        yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
+        ecppack_options: ['--svf', 'bonfire-core-soc_0.svf']
+      filesets: [scripts]
+    flow_options:
+      nextpnr_options: ['--85k', '--package', 'CABGA381', '--speed', '6']
     flags:  
       extended_soc : false
-    tools:
-        trellis:
-            arch: ecp5
-            output_format: json
-            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
-            nextpnr_options: ['--85k','--package CABGA381','--speed 6' ]
-
     filesets: [ulx3s_lpf, ulx3s_top, scripts]
     generate:
     - soc_top:
@@ -297,17 +300,12 @@ targets:
    
 
   icepizero: &target_icepizero
-    default_tool: trellis
+    <<: *target_ecp5
+    flow_options:
+      nextpnr_options: ['--25k', '--package', 'CABGA256', '--speed', '6' ]
     flags:  
       extended_soc : false
-    tools:
-        trellis:
-            arch: ecp5
-            output_format: json
-            yosys_template: 'src/bonfire-core-soc_0/scripts/template.tcl'
-            nextpnr_options: ['--25k','--package CABGA256','--speed 6' ]
-
-    filesets: [icepizero_lpf,icepizero_top , scripts]
+    filesets: [icepizero_lpf, icepizero_top, scripts]
     generate:
     - soc_top:
         #hexfile: "../code/build/soc/icepizero/led.hex"

@@ -114,9 +114,9 @@ jobs:
           ])
 
           for rel_dir in [
-              "build/bonfire-core-soc_0/icepizero-trellis",
-              "build/bonfire-core-soc_0/icepizero_jtagg-trellis",
-              "build/bonfire-core-soc_0/icepizero_extended-trellis",
+              "build/bonfire-core-soc_0/icepizero",
+              "build/bonfire-core-soc_0/icepizero_jtagg",
+              "build/bonfire-core-soc_0/icepizero_extended",
           ]:
               Path(rel_dir, "build-facts.md").write_text(content)
           PY
@@ -126,10 +126,10 @@ jobs:
         with:
           name: icepizero-artifacts
           path: |
-            build/bonfire-core-soc_0/icepizero-trellis/bonfire-core-soc_0.bit
-            build/bonfire-core-soc_0/icepizero-trellis/next.log
-            build/bonfire-core-soc_0/icepizero-trellis/yosys.log
-            build/bonfire-core-soc_0/icepizero-trellis/build-facts.md
+            build/bonfire-core-soc_0/icepizero/bonfire-core-soc_0.bit
+            build/bonfire-core-soc_0/icepizero/next.log
+            build/bonfire-core-soc_0/icepizero/yosys.log
+            build/bonfire-core-soc_0/icepizero/build-facts.md
           if-no-files-found: error
 
       - name: Upload icepizero_jtagg artifacts
@@ -137,10 +137,10 @@ jobs:
         with:
           name: icepizero_jtagg-artifacts
           path: |
-            build/bonfire-core-soc_0/icepizero_jtagg-trellis/bonfire-core-soc_0.bit
-            build/bonfire-core-soc_0/icepizero_jtagg-trellis/next.log
-            build/bonfire-core-soc_0/icepizero_jtagg-trellis/yosys.log
-            build/bonfire-core-soc_0/icepizero_jtagg-trellis/build-facts.md
+            build/bonfire-core-soc_0/icepizero_jtagg/bonfire-core-soc_0.bit
+            build/bonfire-core-soc_0/icepizero_jtagg/next.log
+            build/bonfire-core-soc_0/icepizero_jtagg/yosys.log
+            build/bonfire-core-soc_0/icepizero_jtagg/build-facts.md
           if-no-files-found: error
 
       - name: Upload icepizero_extended artifacts
@@ -148,8 +148,8 @@ jobs:
         with:
           name: icepizero_extended-artifacts
           path: |
-            build/bonfire-core-soc_0/icepizero_extended-trellis/bonfire-core-soc_0.bit
-            build/bonfire-core-soc_0/icepizero_extended-trellis/next.log
-            build/bonfire-core-soc_0/icepizero_extended-trellis/yosys.log
-            build/bonfire-core-soc_0/icepizero_extended-trellis/build-facts.md
+            build/bonfire-core-soc_0/icepizero_extended/bonfire-core-soc_0.bit
+            build/bonfire-core-soc_0/icepizero_extended/next.log
+            build/bonfire-core-soc_0/icepizero_extended/yosys.log
+            build/bonfire-core-soc_0/icepizero_extended/build-facts.md
           if-no-files-found: error

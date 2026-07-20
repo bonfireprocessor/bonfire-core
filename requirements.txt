@@ -4,4 +4,5 @@
 myhdl==0.11.51
 pyelftools
 pytest
-fusesoc
+fusesoc==2.4.6
+edalize==0.6.8
