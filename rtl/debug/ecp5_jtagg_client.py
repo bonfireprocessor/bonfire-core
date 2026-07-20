@@ -72,7 +72,7 @@ def Ecp5JtaggClient(
         jtagg_o.jtdo1.next = dmi_shift_reg[0]
         jtagg_o.jtdo2.next = dtmcs_shift_reg[0]
 
-    @always(jtagg_i.jtck.posedge)
+    @always(jtagg_i.jtck.negedge)
     def jtag_clock_domain():
         if reset or not jtagg_i.jrstn:
             dmi_shift_reg.next = 0
@@ -105,28 +105,15 @@ def Ecp5JtaggClient(
                     dtmcs[12:10] = DMI_OP_BUSY
                 dtmcs[15:12] = DTM_IDLE
                 dtmcs_shift_reg.next = dtmcs
-            elif jtagg_i.jshift:
-                # JTAGG registers JTDI on this edge. Ignore it on the first
-                # shift edge, but advance TDO to the next LSB. From the next
-                # edge onward JTDI is the previous bit.
-                if jshift_d:
-                    if active_er1:
-                        dmi_shift_reg.next[dmi_width - 1] = jtagg_i.jtdi
-                        dmi_shift_reg.next[dmi_width - 1:0] = dmi_shift_reg[dmi_width:1]
-                    elif active_er2:
-                        dtmcs_shift_reg.next[31] = jtagg_i.jtdi
-                        dtmcs_shift_reg.next[31:0] = dtmcs_shift_reg[32:1]
-                elif active_er1:
-                    dmi_shift_reg.next = dmi_shift_reg >> 1
-                elif active_er2:
-                    dtmcs_shift_reg.next = dtmcs_shift_reg >> 1
-            elif jshift_d:
-                # The final registered JTDI bit becomes visible after JSHIFT
-                # falls, before the following Update-DR clock.
-                if active_er1:
+            elif jtagg_i.jshift or jshift_d:
+                # JTAGG registers JTDI on the rising edge and samples JTDO on
+                # the falling edge. At this edge JTDI is stable and the old
+                # shift-register LSB is still visible to JTDO. Retaining the
+                # previous JSHIFT value captures the final bit in Exit1-DR.
+                if active_er1 or jtagg_i.jce1:
                     dmi_shift_reg.next[dmi_width - 1] = jtagg_i.jtdi
                     dmi_shift_reg.next[dmi_width - 1:0] = dmi_shift_reg[dmi_width:1]
-                elif active_er2:
+                elif active_er2 or jtagg_i.jce2:
                     dtmcs_shift_reg.next[31] = jtagg_i.jtdi
                     dtmcs_shift_reg.next[31:0] = dtmcs_shift_reg[32:1]
             elif jtagg_i.jupdate:
