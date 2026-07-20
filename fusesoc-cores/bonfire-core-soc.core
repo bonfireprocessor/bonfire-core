@@ -276,7 +276,9 @@ targets:
     filesets: [ulx3s_lpf, ulx3s_top, scripts]
     generate:
     - soc_top:
-        hexfile: "../code/build/soc/ulx3s/led.hex"
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/ulx3s/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/ulx3s/hello.hex)"
         num_leds: 8
         led_active_low: false
         laned_memory: false
@@ -297,6 +299,21 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+
+  ulx3s_jtagg:
+    <<: *target_ulx3s
+    filesets: [ulx3s_lpf, ulx3s_top, scripts]
+    generate:
+    - soc_top:
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/ulx3s/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/ulx3s/hello.hex)"
+        num_leds: 8
+        led_active_low: false
+        laned_memory: false
+        enable_jtag_debug: true
+        debug_jtag_transport: ecp5_jtagg
+        enable_debug_ndmreset: true
    
 
   icepizero: &target_icepizero

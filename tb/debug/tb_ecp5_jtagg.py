@@ -94,6 +94,12 @@ def ecp5_jtagg_testbench(verbose: bool = True):
         yield bfm.idle(2)
         assert regs[0x10] == 0x12345678
 
+        highest_address = (1 << conf.dmi_adr_width) - 1
+        write_scan = (highest_address << 34) | (0xFEDCBA98 << 2) | DMI_OP_WRITE
+        yield bfm.scan_dr(write_scan, dmi_width)
+        yield bfm.idle(2)
+        assert regs[highest_address] == 0xFEDCBA98
+
         read_scan = (0x10 << 34) | DMI_OP_READ
         yield bfm.scan_dr(read_scan, dmi_width)
         yield bfm.idle(2)

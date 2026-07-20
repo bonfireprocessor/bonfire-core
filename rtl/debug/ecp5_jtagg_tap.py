@@ -76,8 +76,9 @@ class Ecp5JtaggTapEmulator:
             while True:
                 yield tck_i.posedge
                 jtagg_i.jtck.next = True
-                # Let JTCK-clocked user logic consume the previously
-                # registered JTDI value before publishing the new one.
+                # JTAGG registers external TDI on the rising edge. The client
+                # consumes this stable JTDI value on the following falling
+                # edge, matching the hardware primitive.
                 yield delay(0)
                 jtagg_i.jtdi.next = tdi_i
                 yield tck_i.negedge
