@@ -35,13 +35,34 @@ cd bonfire-core
 python -m venv .venv
 source .venv/bin/activate
 pip install -U pip
-pip install myhdl==0.11.51 pyelftools pytest
+pip install -r requirements.txt
 ```
 
 ### Python packages
 - **MyHDL 0.11** (for the FuseSoC generators use **0.11.51**)
 - **pytest** (test runner / framework)
 - **pyelftools** (required for extracting signature symbols when running the riscv-compliance suite)
+- **FuseSoC 2.4.6** and **Edalize 0.6.8** (pinned for the ECP5 Flow API)
+
+### Isolated OSS CAD Suite
+
+FuseSoC and its generators run in the project `.venv`. Edalize launches only
+the EDA commands in the project-local OSS CAD Suite through
+`scripts/oss-cad-suite-launcher`. Configure the launcher once in your shell and
+activate only the Python environment for a build:
+
+```bash
+export EDALIZE_LAUNCHER="$PWD/scripts/oss-cad-suite-launcher"
+source .venv/bin/activate
+fusesoc run --target=sim_extended ::bonfire-core-soc:0
+```
+
+The `sim` and `sim_extended` targets use the Edalize Tool API so that GHDL and
+XSim remain selectable. GHDL is the default. Select XSim explicitly with, for
+example, `fusesoc run --target=sim --tool=xsim ::bonfire-core-soc:0`.
+
+The launcher sources `.tools/oss-cad-suite/environment` in a child process, so
+the suite's embedded Python does not replace the generator interpreter.
 
 ### RISC-V toolchain
 - RISC-V non-Linux toolchain (`riscv64-unknown-elf-*`) with support for `rv32i` (multilib)
@@ -248,11 +269,16 @@ https://github.com/YosysHQ/oss-cad-suite-build
 
 
 ````
-# Activate the oss-cad enviornment - replace ~/opt/oss-cad-suite with your installation path
-source ~/opt/oss-cad-suite/environment
+source .venv/bin/activate
+export EDALIZE_LAUNCHER="$PWD/scripts/oss-cad-suite-launcher"
 fusesoc --cores-root . run --target ulx3s bonfire-core-soc
-
 ````
+
+The ECP5 targets use Edalize's `trellis` Flow API. Their build directories are
+named after the target without a `-trellis` suffix, for example
+`build/bonfire-core-soc_0/ulx3s/`. VHDL synthesis continues to use
+`fusesoc-cores/scripts/template.tcl`, which loads the Yosys GHDL plugin before
+running `synth_ecp5`.
 
 ### Bonfire extended core
 
