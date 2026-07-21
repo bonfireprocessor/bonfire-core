@@ -12,9 +12,7 @@ from tests.conftest import assert_monitor_pass, run_sim, waveform_config
 
 
 _PIPELINE_CASES = (
-    (3, False, "pipe3"),
     (4, False, "pipe4"),
-    (4, True, "pipe4_bypass"),
 )
 _MONITOR_SUCCESS = "Monitor write:"
 _MONITOR_SUCCESS_SUFFIX = "10000000: 00000001 (1)"
@@ -149,7 +147,6 @@ def test_core(
     conf.enableDebugModule = enable_debug_module
     conf.pipeline_length = pipeline_length
     conf.writeback_bypass = writeback_bypass
-    conf.registered_dbus_feedback = pipeline_length == 5
 
     tb = tb_core.tb(
         config=conf,

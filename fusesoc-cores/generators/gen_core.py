@@ -118,8 +118,12 @@ targets:
             bram_base = get(parameters,"bram_base",0x0)
             bram_adr_width = get(parameters,"bram_adr_width",12)
             conversion_warnings = get(parameters,"conversion_warnings","default")
+            pipeline_length = int(get(parameters, "pipeline_length", 4))
+            if pipeline_length not in (3, 4):
+                raise ValueError("pipeline_length must be 3 or 4")
             gen_path = os.getcwd()
             config=config.BonfireConfig()
+            config.pipeline_length = pipeline_length
             gen_extended_core(config,hdl,name,gen_path,
                               bram_adr_base=bram_base,
                               bramAdrWidth=bram_adr_width,

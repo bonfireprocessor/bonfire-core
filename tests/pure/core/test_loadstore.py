@@ -9,25 +9,22 @@ from tests.conftest import run_sim
 
 
 @pytest.mark.parametrize(
-    "registered_read_stage,outstanding,registered_dbus_feedback",
+    "registered_read_stage,outstanding",
     [
-        (False, 1, False),
-        (False, 2, False),
-        (True, 1, False),
-        (True, 1, True),
-        (True, 2, False),
-        (True, 3, False),
+        (False, 1),
+        (False, 2),
+        (True, 1),
+        (True, 2),
+        (True, 3),
     ],
 )
 def test_loadstore_variants(
     sim_env,
     registered_read_stage: bool,
     outstanding: int,
-    registered_dbus_feedback: bool,
 ):
     conf = config.BonfireConfig()
     conf.registered_read_stage = registered_read_stage
-    conf.registered_dbus_feedback = registered_dbus_feedback
     conf.loadstore_outstanding = outstanding
 
     run_sim(tb_loadstore.tb(config=conf, test_conversion=False), trace=False, waveforms_dir=sim_env["waveforms_dir"])

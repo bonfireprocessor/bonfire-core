@@ -19,8 +19,7 @@ pytestmark = pytest.mark.filterwarnings("ignore::myhdl.ToVHDLWarning")
         (False, 3, "bonfire_core_top_plain"),
         (True, 3, "bonfire_core_top_debug"),
         (False, 4, "bonfire_core_top_pipeline4"),
-        (False, 5, "bonfire_core_top_pipeline5"),
-        (True, 5, "bonfire_core_top_pipeline5_debug"),
+        (True, 4, "bonfire_core_top_pipeline4_debug"),
     ],
 )
 def test_core_vhdl_conversion(
@@ -33,7 +32,6 @@ def test_core_vhdl_conversion(
     conf = config.BonfireConfig()
     conf.enableDebugModule = enable_debug
     conf.pipeline_length = pipeline_length
-    conf.registered_dbus_feedback = pipeline_length == 5
 
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)

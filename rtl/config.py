@@ -8,8 +8,7 @@ class BonfireConfig:
         self.mem_write_early_term = False # combinatorical mem write cylce termination on ack signal, creates comb. path between dbus ack and execute.valid_o 
         self.loadstore_outstanding = 1
         self.registered_read_stage = True #  register stage in loadstore unit between data bus and LSU output 
-        self.registered_dbus_feedback = False # register raw DBUS response before load formatting
-        self.pipeline_length = 3 # Fetch, Decode, Execute; supported values are 3, 4 and 5
+        self.pipeline_length = 3 # Fetch, Decode, Execute; supported values are 3 and 4
         self.writeback_bypass = False # forward active writeback data to dependent operands
         self.reset_address=0x0
         self.mcause_max = 64 # Highest mcause reason

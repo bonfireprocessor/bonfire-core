@@ -108,12 +108,6 @@ class LoadStoreBundle(PipelineControl):
 
         rdmux_out = Signal(modbv(0)[self.config.xlen:])
 
-        feedback_data = Signal(modbv(0)[self.config.xlen:])
-        feedback_adr_lo = Signal(modbv(0)[2:])
-        feedback_byte_mode = Signal(bool(0))
-        feedback_hword_mode = Signal(bool(0))
-        feedback_unsigned = Signal(bool(0))
-
         valid_comb = Signal(bool(0))
 
         bus_en = Signal(bool(0))
@@ -252,27 +246,11 @@ class LoadStoreBundle(PipelineControl):
             mux_index=max_pipe_index
         # end design time code 
 
-        if self.config.registered_dbus_feedback:
-            @always_seq(clock.posedge, reset=reset)
-            def feedback_seq():
-                if confirm:
-                    feedback_data.next = bus.db_rd
-                    feedback_adr_lo.next = pipe_adr_lo[max_pipe_index]
-                    feedback_byte_mode.next = pipe_byte_mode[max_pipe_index]
-                    feedback_hword_mode.next = pipe_hword_mode[max_pipe_index]
-                    feedback_unsigned.next = pipe_unsigned[max_pipe_index]
-
-            read_data = feedback_data
-            read_adr_lo = feedback_adr_lo
-            read_byte_mode = feedback_byte_mode
-            read_hword_mode = feedback_hword_mode
-            read_unsigned = feedback_unsigned
-        else:
-            read_data = bus.db_rd
-            read_adr_lo = pipe_adr_lo[mux_index]
-            read_byte_mode = pipe_byte_mode[mux_index]
-            read_hword_mode = pipe_hword_mode[mux_index]
-            read_unsigned = pipe_unsigned[mux_index]
+        read_data = bus.db_rd
+        read_adr_lo = pipe_adr_lo[mux_index]
+        read_byte_mode = pipe_byte_mode[mux_index]
+        read_hword_mode = pipe_hword_mode[mux_index]
+        read_unsigned = pipe_unsigned[mux_index]
 
         @always_comb
         def rd_mux():
@@ -360,19 +338,10 @@ class LoadStoreBundle(PipelineControl):
 
             ls_pi=self.pipeline_instance(ext_busy,valid)
 
-            if self.config.registered_dbus_feedback:
-                @always_seq(clock.posedge,reset=reset)
-                def ls_valid_reg():
-                    valid_reg.next=valid_comb
-
-                @always_comb
-                def ls_result_comb():
-                    self.result_o.next=rdmux_out
-            else:
-                @always_seq(clock.posedge,reset=reset)
-                def ls_out():
-                    self.result_o.next=rdmux_out
-                    valid_reg.next=valid_comb
+            @always_seq(clock.posedge,reset=reset)
+            def ls_out():
+                self.result_o.next=rdmux_out
+                valid_reg.next=valid_comb
                          
             @always_comb
             def ls_valid_out():

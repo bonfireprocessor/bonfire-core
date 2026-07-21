@@ -22,11 +22,9 @@ from rtl.type_aliases import BitSignal
 class BonfireCoreTop:
     def __init__(self, config: BonfireConfig = config.BonfireConfig()) -> None:
         self.config: BonfireConfig = config
-        assert config.pipeline_length in (3, 4, 5), "pipeline_length must be 3, 4 or 5"
-        assert not config.writeback_bypass or config.pipeline_length in (4, 5), \
-            "writeback_bypass requires pipeline_length 4 or 5"
-        assert not config.registered_dbus_feedback or config.registered_read_stage, \
-            "registered_dbus_feedback requires registered_read_stage"
+        assert config.pipeline_length in (3, 4), "pipeline_length must be 3 or 4"
+        assert not config.writeback_bypass or config.pipeline_length == 4, \
+            "writeback_bypass requires pipeline_length 4"
         self.fetch: FetchUnit = FetchUnit(config=config)
         self.backend_fetch_input: FetchInputBundle = FetchInputBundle(config=config)
         self.backend_fetch_output: BackendOutputBundle = BackendOutputBundle(config=config)

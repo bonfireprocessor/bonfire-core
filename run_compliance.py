@@ -30,6 +30,7 @@ import argparse
 from pathlib import Path
 
 # Import testbench infrastructure
+from rtl import config
 from tb import tb_core
 
 
@@ -70,7 +71,10 @@ def main():
             print(f"  VCD: {args.vcd}")
     
     # Create and configure testbench
+    core_config = config.BonfireConfig()
+    core_config.pipeline_length = 4
     tb = tb_core.tb(
+        config=core_config,
         hexFile=args.hex,
         elfFile=args.elf,
         sigFile=args.sig,

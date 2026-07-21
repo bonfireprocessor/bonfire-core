@@ -15,6 +15,7 @@ generate:
       bram_base: 0x0
       bram_adr_width: 12
       conversion_warnings: 'ignore'
+      pipeline_length: 4
 
 filesets:
   

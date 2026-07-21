@@ -30,15 +30,14 @@ class SoCGenerator:
 
         conf = config.BonfireConfig()
         conf.jump_bypass = parameters.get("jump_bypass", False)
-        conf.pipeline_length = int(parameters.get("pipeline_length", 3))
+        # SoC targets use the four-stage backend by default.  Length three is
+        # retained as an explicit compatibility/debugging configuration.
+        conf.pipeline_length = int(parameters.get("pipeline_length", 4))
         conf.writeback_bypass = bool(parameters.get("writeback_bypass", False))
-        conf.registered_dbus_feedback = bool(parameters.get("registered_dbus_feedback", False))
-        if conf.pipeline_length not in (3, 4, 5):
-            raise ValueError("pipeline_length must be 3, 4 or 5")
-        if conf.writeback_bypass and conf.pipeline_length == 3:
-            raise ValueError("writeback_bypass requires pipeline_length 4 or 5")
-        if conf.registered_dbus_feedback and not conf.registered_read_stage:
-            raise ValueError("registered_dbus_feedback requires registered_read_stage")
+        if conf.pipeline_length not in (3, 4):
+            raise ValueError("pipeline_length must be 3 or 4")
+        if conf.writeback_bypass and conf.pipeline_length != 4:
+            raise ValueError("writeback_bypass requires pipeline_length 4")
         conf.enableDebugModule = bool(generation_config.soc_config.get("enableJtagDebug", False))
         conf.enableDebugNdmreset = bool(generation_config.soc_config.get("enableDebugNdmreset", False))
         diagnostics.summary("kind: {}".format(generation_config.generation_kind))
@@ -49,7 +48,6 @@ class SoCGenerator:
         diagnostics.detail("jump_bypass: {}".format(conf.jump_bypass))
         diagnostics.detail("pipeline_length: {}".format(conf.pipeline_length))
         diagnostics.detail("writeback_bypass: {}".format(conf.writeback_bypass))
-        diagnostics.detail("registered_dbus_feedback: {}".format(conf.registered_dbus_feedback))
         diagnostics.detail("enableDebugModule: {}".format(conf.enableDebugModule))
         diagnostics.detail("enableDebugNdmreset: {}".format(conf.enableDebugNdmreset))
 

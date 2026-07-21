@@ -25,7 +25,7 @@ def test_simple_pipeline_staged(sim_env):
 
 @pytest.mark.parametrize(
     "pipeline_length,writeback_bypass",
-    [(4, False), (4, True), (5, False), (5, True)],
+    [(4, False), (4, True)],
 )
 def test_pipelined_backend(sim_env, pipeline_length, writeback_bypass):
     conf = config.BonfireConfig()
