@@ -18,7 +18,11 @@ from tests.conftest import run_sim
         (True, 3),
     ],
 )
-def test_loadstore_variants(sim_env, registered_read_stage: bool, outstanding: int):
+def test_loadstore_variants(
+    sim_env,
+    registered_read_stage: bool,
+    outstanding: int,
+):
     conf = config.BonfireConfig()
     conf.registered_read_stage = registered_read_stage
     conf.loadstore_outstanding = outstanding

@@ -11,6 +11,7 @@ from typing import Any
 from myhdl import *
 
 from rtl.simple_pipeline import *
+from rtl.pipelined_backend import PipelinedBackend
 from rtl.fetch import FetchUnit
 from rtl import config
 from rtl.bonfire_interfaces import ControlBundle, DbusBundle, DebugOutputBundle
@@ -21,10 +22,16 @@ from rtl.type_aliases import BitSignal
 class BonfireCoreTop:
     def __init__(self, config: BonfireConfig = config.BonfireConfig()) -> None:
         self.config: BonfireConfig = config
+        assert config.pipeline_length in (3, 4), "pipeline_length must be 3 or 4"
+        assert not config.writeback_bypass or config.pipeline_length == 4, \
+            "writeback_bypass requires pipeline_length 4"
         self.fetch: FetchUnit = FetchUnit(config=config)
         self.backend_fetch_input: FetchInputBundle = FetchInputBundle(config=config)
         self.backend_fetch_output: BackendOutputBundle = BackendOutputBundle(config=config)
-        self.backend: SimpleBackend = SimpleBackend(config=config)
+        if config.pipeline_length == 3:
+            self.backend = SimpleBackend(config=config)
+        else:
+            self.backend = PipelinedBackend(config=config)
         if config.enableDebugModule:
             self.dmi: DebugModuleInterface = DebugModuleInterface(config)
             self.debugRegs: DebugModuleRegisterBundle | None = DebugModuleRegisterBundle(config)

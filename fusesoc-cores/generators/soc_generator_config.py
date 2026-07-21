@@ -81,6 +81,8 @@ class SoCGenerationConfigBuilder:
         "conversion_warnings",
         "hexfile",
         "jump_bypass",
+        "pipeline_length",
+        "writeback_bypass",
         "top_entity_name",
         "myhdl_entity_name",
         "entity_name",

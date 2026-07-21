@@ -7,7 +7,7 @@ BLOCK ASYNCPATHS;
 # Clock
 LOCATE COMP "sysclk" SITE "M1";
 IOBUF  PORT "sysclk" IO_TYPE=LVCMOS33 PULLMODE=NONE;
-FREQUENCY PORT "sysclk" 80 MHZ;
+FREQUENCY PORT "sysclk" 100 MHZ;
 
 # FTDI
 LOCATE COMP "uart0_tx" SITE "K15"; # Transmit to ftdi

@@ -30,6 +30,14 @@ class SoCGenerator:
 
         conf = config.BonfireConfig()
         conf.jump_bypass = parameters.get("jump_bypass", False)
+        # SoC targets use the four-stage backend by default.  Length three is
+        # retained as an explicit compatibility/debugging configuration.
+        conf.pipeline_length = int(parameters.get("pipeline_length", 4))
+        conf.writeback_bypass = bool(parameters.get("writeback_bypass", False))
+        if conf.pipeline_length not in (3, 4):
+            raise ValueError("pipeline_length must be 3 or 4")
+        if conf.writeback_bypass and conf.pipeline_length != 4:
+            raise ValueError("writeback_bypass requires pipeline_length 4")
         conf.enableDebugModule = bool(generation_config.soc_config.get("enableJtagDebug", False))
         conf.enableDebugNdmreset = bool(generation_config.soc_config.get("enableDebugNdmreset", False))
         diagnostics.summary("kind: {}".format(generation_config.generation_kind))
@@ -38,6 +46,8 @@ class SoCGenerator:
         if generation_config.hexfile:
             diagnostics.summary("hexfile: {}".format(generation_config.hexfile))
         diagnostics.detail("jump_bypass: {}".format(conf.jump_bypass))
+        diagnostics.detail("pipeline_length: {}".format(conf.pipeline_length))
+        diagnostics.detail("writeback_bypass: {}".format(conf.writeback_bypass))
         diagnostics.detail("enableDebugModule: {}".format(conf.enableDebugModule))
         diagnostics.detail("enableDebugNdmreset: {}".format(conf.enableDebugNdmreset))
 

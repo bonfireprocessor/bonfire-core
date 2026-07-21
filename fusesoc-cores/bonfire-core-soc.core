@@ -159,6 +159,8 @@ targets:
         enable_gpio: true
         num_gpio: 8
         register_wishbone_dbus: true
+        pipeline_length: 4
+        writeback_bypass: false
     flags:
       simulation_target : true
     tools:
@@ -283,6 +285,8 @@ targets:
         num_leds: 8
         led_active_low: false
         laned_memory: false
+        pipeline_length: 4
+        writeback_bypass: false
     toplevel: ulx3s_top
     
 
@@ -341,6 +345,8 @@ targets:
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
         enable_debug_ndmreset: true
+        pipeline_length: 4
+        writeback_bypass: false
    
 
   icepizero: &target_icepizero
@@ -361,6 +367,8 @@ targets:
         laned_memory: false
         enable_jtag_debug: false
         jump_bypass: false
+        pipeline_length: 4
+        writeback_bypass: false
     toplevel: icepizero_top
 
   icepizero_jtag:

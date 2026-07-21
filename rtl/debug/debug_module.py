@@ -33,6 +33,7 @@ class DebugHartViewBundle:
         self.rs1_data_i = Signal(modbv(0)[xlen:])
         self.valid_o = Signal(bool(0))
         self.stall_i = Signal(bool(0))
+        self.retire_pending_i = Signal(bool(0))
         self.dm_break = Signal(bool(0))
 
 
@@ -112,7 +113,8 @@ def DebugModuleController(
                  debugRegisterBundle.abstract_command_state == t_abstract_command_state.exec2:
                 debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.wait_retire
             elif debugRegisterBundle.abstract_command_state == t_abstract_command_state.wait_retire:
-                if not (decode_view.valid_o or decode_view.stall_i):
+                if not (decode_view.valid_o or decode_view.stall_i or
+                        decode_view.retire_pending_i):
                     if not progbuf_last and not decode_view.dm_break:
                         progbuf_pointer.next = 1
                         debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.exec2

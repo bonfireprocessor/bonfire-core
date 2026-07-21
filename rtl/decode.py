@@ -56,6 +56,7 @@ class DecodeBundle(PipelineControl):
         self.kill_i = Signal(bool(0)) # kill current instruction
         self.execute_ebreak_i = Signal(bool(0))
         self.fetch_redirect_pending_i = Signal(bool(0))
+        self.retire_pending_i = Signal(bool(0))
 
 
         # Register file interface
@@ -65,6 +66,14 @@ class DecodeBundle(PipelineControl):
 
         self.rs1_adr_o = Signal(modbv(0)[5:])
         self.rs2_adr_o = Signal(modbv(0)[5:])
+        # Source addresses belonging to the registered decode output.  The
+        # rs*_adr_o ports deliberately look ahead to feed the synchronous
+        # register file; consumers of the current instruction must use these
+        # stable addresses instead.
+        self.source_rs1_o = Signal(modbv(0)[5:])
+        self.source_rs2_o = Signal(modbv(0)[5:])
+        self.uses_rs1_o = Signal(bool(0))
+        self.uses_rs2_o = Signal(bool(0))
 
         # Output to execute stage
         self.op1_o = Signal(modbv(0)[xlen:])
@@ -153,6 +162,7 @@ class DecodeBundle(PipelineControl):
             debug_decode_view.rs1_data_i.next = self.rs1_data_i
             debug_decode_view.valid_o.next = self.valid_o
             debug_decode_view.stall_i.next = self.stall_i
+            debug_decode_view.retire_pending_i.next = self.retire_pending_i
 
             if not downstream_busy:
                 self.rs2_adr_o.next = ins_word[25:20]
@@ -160,6 +170,14 @@ class DecodeBundle(PipelineControl):
                 self.rs2_adr_o.next = rs2_adr_o_reg
 
             self.busy_o.next = downstream_busy or dm_halt or step_resolve_active
+
+            self.uses_rs1_o.next = self.valid_o and \
+                (self.branch_cmd or self.load_cmd or self.store_cmd or \
+                 self.jumpr_cmd or (self.alu_cmd and not rs1_immediate) or \
+                 (self.csr_cmd and not rs1_immediate))
+            self.uses_rs2_o.next = self.valid_o and \
+                (self.branch_cmd or self.store_cmd or \
+                 (self.alu_cmd and not rs2_immediate))
 
 
             # Operand output side
@@ -321,6 +339,8 @@ class DecodeBundle(PipelineControl):
 
                     rs1_adr_o_reg.next = ins_word[20:15]
                     rs2_adr_o_reg.next = ins_word[25:20]
+                    self.source_rs1_o.next = ins_word[20:15]
+                    self.source_rs2_o.next = ins_word[25:20]
 
                     self.next_ip_o.next = self.next_ip_i
 

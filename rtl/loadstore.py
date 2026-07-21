@@ -246,45 +246,51 @@ class LoadStoreBundle(PipelineControl):
             mux_index=max_pipe_index
         # end design time code 
 
+        read_data = bus.db_rd
+        read_adr_lo = pipe_adr_lo[mux_index]
+        read_byte_mode = pipe_byte_mode[mux_index]
+        read_hword_mode = pipe_hword_mode[mux_index]
+        read_unsigned = pipe_unsigned[mux_index]
+
         @always_comb
         def rd_mux():
 
-            a = pipe_adr_lo[mux_index]
+            a = read_adr_lo
             sign = False 
           
-            if pipe_byte_mode[mux_index]:
+            if read_byte_mode:
 
                 if a==0:
-                    rdmux_out.next[8:0] = bus.db_rd[8:]
-                    sign = bus.db_rd[7]
+                    rdmux_out.next[8:0] = read_data[8:]
+                    sign = read_data[7]
                 elif a==1:
-                    rdmux_out.next[8:0] = bus.db_rd[16:8]
-                    sign = bus.db_rd[15]
+                    rdmux_out.next[8:0] = read_data[16:8]
+                    sign = read_data[15]
                 elif a==2:
-                    rdmux_out.next[8:0] = bus.db_rd[24:16]
-                    sign = bus.db_rd[23]
+                    rdmux_out.next[8:0] = read_data[24:16]
+                    sign = read_data[23]
                 else:
-                    rdmux_out.next[8:0] = bus.db_rd[32:24] 
-                    sign = bus.db_rd[31]           
+                    rdmux_out.next[8:0] = read_data[32:24]
+                    sign = read_data[31]
  
                 for i in range(8,self.config.xlen):
-                    rdmux_out.next[i] = sign and not pipe_unsigned[mux_index]
+                    rdmux_out.next[i] = sign and not read_unsigned
 
-            elif pipe_hword_mode[mux_index]:
+            elif read_hword_mode:
 
                 if a[1]:
-                    sign = bus.db_rd[31] and not pipe_unsigned[mux_index]
-                    rdmux_out.next[16:0] = bus.db_rd[32:16]
+                    sign = read_data[31] and not read_unsigned
+                    rdmux_out.next[16:0] = read_data[32:16]
                 else:
-                    sign = bus.db_rd[15] and not pipe_unsigned[mux_index]
-                    rdmux_out.next[16:0] = bus.db_rd[16:0]
+                    sign = read_data[15] and not read_unsigned
+                    rdmux_out.next[16:0] = read_data[16:0]
                 
                
                 for i in range(16,self.config.xlen):
                     rdmux_out.next[i] = sign    
 
             else:
-                rdmux_out.next = bus.db_rd
+                rdmux_out.next = read_data
 
 
         @always_comb
