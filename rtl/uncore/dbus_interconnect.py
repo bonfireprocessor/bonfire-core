@@ -146,6 +146,9 @@ class DbusInterConnects:
         mux_slave_stall = [Signal(bool(0)) for _ in range(slave_count)]
         mux_slave_db_rd = [Signal(modbv(0)[len(master_db_rd):]) for _ in range(slave_count)]
 
+        # The interconnect remembers one selected target until its response.
+        # It can apply backpressure to a request for another target, but it
+        # does not retain a queue of overlapping requests to changing slaves.
         busy: BitSignal = Signal(bool(0))
         ack: BitSignal = Signal(bool(0))
         selection_stall: BitSignal = Signal(bool(0))
