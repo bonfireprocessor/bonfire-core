@@ -19,14 +19,18 @@ class CommandInvocation:
 
 def _oss_cad_suite_env_script() -> Path | None:
     env_script = os.environ.get("OSS_CAD_SUITE_ENV")
-    if not env_script:
-        return None
+    if env_script:
+        path = Path(env_script).expanduser()
+        if not path.is_file():
+            pytest.fail(f"OSS_CAD_SUITE_ENV points to a missing file: {path}", pytrace=False)
 
-    path = Path(env_script).expanduser()
-    if not path.is_file():
-        pytest.fail(f"OSS_CAD_SUITE_ENV points to a missing file: {path}", pytrace=False)
+        return path
 
-    return path
+    project_env = Path(__file__).resolve().parents[1] / ".tools" / "oss-cad-suite" / "environment"
+    if project_env.is_file():
+        return project_env
+
+    return None
 
 
 def _with_ghdl_bin_on_path() -> dict[str, str] | None:
