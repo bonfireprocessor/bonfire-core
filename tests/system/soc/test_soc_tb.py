@@ -55,12 +55,13 @@ def test_wishbone_dummy_acks_writes_and_returns_fixed_signature():
 
 
 @pytest.mark.parametrize(
-    "hex_default,expose_wishbone",
+    "hex_default,expose_wishbone,register_wishbone",
     [
-        ("code/build/soc/sim/led.hex", False),
-        ("code/build/soc/sim/wishbone.hex", True),
+        ("code/build/soc/sim/led.hex", False, False),
+        ("code/build/soc/sim/wishbone.hex", True, False),
+        ("code/build/soc/sim/wishbone.hex", True, True),
     ],
-    ids=["led", "wishbone"],
+    ids=["led", "wishbone-combinational", "wishbone-registered"],
 )
 def test_myhdl_soc(
     sim_env,
@@ -69,6 +70,7 @@ def test_myhdl_soc(
     repo_root: Path,
     hex_default: str,
     expose_wishbone: bool,
+    register_wishbone: bool,
 ):
     hex_path = Path(request.config.getoption("--bonfire-hex") or hex_default)
     if not hex_path.is_absolute():
@@ -83,11 +85,18 @@ def test_myhdl_soc(
     soc = BonfireCoreSoC(conf, hexfile=str(hex_path), soc_config={
         "numLeds": 4,
         "exposeWishboneMaster": expose_wishbone,
+        "registerWishboneDbus": register_wishbone,
     })
+    assert soc.registerWishboneDbus is register_wishbone
     soc_tb = BonfireCoreSoCTestbench(soc)
     tb = soc_tb.testbench()
 
-    trace, filename = waveform_config(request, sim_env, "soc_{}".format("wishbone" if expose_wishbone else "led"))
+    if expose_wishbone:
+        waveform_name = "soc_wishbone_{}".format(
+            "registered" if register_wishbone else "combinational")
+    else:
+        waveform_name = "soc_led"
+    trace, filename = waveform_config(request, sim_env, waveform_name)
 
     duration = 80_000 if expose_wishbone else 20_000
     run_sim(tb, trace=trace, filename=filename, duration=duration, waveforms_dir=sim_env["waveforms_dir"])
