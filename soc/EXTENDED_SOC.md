@@ -101,6 +101,7 @@ Extended-wrapper-only parameters:
 | `enable_uart1` | `enableUart1` | Enable UART1 in `bonfire_soc_io` |
 | `enable_spi` | `enableSpi` | Enable SPI in `bonfire_soc_io` |
 | `num_spi` | `numSpi` | Number of SPI ports |
+| `register_wishbone_dbus` | `registerWishboneDbus` | Register the DBUS slot feeding the Wishbone bridge |
 
 When `extended_soc` is true, `gen_soc.py` forces:
 
@@ -187,6 +188,20 @@ This is intended to provide the integrated VHDL peripheral block:
 - optional GPIO.
 
 Its Wishbone slave interface is connected to the internal `io_*` bus.
+
+The `register_wishbone_dbus` generator parameter optionally inserts a one-entry
+register stage into the outer DBUS interconnect slot at `0x40000000`. The stage
+captures requests before `DbusToWishbone` and registers ACK, error, and read data
+on the return path. Other DBUS slots remain combinational. The default is
+`false`; timing-sensitive FPGA targets can enable it without changing the
+Wishbone peripheral wrapper.
+
+At the Python interconnect level, `Master8Slaves` exposes
+`register_slave0` through `register_slave7`; `Master3Slaves` exposes the
+corresponding three flags. Each flag defaults to `False` and applies only to
+its matching active slot. Enabling a flag for a disabled `Master8Slaves` slot
+is rejected as a configuration error. A registered transfer adds request and
+response clock cycles compared with a combinational slot.
 
 ### `INST_UART_ONLY = true`
 

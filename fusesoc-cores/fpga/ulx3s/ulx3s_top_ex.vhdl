@@ -54,8 +54,8 @@ architecture rtl of ulx3s_top is
 
 
     -- signal sysclk         : std_logic;
-    signal resetn        : std_logic :='1';
-    
+    signal resetn        : std_logic := '1';
+
     -- signal uart1_txd      : std_logic;
     -- signal uart1_rxd      : std_logic := '1';
     -- signal spi_cs   : std_logic_vector(NUM_SPI-1 downto 0);
@@ -69,8 +69,9 @@ architecture rtl of ulx3s_top is
     -- signal gpio_i         : std_logic_vector(NUM_GPIO-1 downto 0);
     -- signal gpio_t         : std_logic_vector(NUM_GPIO-1 downto 0);
 
-
-
+    -- Internal loopbacks used by the monitor's peripheral self-tests.
+    signal spi_loopback  : std_logic_vector(0 downto 0);
+    signal gpio_loopback : std_logic_vector(7 downto 0);
 begin
 
     soc_inst: bonfire_core_soc_top
@@ -82,7 +83,9 @@ begin
     --   NUM_LEDS => NUM_LEDS,
     --   ENABLE_GPIO => ENABLE_GPIO,
     --   DEBUG => DEBUG
-        INST_UART_ONLY => false   -- Instantiate only zpuino UART
+        INST_UART_ONLY => false,
+        ENABLE_SPI => true,
+        ENABLE_GPIO => true
     )
     port map(
         sysclk => sysclk,
@@ -96,10 +99,10 @@ begin
         uart1_rxd => '1',
         spi_cs   => open,
         spi_clk  => open,
-        spi_mosi => open,
-        spi_miso => (others=>'1'),
-        gpio_o => open,
-        gpio_i => (others=>'0'),
+        spi_mosi => spi_loopback,
+        spi_miso => spi_loopback,
+        gpio_o => gpio_loopback,
+        gpio_i => gpio_loopback,
         gpio_t => open,
         led => led
     );

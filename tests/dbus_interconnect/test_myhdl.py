@@ -19,7 +19,7 @@ from rtl import config
 from rtl.bonfire_interfaces import DbusBundle
 from rtl.uncore.dbus_interconnect import AdrMask, DbusInterConnects
 from tb.ClkDriver import ClkDriver
-from tests.conftest import run_sim
+from tests.conftest import run_sim, waveform_config
 
 
 CLK_PERIOD = 10
@@ -196,7 +196,9 @@ def dbus_interconnect_master8_empty_wrapper(clock, reset, adr_i, db_wr_i, we_i, 
 
 
 @block
-def dbus_interconnect_master8_two_slave_wrapper(clock, reset, adr_i, db_wr_i, we_i, en_i, ack_o, error_o, stall_o, db_rd_o):
+def dbus_interconnect_master8_two_slave_wrapper(clock, reset, adr_i, db_wr_i, we_i, en_i,
+                                                ack_o, error_o, stall_o, db_rd_o,
+                                                register_slave0: bool = False):
     conf = config.BonfireConfig()
     master = DbusBundle(conf)
     slave0 = DbusBundle(conf)
@@ -221,7 +223,8 @@ def dbus_interconnect_master8_two_slave_wrapper(clock, reset, adr_i, db_wr_i, we
         slave0=slave0,
         slave5=slave5,
         adrmask0=AdrMask(16, 12, 0x1),
-        adrmask5=AdrMask(16, 12, 0x5))
+        adrmask5=AdrMask(16, 12, 0x5),
+        register_slave0=register_slave0)
     slave0_i = dbus_dummy_slave(slave0, clock, reset, 0x00000010)
     slave5_i = dbus_dummy_slave(slave5, clock, reset, 0x00000050, ack_delay_cycles=2)
 
@@ -364,7 +367,9 @@ def dbus_interconnect_master8_vhdl_tb():
     stall = Signal(bool(0))
     db_rd = Signal(modbv(0)[32:])
 
-    dut = dbus_interconnect_master8_two_slave_wrapper(clock, reset, adr, db_wr, we, en, ack, err, stall, db_rd)
+    dut = dbus_interconnect_master8_two_slave_wrapper(
+        clock, reset, adr, db_wr, we, en, ack, err, stall, db_rd,
+        register_slave0=True)
 
     @instance
     def clock_driver():
@@ -393,10 +398,15 @@ def dbus_interconnect_master8_vhdl_tb():
         db_wr.next = modbv(0x12345678)[32:]
         we.next = 0xF
         en.next = True
-        yield delay(10)
+        timeout = 0
+        while not ack:
+            assert timeout < 8
+            yield clock.posedge
+            yield delay(1)
+            timeout = timeout + 1
         assert ack
         assert not err
-        assert not stall
+        assert stall
         print("DBUS8_TB: write slave0 ack")
         yield clock.posedge
         adr.next = 0
@@ -410,10 +420,15 @@ def dbus_interconnect_master8_vhdl_tb():
         adr.next = 0x00001000
         we.next = 0
         en.next = True
-        yield delay(10)
+        timeout = 0
+        while not ack:
+            assert timeout < 8
+            yield clock.posedge
+            yield delay(1)
+            timeout = timeout + 1
         assert ack
         assert not err
-        assert not stall
+        assert stall
         assert db_rd == 0x12345678
         print("DBUS8_TB: read slave0 matched")
         yield clock.posedge
@@ -678,6 +693,286 @@ def _run_master8_scenario(sim_env: dict, scenario: str):
     run_sim(tb, duration=2_000, waveforms_dir=sim_env["waveforms_dir"])
 
 
+@block
+def tb_dbus_interconnect_zero_wait_baseline(register_slave: bool):
+    """Single-slave write/read baseline without slave-generated wait states."""
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+    conf = config.BonfireConfig()
+    master = DbusBundle(conf)
+    slave = DbusBundle(conf)
+    accepted = [0]
+
+    clk_driver = ClkDriver(clock, period=CLK_PERIOD)
+    dut = DbusInterConnects.Master8Slaves(
+        master, clock, reset,
+        slave0=slave,
+        adrmask0=AdrMask(32, 28, 0x8),
+        register_slave0=register_slave)
+    slave_i = dbus_dummy_slave(slave, clock, reset, 0x000000A0)
+
+    @always(clock.posedge)
+    def count_accepts():
+        if slave.en_o and not slave.stall_i:
+            accepted[0] += 1
+
+    @instance
+    def stimulus():
+        master.adr_o.next = 0
+        master.db_wr.next = 0
+        master.we_o.next = 0
+        master.en_o.next = False
+        reset.next = True
+        yield clock.posedge
+        yield clock.posedge
+        reset.next = False
+        yield clock.posedge
+        yield delay(1)
+
+        # Zero-wait-state write. The slave acknowledges combinationally from EN.
+        master.adr_o.next = SLAVE0_BASE + 0x20
+        master.db_wr.next = 0x12345678
+        master.we_o.next = 0xF
+        master.en_o.next = True
+        timeout = 0
+        while not master.ack_i:
+            assert not slave.stall_i
+            assert timeout < 6
+            yield clock.posedge
+            yield delay(1)
+            timeout += 1
+        assert not master.error_i
+        assert bool(master.stall_i) is register_slave
+        master.en_o.next = False
+        master.we_o.next = 0
+        yield clock.posedge
+        yield delay(1)
+        assert accepted[0] == 1
+
+        # Read the stored value back through the identical slave response path.
+        master.adr_o.next = SLAVE0_BASE + 0x20
+        master.en_o.next = True
+        timeout = 0
+        while not master.ack_i:
+            assert not slave.stall_i
+            assert timeout < 6
+            yield clock.posedge
+            yield delay(1)
+            timeout += 1
+        assert not master.error_i
+        assert bool(master.stall_i) is register_slave
+        assert master.db_rd == 0x12345678
+        master.en_o.next = False
+        yield clock.posedge
+        yield delay(1)
+        assert accepted[0] == 2
+
+        raise StopSimulation
+
+    return instances()
+
+
+@block
+def tb_dbus_interconnect_registered_slave():
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+    conf = config.BonfireConfig()
+    master = DbusBundle(conf)
+    slave0 = DbusBundle(conf)
+    slave1 = DbusBundle(conf)
+    accepted = [0]
+
+    clk_driver = ClkDriver(clock, period=CLK_PERIOD)
+    dut = DbusInterConnects.Master8Slaves(
+        master, clock, reset,
+        slave0=slave0,
+        slave1=slave1,
+        adrmask0=AdrMask(32, 28, 0x8),
+        adrmask1=AdrMask(32, 28, 0x9),
+        register_slave1=True)
+
+    @always_comb
+    def combinational_slave():
+        slave0.ack_i.next = slave0.en_o
+        slave0.error_i.next = False
+        slave0.stall_i.next = False
+        slave0.db_rd.next = 0xC0DEC0DE
+
+    @always(clock.posedge)
+    def count_registered_accepts():
+        if slave1.en_o and not slave1.stall_i:
+            accepted[0] += 1
+
+    def drive_master(address: int, data: int = 0, write_enable: int = 0):
+        master.adr_o.next = address
+        master.db_wr.next = modbv(data)[32:]
+        master.we_o.next = write_enable
+        master.en_o.next = True
+
+    def idle_master():
+        master.adr_o.next = 0
+        master.db_wr.next = 0
+        master.we_o.next = 0
+        master.en_o.next = False
+
+    @instance
+    def stimulus():
+        idle_master()
+        slave1.ack_i.next = False
+        slave1.error_i.next = False
+        slave1.stall_i.next = False
+        slave1.db_rd.next = 0
+        reset.next = True
+        yield clock.posedge
+        reset.next = False
+        yield clock.posedge
+        yield delay(1)
+
+        # Capture a write, then prove that downstream STALL preserves the
+        # registered request even if the master changes every payload signal.
+        slave1.stall_i.next = True
+        drive_master(SLAVE1_BASE + 0x10, 0x11223344, 0xF)
+        yield delay(1)
+        assert not master.stall_i
+        yield clock.posedge
+        yield delay(1)
+        assert master.stall_i
+        assert slave1.en_o
+        assert slave1.adr_o == SLAVE1_BASE + 0x10
+        assert slave1.db_wr == 0x11223344
+        assert slave1.we_o == 0xF
+
+        drive_master(SLAVE1_BASE + 0x20, 0x55667788, 0x3)
+        for _ in range(2):
+            yield clock.posedge
+            yield delay(1)
+            assert master.stall_i
+            assert slave1.en_o
+            assert slave1.adr_o == SLAVE1_BASE + 0x10
+            assert slave1.db_wr == 0x11223344
+            assert slave1.we_o == 0xF
+        assert accepted[0] == 0
+
+        # Once accepted, EN is removed and a delayed response is registered.
+        slave1.stall_i.next = False
+        yield clock.posedge
+        yield delay(1)
+        assert accepted[0] == 1
+        assert not slave1.en_o
+        assert master.stall_i
+        yield clock.posedge
+        yield delay(1)
+        assert not master.ack_i
+
+        slave1.db_rd.next = 0xA1B2C3D4
+        slave1.ack_i.next = True
+        yield clock.posedge
+        yield delay(1)
+        assert master.ack_i
+        assert not master.error_i
+        assert master.stall_i
+        assert master.db_rd == 0xA1B2C3D4
+        assert accepted[0] == 1
+
+        # The second same-slot request was held by STALL and is captured only
+        # after the first registered response has retired.
+        slave1.ack_i.next = False
+        yield clock.posedge
+        yield delay(1)
+        assert not master.ack_i
+        assert not master.stall_i
+        assert not slave1.en_o
+        yield clock.posedge
+        yield delay(1)
+        assert master.stall_i
+        assert slave1.en_o
+        assert slave1.adr_o == SLAVE1_BASE + 0x20
+        assert slave1.db_wr == 0x55667788
+        assert slave1.we_o == 0x3
+
+        # Immediate ACK and EN in the same cycle still count as one acceptance.
+        slave1.db_rd.next = 0x01020304
+        slave1.ack_i.next = True
+        yield clock.posedge
+        yield delay(1)
+        assert accepted[0] == 2
+        assert master.ack_i
+        assert master.db_rd == 0x01020304
+        idle_master()
+        slave1.ack_i.next = False
+        yield clock.posedge
+        yield delay(1)
+
+        # A request for another slot cannot leak through while slot 1 owns the
+        # interconnect. It proceeds combinationally after the old response.
+        drive_master(SLAVE1_BASE + 0x30)
+        yield clock.posedge
+        yield delay(1)
+        assert slave1.en_o
+        yield clock.posedge
+        yield delay(1)
+        assert accepted[0] == 3
+        assert not slave1.en_o
+        drive_master(SLAVE0_BASE)
+        yield delay(1)
+        assert master.stall_i
+        assert not slave0.en_o
+
+        slave1.db_rd.next = 0xABCDEF01
+        slave1.ack_i.next = True
+        yield clock.posedge
+        yield delay(1)
+        assert master.ack_i
+        assert master.stall_i
+        assert not slave0.en_o
+        slave1.ack_i.next = False
+        yield clock.posedge
+        yield delay(1)
+        assert slave0.en_o
+        assert master.ack_i
+        assert not master.stall_i
+        assert master.db_rd == 0xC0DEC0DE
+        idle_master()
+        yield clock.posedge
+        yield delay(1)
+
+        # ERROR follows the same registered response path as ACK.
+        drive_master(SLAVE1_BASE + 0x40)
+        yield clock.posedge
+        yield clock.posedge
+        yield delay(1)
+        slave1.error_i.next = True
+        yield clock.posedge
+        yield delay(1)
+        assert not master.ack_i
+        assert master.error_i
+        assert master.stall_i
+        slave1.error_i.next = False
+        idle_master()
+        yield clock.posedge
+        yield delay(1)
+
+        # Synchronous reset cancels a captured, stalled request and any
+        # outstanding response state.
+        slave1.stall_i.next = True
+        drive_master(SLAVE1_BASE + 0x50, 0xDEADBEEF, 0xF)
+        yield clock.posedge
+        yield delay(1)
+        assert slave1.en_o
+        assert master.stall_i
+        reset.next = True
+        yield clock.posedge
+        yield delay(1)
+        assert not slave1.en_o
+        assert not master.ack_i
+        assert not master.error_i
+        assert not master.stall_i
+
+        raise StopSimulation
+
+    return instances()
+
+
 def test_dbus_interconnect_signal_array_routes_slave0(sim_env):
     # Basic MyHDL simulation: route writes and reads through slave0.
     _run_interconnect_scenario(sim_env, "slave0")
@@ -703,6 +998,30 @@ def test_dbus_interconnect_master8_all_none_errors(sim_env):
     _run_master8_scenario(sim_env, "empty")
 
 
+@pytest.mark.parametrize(
+    "register_slave",
+    [False, True],
+    ids=["combinational", "registered"],
+)
+def test_dbus_interconnect_zero_wait_baseline(sim_env, request, register_slave: bool):
+    waveform_name = "dbus_interconnect_zero_wait_{}".format(
+        "registered" if register_slave else "combinational")
+    trace, filename = waveform_config(request, sim_env, waveform_name)
+    tb = tb_dbus_interconnect_zero_wait_baseline(register_slave)
+    run_sim(
+        tb,
+        trace=trace,
+        filename=filename,
+        duration=500,
+        waveforms_dir=sim_env["waveforms_dir"],
+    )
+
+
+def test_dbus_interconnect_registered_slave_protocol(sim_env):
+    tb = tb_dbus_interconnect_registered_slave()
+    run_sim(tb, duration=2_000, waveforms_dir=sim_env["waveforms_dir"])
+
+
 def test_dbus_interconnect_master8_logs_resolved_address_map(capsys):
     # Construction-time diagnostics must show the resolved 32-bit mappings.
     clock = Signal(bool(0))
@@ -717,10 +1036,15 @@ def test_dbus_interconnect_master8_logs_resolved_address_map(capsys):
     db_rd = Signal(modbv(0)[32:])
 
     dbus_interconnect_master8_wrapper(clock, reset, adr, db_wr, we, en, ack, error, stall, db_rd)
+    dbus_interconnect_master8_two_slave_wrapper(
+        clock, reset, adr, db_wr, we, en, ack, error, stall, db_rd,
+        register_slave0=True)
 
     out = capsys.readouterr().out
     assert "Master8Slaves: DBUS address map" in out
     assert "slot 0 slave0 active" in out
+    assert "range=0x00008000..0xffff8fff, combinational" in out
+    assert "range=0x00001000..0xffff1fff, registered" in out
     assert "base=0x00008000" in out
     assert "slot 3 slave3 active" in out
     assert "base=0x0000a000" in out
@@ -751,6 +1075,17 @@ def test_dbus_interconnect_master8_rejects_mask_on_disabled_slot():
     with pytest.raises(AssertionError, match="disabled but has an address mask"):
         DbusInterConnects.Master8Slaves(
             master, clock, reset, adrmask0=AdrMask(32, 28, 0x8))
+
+
+def test_dbus_interconnect_master8_rejects_registered_disabled_slot():
+    conf = config.BonfireConfig()
+    master = DbusBundle(conf)
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+
+    with pytest.raises(AssertionError, match="disabled but is configured as registered"):
+        DbusInterConnects.Master8Slaves(
+            master, clock, reset, register_slave1=True)
 
 
 def test_dbus_interconnect_master8_rejects_overlapping_masks():

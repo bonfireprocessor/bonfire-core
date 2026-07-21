@@ -75,9 +75,79 @@ class VhdlTemplateRenderer:
         config = dict(soc_config)
         config["generated"] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         config["numLeds_minus_one"] = int(config["numLeds"]) - 1
+        config.update(self._extended_jtagg_template_config(config))
         for key in ("enableUart1", "enableSpi", "enableGpio", "debug", "instUartOnly"):
             config[key] = self._bool_vhdl(config[key])
         return config
+
+    def _extended_jtagg_template_config(self, config):
+        enabled = (
+            bool(config["enableJtagDebug"])
+            and config["debugJtagTransport"] == "ecp5_jtagg"
+        )
+        if not enabled:
+            return {
+                "jtaggComponentPorts": "",
+                "jtaggSignals": "",
+                "jtaggBridge": "",
+                "jtaggPortMap": "",
+            }
+
+        return {
+            "jtaggComponentPorts": """;
+        jtagg_i_jtck    : in  std_logic;
+        jtagg_i_jtdi    : in  std_logic;
+        jtagg_i_jshift  : in  std_logic;
+        jtagg_i_jupdate : in  std_logic;
+        jtagg_i_jrstn   : in  std_logic;
+        jtagg_i_jce1    : in  std_logic;
+        jtagg_i_jce2    : in  std_logic;
+        jtagg_i_jrt1    : in  std_logic;
+        jtagg_i_jrt2    : in  std_logic;
+        jtagg_o_jtdo1   : out std_logic;
+        jtagg_o_jtdo2   : out std_logic""",
+            "jtaggSignals": """
+signal jtck    : std_logic;
+signal jtdi    : std_logic;
+signal jshift  : std_logic;
+signal jupdate : std_logic;
+signal jrstn   : std_logic;
+signal jce1    : std_logic;
+signal jce2    : std_logic;
+signal jrt1    : std_logic;
+signal jrt2    : std_logic;
+signal jtdo1   : std_logic;
+signal jtdo2   : std_logic;
+""",
+            "jtaggBridge": """
+jtagg_bridge_inst: entity work.ecp5_jtagg_bridge
+    port map (
+        jtck    => jtck,
+        jtdi    => jtdi,
+        jshift  => jshift,
+        jupdate => jupdate,
+        jrstn   => jrstn,
+        jce1    => jce1,
+        jce2    => jce2,
+        jrt1    => jrt1,
+        jrt2    => jrt2,
+        jtdo1   => jtdo1,
+        jtdo2   => jtdo2
+    );
+""",
+            "jtaggPortMap": """
+        jtagg_i_jtck    => jtck,
+        jtagg_i_jtdi    => jtdi,
+        jtagg_i_jshift  => jshift,
+        jtagg_i_jupdate => jupdate,
+        jtagg_i_jrstn   => jrstn,
+        jtagg_i_jce1    => jce1,
+        jtagg_i_jce2    => jce2,
+        jtagg_i_jrt1    => jrt1,
+        jtagg_i_jrt2    => jrt2,
+        jtagg_o_jtdo1   => jtdo1,
+        jtagg_o_jtdo2   => jtdo2,""",
+        }
 
     def _bool_vhdl(self, value):
         return "true" if bool(value) else "false"

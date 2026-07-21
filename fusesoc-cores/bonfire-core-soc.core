@@ -158,6 +158,7 @@ targets:
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
+        register_wishbone_dbus: true
     flags:
       simulation_target : true
     tools:
@@ -299,6 +300,32 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        enable_spi: true
+        enable_gpio: true
+        num_gpio: 8
+        register_wishbone_dbus: true
+
+  ulx3s_extended_jtagg:
+    <<: *target_ulx3s
+    flags:
+      extended_soc : true
+    filesets: [ulx3s_lpf, scripts, soc_io, ulx3s_top]
+    generate:
+    - soc_top:
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/ulx3s/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/ulx3s/hello.hex)"
+        num_leds: 8
+        led_active_low: false
+        laned_memory: false
+        extended_soc: true
+        enable_spi: true
+        enable_gpio: true
+        num_gpio: 8
+        register_wishbone_dbus: true
+        enable_jtag_debug: true
+        debug_jtag_transport: ecp5_jtagg
+        enable_debug_ndmreset: true
 
   ulx3s_jtagg:
     <<: *target_ulx3s
@@ -385,3 +412,26 @@ targets:
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
+        register_wishbone_dbus: true
+
+  icepizero_extended_jtagg:
+    <<: *target_icepizero
+    flags:
+      extended_soc : true
+    filesets: [icepizero_lpf, scripts, soc_io, icepizero_top]
+    generate:
+    - soc_top:
+        hexfile:
+          - "fw_monitor ? (../code/build/soc/icepizero/monitor.hex)"
+          - "!fw_monitor ? (../code/build/soc/icepizero/hello.hex)"
+        num_leds: 5
+        led_active_low: false
+        laned_memory: false
+        extended_soc: true
+        enable_spi: true
+        enable_gpio: true
+        num_gpio: 8
+        register_wishbone_dbus: true
+        enable_jtag_debug: true
+        debug_jtag_transport: ecp5_jtagg
+        enable_debug_ndmreset: true

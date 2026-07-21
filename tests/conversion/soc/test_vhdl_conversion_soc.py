@@ -52,6 +52,7 @@ def test_soc_top_vhdl_conversion(
         hexfile=str(hex_path),
         soc_config={
             "numLeds": 4,
+            "registerWishboneDbus": True,
             "enableJtagDebug": enable_jtag_debug,
             "debugJtagTransport": debug_jtag_transport,
         },
