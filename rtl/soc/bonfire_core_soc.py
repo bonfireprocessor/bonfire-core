@@ -37,6 +37,7 @@ class BonfireCoreSoC:
         self.ledActiveLow: bool = soc_config.get('ledActiveLow', True)
         self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
         self.exposeWishboneMaster: bool = soc_config.get('exposeWishboneMaster', False)
+        self.registerWishboneDbus: bool = soc_config.get('registerWishboneDbus', False)
         self.enableJtagDebug: bool = soc_config.get('enableJtagDebug', False)
         self.debugJtagTransport: str = soc_config.get('debugJtagTransport', 'native')
         assert self.debugJtagTransport in ('native', 'ecp5_jtagg'), (
@@ -281,6 +282,7 @@ class BonfireCoreSoC:
                                                               wb_mask=self.wbMask,
                                                               db_mask=self.dbusMask,
                                                               bram_mask=self.bramMask,
+                                                              register_wishbone_dbus=self.registerWishboneDbus,
                                                               debugTransportBundle=debug_transport)
 
 

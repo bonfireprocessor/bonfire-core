@@ -98,6 +98,7 @@ class SoCGenerationConfigBuilder:
         "enable_spi": False,
         "num_spi": 1,
         "enable_gpio": True,
+        "register_wishbone_dbus": False,
         "debug": False,
         "enable_jtag_debug": False,
         "debug_jtag_transport": "native",

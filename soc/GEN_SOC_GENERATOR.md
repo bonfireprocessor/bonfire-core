@@ -219,6 +219,7 @@ These FuseSoC parameters are converted into `soc_config`:
 | `enable_spi` | `enableSpi` | `false` |
 | `num_spi` | `numSpi` | `1` |
 | `enable_gpio` | `enableGpio` | `true` |
+| `register_wishbone_dbus` | `registerWishboneDbus` | `false` |
 | `debug` | `debug` | `false` |
 | `enable_jtag_debug` | `enableJtagDebug` | `false` |
 | `enable_debug_ndmreset` | `enableDebugNdmreset` | `false` |

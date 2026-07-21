@@ -30,6 +30,7 @@ def bonfireCoreExtendedInterface(wb_master: Wishbone_master_bundle, db_master: D
                                  wb_mask: AdrMask = AdrMask(32,28,0x2),
                                  db_mask: AdrMask = AdrMask(32,28,0x1),
                                  bram_mask: AdrMask = AdrMask(32,28,0),
+                                 register_wishbone_dbus: bool = False,
                                  debugTransportBundle: DmiBundle | None = None) -> Any:
     """
     wb_master: Wishbone_master_bundle mapped at address 0x02000000
@@ -54,8 +55,15 @@ def bonfireCoreExtendedInterface(wb_master: Wishbone_master_bundle, db_master: D
     ic_class= DbusInterConnects()
     #ic = DbusInterConnects.Master3Slaves(dbus,db_master_bram,db_master_wb,db_master,clock,reset,
     #     bram_mask,wb_mask,db_mask)
-    ic=DbusInterConnects.Master8Slaves(dbus,clock,reset,slave0=db_master_bram,slave1=db_master_wb,slave2=db_master,
-                                       adrmask0=bram_mask, adrmask1=wb_mask, adrmask2=db_mask)
+    ic=DbusInterConnects.Master8Slaves(
+        dbus, clock, reset,
+        slave0=db_master_bram,
+        slave1=db_master_wb,
+        slave2=db_master,
+        adrmask0=bram_mask,
+        adrmask1=wb_mask,
+        adrmask2=db_mask,
+        register_slave1=register_wishbone_dbus)
     
     core=bonfire_core_top.BonfireCoreTop(config)
     core_i = core.createInstance(

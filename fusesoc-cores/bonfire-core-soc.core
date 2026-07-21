@@ -158,6 +158,7 @@ targets:
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
+        register_wishbone_dbus: true
     flags:
       simulation_target : true
     tools:
@@ -299,6 +300,10 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        enable_spi: true
+        enable_gpio: true
+        num_gpio: 8
+        register_wishbone_dbus: true
 
   ulx3s_extended_jtagg:
     <<: *target_ulx3s
@@ -314,6 +319,10 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        enable_spi: true
+        enable_gpio: true
+        num_gpio: 8
+        register_wishbone_dbus: true
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
         enable_debug_ndmreset: true
@@ -403,6 +412,7 @@ targets:
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
+        register_wishbone_dbus: true
 
   icepizero_extended_jtagg:
     <<: *target_icepizero
@@ -421,6 +431,7 @@ targets:
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
+        register_wishbone_dbus: true
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
         enable_debug_ndmreset: true

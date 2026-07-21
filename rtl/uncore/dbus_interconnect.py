@@ -63,11 +63,13 @@ class DbusInterConnects:
     def _validate_and_log_mapping(slaves: Sequence[DbusBundle],
                                   adrmasks: Sequence[AdrMask],
                                   names: Sequence[str],
+                                  registered_slaves: Sequence[bool],
                                   xlen: int,
                                   interconnect_name: str) -> None:
         active: list[tuple[int, DbusBundle, AdrMask, str]] = []
         assert len(slaves) == len(adrmasks)
         assert len(slaves) == len(names)
+        assert len(slaves) == len(registered_slaves)
 
         diagnostics = get_diagnostics()
         diagnostics.detail("{}: DBUS address map".format(interconnect_name))
@@ -75,6 +77,9 @@ class DbusInterConnects:
             if slave is None:
                 assert adrmasks[i] is None, (
                     "{} slot {} {} is disabled but has an address mask".format(
+                        interconnect_name, i, names[i]))
+                assert not registered_slaves[i], (
+                    "{} slot {} {} is disabled but is configured as registered".format(
                         interconnect_name, i, names[i]))
                 diagnostics.detail("{}:   slot {} {} disabled".format(interconnect_name, i, names[i]))
                 continue
@@ -89,9 +94,10 @@ class DbusInterConnects:
             address_mask = adrmask.address_mask(xlen)
             diagnostics.detail(
                 "{}:   slot {} {} active: bits [{}:{}] == 0x{:x}, "
-                "base=0x{:08x}, addr_mask=0x{:08x}, range=0x{:08x}..0x{:08x}".format(
+                "base=0x{:08x}, addr_mask=0x{:08x}, range=0x{:08x}..0x{:08x}, {}".format(
                     interconnect_name, i, names[i], adrmask.upper - 1, adrmask.lower,
-                    adrmask.mask, base, address_mask, base, end))
+                    adrmask.mask, base, address_mask, base, end,
+                    "registered" if registered_slaves[i] else "combinational"))
             active.append((i, slave, adrmask, names[i]))
 
         for a_index, _, a_mask, a_name in active:
@@ -112,9 +118,16 @@ class DbusInterConnects:
                             slave_port_db_wr: Sequence[Any], slave_port_ack_i: Sequence[Any],
                             slave_port_error_i: Sequence[Any], slave_port_stall_i: Sequence[Any],
                             slave_port_db_rd: Sequence[Any], clock: BitSignal,
-                            reset: BitSignal, adrmasks: Sequence[AdrMask]) -> Any:
+                            reset: BitSignal, adrmasks: Sequence[AdrMask],
+                            registered_slaves: Sequence[bool] | None = None) -> Any:
         slave_count = len(slave_port_en_o)
+        if registered_slaves is None:
+            registered_slaves = tuple(False for _ in range(slave_count))
         assert slave_count == len(adrmasks), "slave signals and adrmasks must have the same length"
+        assert slave_count == len(registered_slaves), (
+            "slave signals and registered_slaves must have the same length")
+        assert all(isinstance(registered, bool) for registered in registered_slaves), (
+            "registered_slaves entries must be bool values")
         assert slave_count == len(slave_port_adr_o)
         assert slave_count == len(slave_port_we_o)
         assert slave_count == len(slave_port_db_wr)
@@ -135,11 +148,13 @@ class DbusInterConnects:
 
         busy: BitSignal = Signal(bool(0))
         ack: BitSignal = Signal(bool(0))
+        selection_stall: BitSignal = Signal(bool(0))
 
         @always_seq(clock.posedge, reset=reset)
         def seq():
-            if busy and ack:
-                busy.next = False
+            if busy:
+                if ack:
+                    busy.next = False
             else:
                 s_en_r.next = s_en
                 b = False
@@ -151,7 +166,12 @@ class DbusInterConnects:
         @always_comb
         def mux_sel_proc():
             for i in range(slave_count):
-                mux_sel.next[i] = s_en[i] or (s_en_r[i] and busy)
+                if busy:
+                    mux_sel.next[i] = s_en_r[i]
+                else:
+                    mux_sel.next[i] = s_en[i]
+
+            selection_stall.next = busy and master_en_o and s_en != s_en_r
 
         adrsel_instances = []
 
@@ -178,17 +198,12 @@ class DbusInterConnects:
         def make_slave_outputs(i: int, en_o: BitSignal, adr_o: Any, db_wr_o: Any, we_o: Any) -> Any:
             @always_comb
             def slave_outputs():
-                en_o.next = s_en[i]
+                en_o.next = s_en[i] and not selection_stall
                 adr_o.next = master_adr_o
                 db_wr_o.next = master_db_wr
                 we_o.next = master_we_o
 
             return slave_outputs
-
-        for i in range(slave_count):
-            slave_output_instances.append(make_slave_outputs(
-                i, slave_port_en_o[i], slave_port_adr_o[i],
-                slave_port_db_wr[i], slave_port_we_o[i]))
 
         slave_input_instances = []
 
@@ -204,14 +219,83 @@ class DbusInterConnects:
 
             return slave_inputs
 
+        @block
+        def make_registered_slave(i: int, en_o: BitSignal, adr_o: Any,
+                                  db_wr_o: Any, we_o: Any, ack_i: BitSignal,
+                                  error_i: BitSignal, stall_i: BitSignal,
+                                  db_rd_i: Any) -> Any:
+            idle = 0
+            request = 1
+            wait_response = 2
+            response = 3
+
+            state = Signal(modbv(idle)[2:])
+            adr_r = Signal(modbv(0)[len(master_adr_o):])
+            db_wr_r = Signal(modbv(0)[len(master_db_wr):])
+            we_r = Signal(modbv(0)[len(master_we_o):])
+            ack_r: BitSignal = Signal(bool(0))
+            error_r: BitSignal = Signal(bool(0))
+            db_rd_r = Signal(modbv(0)[len(master_db_rd):])
+
+            @always_seq(clock.posedge, reset=reset)
+            def registered_seq():
+                if state == idle:
+                    ack_r.next = False
+                    error_r.next = False
+                    if s_en[i] and not selection_stall:
+                        adr_r.next = master_adr_o
+                        db_wr_r.next = master_db_wr
+                        we_r.next = master_we_o
+                        state.next = request
+                elif state == request:
+                    if ack_i or error_i:
+                        ack_r.next = ack_i
+                        error_r.next = error_i
+                        db_rd_r.next = db_rd_i
+                        state.next = response
+                    elif not stall_i:
+                        state.next = wait_response
+                elif state == wait_response:
+                    if ack_i or error_i:
+                        ack_r.next = ack_i
+                        error_r.next = error_i
+                        db_rd_r.next = db_rd_i
+                        state.next = response
+                else:
+                    state.next = idle
+
+            @always_comb
+            def registered_comb():
+                en_o.next = state == request
+                adr_o.next = adr_r
+                db_wr_o.next = db_wr_r
+                we_o.next = we_r
+                mux_slave_ack[i].next = state == response and ack_r
+                mux_slave_error[i].next = state == response and error_r
+                mux_slave_stall[i].next = state != idle
+                mux_slave_db_rd[i].next = db_rd_r
+
+            return instances()
+
         for i in range(slave_count):
-            slave_input_instances.append(make_slave_inputs(
-                i, slave_port_ack_i[i], slave_port_error_i[i],
-                slave_port_stall_i[i], slave_port_db_rd[i]))
+            if registered_slaves[i]:
+                slave_output_instances.append(make_registered_slave(
+                    i, slave_port_en_o[i], slave_port_adr_o[i],
+                    slave_port_db_wr[i], slave_port_we_o[i], slave_port_ack_i[i],
+                    slave_port_error_i[i], slave_port_stall_i[i], slave_port_db_rd[i]))
+            else:
+                slave_output_instances.append(make_slave_outputs(
+                    i, slave_port_en_o[i], slave_port_adr_o[i],
+                    slave_port_db_wr[i], slave_port_we_o[i]))
+                slave_input_instances.append(make_slave_inputs(
+                    i, slave_port_ack_i[i], slave_port_error_i[i],
+                    slave_port_stall_i[i], slave_port_db_rd[i]))
 
         @always_comb
         def master_inputs():
-            stall = busy and master_en_o and s_en != s_en_r
+            stall = False
+            if selection_stall:
+                stall = True
             t_ack = False
             t_error = False
             selected = False
@@ -253,20 +337,37 @@ class DbusInterConnects:
                       adrmask4: AdrMask | None = None,
                       adrmask5: AdrMask | None = None,
                       adrmask6: AdrMask | None = None,
-                      adrmask7: AdrMask | None = None) -> Any:
+                      adrmask7: AdrMask | None = None,
+                      register_slave0: bool = False,
+                      register_slave1: bool = False,
+                      register_slave2: bool = False,
+                      register_slave3: bool = False,
+                      register_slave4: bool = False,
+                      register_slave5: bool = False,
+                      register_slave6: bool = False,
+                      register_slave7: bool = False) -> Any:
+        """Connect up to eight slaves, optionally registering individual slots.
+
+        ``register_slaveN`` adds a one-entry request/response register stage only
+        to slot N. Disabled slots must leave their corresponding flag false.
+        """
         slots = (slave0, slave1, slave2, slave3, slave4, slave5, slave6, slave7)
         masks = (adrmask0, adrmask1, adrmask2, adrmask3, adrmask4, adrmask5, adrmask6, adrmask7)
         names = ("slave0", "slave1", "slave2", "slave3", "slave4", "slave5", "slave6", "slave7")
+        registered = (register_slave0, register_slave1, register_slave2, register_slave3,
+                      register_slave4, register_slave5, register_slave6, register_slave7)
 
         DbusInterConnects._validate_and_log_mapping(
-            slots, masks, names, master.xlen, "Master8Slaves")
+            slots, masks, names, registered, master.xlen, "Master8Slaves")
 
         active_slaves = []
         active_masks = []
+        active_registered = []
         for i, slave in enumerate(slots):
             if slave is not None:
                 active_slaves.append(slave)
                 active_masks.append(masks[i])
+                active_registered.append(registered[i])
 
         if active_slaves:
             slave_port_en_o = tuple(slave.en_o for slave in active_slaves)
@@ -283,7 +384,7 @@ class DbusInterConnects:
                 master.ack_i, master.error_i, master.stall_i, master.db_rd,
                 slave_port_en_o, slave_port_adr_o, slave_port_we_o, slave_port_db_wr,
                 slave_port_ack_i, slave_port_error_i, slave_port_stall_i, slave_port_db_rd,
-                clock, reset, active_masks)
+                clock, reset, active_masks, active_registered)
         else:
             @always_comb
             def no_slaves():
@@ -300,7 +401,11 @@ class DbusInterConnects:
                                      slave2: DbusBundle, slave3: DbusBundle,
                                      clock: BitSignal, reset: BitSignal,
                                      adrmask1: AdrMask, adrmask2: AdrMask,
-                                     adrmask3: AdrMask) -> Any:
+                                     adrmask3: AdrMask,
+                                     register_slave1: bool = False,
+                                     register_slave2: bool = False,
+                                     register_slave3: bool = False) -> Any:
+        """Connect three slaves with an optional register stage per slot."""
         slave_port_en_o = (slave1.en_o, slave2.en_o, slave3.en_o)
         slave_port_adr_o = (slave1.adr_o, slave2.adr_o, slave3.adr_o)
         slave_port_we_o = (slave1.we_o, slave2.we_o, slave3.we_o)
@@ -310,13 +415,14 @@ class DbusInterConnects:
         slave_port_stall_i = (slave1.stall_i, slave2.stall_i, slave3.stall_i)
         slave_port_db_rd = (slave1.db_rd, slave2.db_rd, slave3.db_rd)
         adrmasks = (adrmask1, adrmask2, adrmask3)
+        registered_slaves = (register_slave1, register_slave2, register_slave3)
 
         ic = DbusInterConnects.MasterNSlaveSignals(
             master.en_o, master.adr_o, master.we_o, master.db_wr,
             master.ack_i, master.error_i, master.stall_i, master.db_rd,
             slave_port_en_o, slave_port_adr_o, slave_port_we_o, slave_port_db_wr,
             slave_port_ack_i, slave_port_error_i, slave_port_stall_i, slave_port_db_rd,
-            clock, reset, adrmasks)
+            clock, reset, adrmasks, registered_slaves)
 
         return instances()
 
