@@ -19,7 +19,7 @@ from rtl import config
 from rtl.bonfire_interfaces import DbusBundle
 from rtl.uncore.dbus_interconnect import AdrMask, DbusInterConnects
 from tb.ClkDriver import ClkDriver
-from tests.conftest import run_sim
+from tests.conftest import run_sim, waveform_config
 
 
 CLK_PERIOD = 10
@@ -694,6 +694,85 @@ def _run_master8_scenario(sim_env: dict, scenario: str):
 
 
 @block
+def tb_dbus_interconnect_zero_wait_baseline(register_slave: bool):
+    """Single-slave write/read baseline without slave-generated wait states."""
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+    conf = config.BonfireConfig()
+    master = DbusBundle(conf)
+    slave = DbusBundle(conf)
+    accepted = [0]
+
+    clk_driver = ClkDriver(clock, period=CLK_PERIOD)
+    dut = DbusInterConnects.Master8Slaves(
+        master, clock, reset,
+        slave0=slave,
+        adrmask0=AdrMask(32, 28, 0x8),
+        register_slave0=register_slave)
+    slave_i = dbus_dummy_slave(slave, clock, reset, 0x000000A0)
+
+    @always(clock.posedge)
+    def count_accepts():
+        if slave.en_o and not slave.stall_i:
+            accepted[0] += 1
+
+    @instance
+    def stimulus():
+        master.adr_o.next = 0
+        master.db_wr.next = 0
+        master.we_o.next = 0
+        master.en_o.next = False
+        reset.next = True
+        yield clock.posedge
+        yield clock.posedge
+        reset.next = False
+        yield clock.posedge
+        yield delay(1)
+
+        # Zero-wait-state write. The slave acknowledges combinationally from EN.
+        master.adr_o.next = SLAVE0_BASE + 0x20
+        master.db_wr.next = 0x12345678
+        master.we_o.next = 0xF
+        master.en_o.next = True
+        timeout = 0
+        while not master.ack_i:
+            assert not slave.stall_i
+            assert timeout < 6
+            yield clock.posedge
+            yield delay(1)
+            timeout += 1
+        assert not master.error_i
+        assert bool(master.stall_i) is register_slave
+        master.en_o.next = False
+        master.we_o.next = 0
+        yield clock.posedge
+        yield delay(1)
+        assert accepted[0] == 1
+
+        # Read the stored value back through the identical slave response path.
+        master.adr_o.next = SLAVE0_BASE + 0x20
+        master.en_o.next = True
+        timeout = 0
+        while not master.ack_i:
+            assert not slave.stall_i
+            assert timeout < 6
+            yield clock.posedge
+            yield delay(1)
+            timeout += 1
+        assert not master.error_i
+        assert bool(master.stall_i) is register_slave
+        assert master.db_rd == 0x12345678
+        master.en_o.next = False
+        yield clock.posedge
+        yield delay(1)
+        assert accepted[0] == 2
+
+        raise StopSimulation
+
+    return instances()
+
+
+@block
 def tb_dbus_interconnect_registered_slave():
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
@@ -917,6 +996,25 @@ def test_dbus_interconnect_master8_routes_sparse_slots(sim_env):
 def test_dbus_interconnect_master8_all_none_errors(sim_env):
     # Master8Slaves MyHDL simulation: an all-None interconnect rejects all accesses.
     _run_master8_scenario(sim_env, "empty")
+
+
+@pytest.mark.parametrize(
+    "register_slave",
+    [False, True],
+    ids=["combinational", "registered"],
+)
+def test_dbus_interconnect_zero_wait_baseline(sim_env, request, register_slave: bool):
+    waveform_name = "dbus_interconnect_zero_wait_{}".format(
+        "registered" if register_slave else "combinational")
+    trace, filename = waveform_config(request, sim_env, waveform_name)
+    tb = tb_dbus_interconnect_zero_wait_baseline(register_slave)
+    run_sim(
+        tb,
+        trace=trace,
+        filename=filename,
+        duration=500,
+        waveforms_dir=sim_env["waveforms_dir"],
+    )
 
 
 def test_dbus_interconnect_registered_slave_protocol(sim_env):
