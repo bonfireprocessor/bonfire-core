@@ -361,6 +361,9 @@ targets:
         laned_memory: false
         enable_jtag_debug: false
         jump_bypass: false
+        pipeline_length: 5
+        writeback_bypass: false
+        registered_dbus_feedback: true
     toplevel: icepizero_top
 
   icepizero_jtag:

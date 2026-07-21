@@ -40,6 +40,13 @@ class ExecuteBundle(PipelineControl):
 
         self.invalid_opcode_fault = Signal(bool(0))
 
+        # Optional downstream interlock and writeback forwarding. They remain
+        # tied low in the legacy three-stage backend.
+        self.hazard_i = Signal(bool(0))
+        self.forward_we_i = Signal(bool(0))
+        self.forward_rd_i = Signal(modbv(0)[5:])
+        self.forward_data_i = Signal(modbv(0)[xlen:])
+
         PipelineControl.__init__(self)
 
 
@@ -125,26 +132,34 @@ class ExecuteBundle(PipelineControl):
         @always_comb
         def comb():
 
+            op1 = decode.op1_o
+            op2 = decode.op2_o
+            if self.forward_we_i and self.forward_rd_i != 0:
+                if decode.uses_rs1_o and decode.source_rs1_o == self.forward_rd_i:
+                    op1 = self.forward_data_i
+                if decode.uses_rs2_o and decode.source_rs2_o == self.forward_rd_i:
+                    op2 = self.forward_data_i
+
             # ALU Input wirings
             self.alu.funct3_i.next = decode.funct3_o
             self.alu.funct7_6_i.next = decode.funct7_o[5]
-            self.alu.op1_i.next = decode.op1_o
-            self.alu.op2_i.next = decode.op2_o
+            self.alu.op1_i.next = op1
+            self.alu.op2_i.next = op2
 
             # LS Unit Input wirings
             self.ls.funct3_i.next = decode.funct3_o
-            self.ls.op1_i.next = decode.op1_o
-            self.ls.op2_i.next = decode.op2_o
+            self.ls.op1_i.next = op1
+            self.ls.op2_i.next = op2
             self.ls.displacement_i.next = decode.displacement_o
             self.ls.store_i.next = decode.store_cmd
 
             #csr Unit Input Wirings
             self.csr.csr_adr.next = decode.priv_funct_12
-            self.csr.op1_i.next = decode.op1_o
+            self.csr.op1_i.next = op1
             self.csr.funct3_i.next = decode.funct3_o
 
             # Pipeline
-            busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy
+            busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy or self.hazard_i
             valid.next = self.alu.valid_o or self.ls.valid_o  or self.csr.valid_o  or jump_we
 
             if self.config.jump_bypass:

@@ -11,9 +11,22 @@ from tb import tb_core
 from tests.conftest import assert_monitor_pass, run_sim, waveform_config
 
 
+_PIPELINE_CASES = (
+    (3, False, "pipe3"),
+    (4, False, "pipe4"),
+    (4, True, "pipe4_bypass"),
+)
+_MONITOR_SUCCESS = "Monitor write:"
+_MONITOR_SUCCESS_SUFFIX = "10000000: 00000001 (1)"
+
+
 def _opt_env(name: str) -> str | None:
     v = os.environ.get(name, "").strip()
     return v or None
+
+
+def _sim_duration() -> int:
+    return int(os.environ.get("BONFIRE_CORE_DURATION", "20000"))
 
 
 def _hex_files(repo_root: Path, single: str | None = None) -> list[str]:
@@ -49,12 +62,28 @@ def _hex_files(repo_root: Path, single: str | None = None) -> list[str]:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
-    if "hex_path" not in metafunc.fixturenames:
+    if "test_case" not in metafunc.fixturenames:
         return
 
     repo_root = Path(__file__).resolve().parents[3]
     selected_hex = metafunc.config.getoption("--bonfire-hex")
-    metafunc.parametrize("hex_path", _hex_files(repo_root, selected_hex))
+    cases = []
+    ids = []
+    for pipeline_length, writeback_bypass, pipeline_id in _PIPELINE_CASES:
+        for hex_path in _hex_files(repo_root, selected_hex):
+            for enable_debug_module, debug_id in ((False, "debug_off"), (True, "debug_on")):
+                cases.append((
+                    hex_path,
+                    pipeline_length,
+                    writeback_bypass,
+                    enable_debug_module,
+                ))
+                ids.append("{}-{}-{}".format(
+                    pipeline_id,
+                    Path(hex_path).stem,
+                    debug_id,
+                ))
+    metafunc.parametrize("test_case", cases, ids=ids)
 
 
 def _paths_for_hex(repo_root: Path, request: pytest.FixtureRequest, hex_path: str) -> tuple[str, str, str]:
@@ -94,31 +123,33 @@ def _paths_for_hex(repo_root: Path, request: pytest.FixtureRequest, hex_path: st
     return hex_rel, elf_rel, sig_rel
 
 
-@pytest.mark.parametrize(
-    "enable_debug_module",
-    [False, True],
-    ids=["debug_off", "debug_on"],
-)
 def test_core(
     sim_env,
     capsys: pytest.CaptureFixture[str],
     request: pytest.FixtureRequest,
-    hex_path: str,
-    enable_debug_module: bool,
+    test_case: tuple[str, int, bool, bool],
 ):
+    hex_path, pipeline_length, writeback_bypass, enable_debug_module = test_case
     repo_root = Path(__file__).resolve().parents[3]
     hex_file, elf_file, sig_file = _paths_for_hex(repo_root, request, hex_path)
 
     verbose = _opt_env("BONFIRE_CORE_VERBOSE") in ("1", "true", "yes", "on")
     debug_suffix = "debug_on" if enable_debug_module else "debug_off"
+    pipeline_suffix = "pipe{}_{}".format(
+        pipeline_length,
+        "bypass" if writeback_bypass else "interlocked",
+    )
     trace, filename = waveform_config(
         request,
         sim_env,
-        "core_{}_{}".format(Path(hex_path).stem, debug_suffix),
+        "core_{}_{}_{}".format(Path(hex_path).stem, debug_suffix, pipeline_suffix),
     )
 
     conf = config.BonfireConfig()
     conf.enableDebugModule = enable_debug_module
+    conf.pipeline_length = pipeline_length
+    conf.writeback_bypass = writeback_bypass
+    conf.registered_dbus_feedback = pipeline_length == 5
 
     tb = tb_core.tb(
         config=conf,
@@ -128,8 +159,13 @@ def test_core(
         ramsize=16384,
         verbose=verbose,
     )
-    run_sim(tb, trace=trace, filename=filename, duration=20_000, waveforms_dir=sim_env["waveforms_dir"])
-
+    run_sim(
+        tb,
+        trace=trace,
+        filename=filename,
+        duration=_sim_duration(),
+        waveforms_dir=sim_env["waveforms_dir"],
+    )
     out = capsys.readouterr().out
 
     # If capture is disabled (pytest -s), mirror tb_run-style output by printing
@@ -139,5 +175,9 @@ def test_core(
 
     # For compliance tests (sig_file set), skip monitor assertion.
     # The compliance suite decides pass/fail via signature comparison.
-    if sig_file is None:
+    if not sig_file:
         assert_monitor_pass(out)
+        monitor_lines = [line for line in out.splitlines() if line.startswith(_MONITOR_SUCCESS)]
+        assert monitor_lines, "No monitor writes found in output"
+        assert monitor_lines[-1].endswith(_MONITOR_SUCCESS_SUFFIX), \
+            "Final monitor write must be 0x10000000 <- 1"
