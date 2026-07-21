@@ -346,7 +346,7 @@ targets:
   icepizero: &target_icepizero
     <<: *target_ecp5
     flow_options:
-      nextpnr_options: ['--25k', '--package', 'CABGA256', '--speed', '6' ]
+      nextpnr_options: ['--25k', '--package', 'CABGA256', '--speed', '6', '--seed', '1', '--timing-allow-fail', '--report', 'bonfire-core-soc_0.timing.json', '--detailed-timing-report']
     flags:  
       extended_soc : false
     filesets: [icepizero_lpf, icepizero_top, scripts]

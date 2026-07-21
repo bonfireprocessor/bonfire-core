@@ -9,6 +9,7 @@ from myhdl import *
 
 from rtl import alu, loadstore, csr, trap
 
+from rtl.instructions import ArithmeticFunct3 as a3
 from rtl.instructions import BranchFunct3  as b3
 from rtl.instructions import Opcodes, PrivFunct12
 
@@ -67,6 +68,9 @@ class ExecuteBundle(PipelineControl):
         jump_dest_r = Signal(intbv(0)[self.config.xlen:])
         jump_busy = Signal(bool(0)) # Only used when not config.jump_bypass
 
+        load_pending = Signal(bool(0))
+        shift_pending = Signal(bool(0))
+        pipelined_shifter = self.config.shifter_mode == "pipelined"
         jump_we = Signal(bool(0)) # rd write enable on jal/jalr
         debug_redirect_kill = Signal(bool(0))
         debug_ebreak_enable = Signal(bool(0))
@@ -97,6 +101,18 @@ class ExecuteBundle(PipelineControl):
         def seq():
 
             jump_busy.next = False
+
+            if self.taken:
+                load_pending.next = decode.load_cmd
+                shift_pending.next = pipelined_shifter and decode.alu_cmd and \
+                    (decode.funct3_o == a3.RV32_F3_SLL or \
+                     decode.funct3_o == a3.RV32_F3_SRL_SRA)
+            else:
+                if self.ls.valid_o:
+                    load_pending.next = False
+                if self.alu.valid_o:
+                    shift_pending.next = False
+
             if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
                 jump_dest_r.next = jump_dest
@@ -160,12 +176,15 @@ class ExecuteBundle(PipelineControl):
 
             if self.taken and jump_we:
                 self.result_o.next = decode.next_ip_o
-            elif self.alu.valid_o:
-                self.result_o.next = self.alu.res_o
-
-            elif self.ls.valid_o:
+            # Decode may already hold the following instruction when a
+            # multi-cycle unit completes. Use the class captured at issue for
+            # loads and pipelined shifts; single-cycle ALU and CSR results can
+            # use the current registered decode class.
+            elif load_pending:
                 self.result_o.next = self.ls.result_o
-            elif self.csr.valid_o:
+            elif shift_pending or decode.alu_cmd:
+                self.result_o.next = self.alu.res_o
+            elif decode.csr_cmd:
                 self.result_o.next = self.csr.result_o
             else:
                 self.result_o.next = 0

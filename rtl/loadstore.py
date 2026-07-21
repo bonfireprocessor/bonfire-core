@@ -292,7 +292,18 @@ class LoadStoreBundle(PipelineControl):
 
             adr.next = self.op1_i + self.displacement_i.signed()
 
-            l_busy =  bus.stall_i or ( outstanding == max_outstanding and not (not self.config.registered_read_stage and bus.ack_i) )
+            capacity_busy = outstanding == max_outstanding and not \
+                (not self.config.registered_read_stage and bus.ack_i)
+
+            # With a single outstanding slot the accepted execute operation
+            # already reserves all LSU capacity. The bus request registers
+            # remain asserted while the downstream bus stalls, so feeding the
+            # combinational stall response back into execute busy is redundant.
+            # Multi-request configurations still need stall_i to prevent
+            # another request from entering a full downstream pipe.
+            l_busy = bus.stall_i or capacity_busy
+            if max_outstanding == 1:
+                l_busy = capacity_busy
             busy.next = l_busy
            
 
