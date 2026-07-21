@@ -34,6 +34,18 @@ from rtl import config
 from tb import tb_core
 
 
+def print_core_configuration(core_config):
+    """Print the execution-relevant core configuration for a suite run."""
+    print("run_compliance.py - Core configuration:")
+    print(f"  pipeline_length: {core_config.pipeline_length}")
+    print(f"  writeback_bypass: {core_config.writeback_bypass}")
+    print(f"  jump_bypass: {core_config.jump_bypass}")
+    print(f"  shifter_mode: {core_config.shifter_mode}")
+    print(f"  registered_read_stage: {core_config.registered_read_stage}")
+    print(f"  loadstore_outstanding: {core_config.loadstore_outstanding}")
+    print(f"  debug_module: {core_config.enableDebugModule}")
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Run bonfire-core simulation for RISC-V compliance testing'
@@ -73,6 +85,7 @@ def main():
     # Create and configure testbench
     core_config = config.BonfireConfig()
     core_config.pipeline_length = 4
+    print_core_configuration(core_config)
     tb = tb_core.tb(
         config=core_config,
         hexFile=args.hex,
