@@ -53,7 +53,22 @@ architecture rtl of ulx3s_top is
     end component;
 
 
+    -- signal sysclk         : std_logic;
     signal resetn        : std_logic := '1';
+
+    -- signal uart1_txd      : std_logic;
+    -- signal uart1_rxd      : std_logic := '1';
+    -- signal spi_cs   : std_logic_vector(NUM_SPI-1 downto 0);
+    -- signal spi_clk  :  std_logic_vector(NUM_SPI-1 downto 0);
+    -- signal spi_mosi :  std_logic_vector(NUM_SPI-1 downto 0);
+    -- signal spi_miso :  std_logic_vector(NUM_SPI-1 downto 0);
+
+    -- signal gpio_io           : std_logic_vector (NUM_GPIO-1 downto 0);
+
+    -- signal gpio_o         : std_logic_vector(NUM_GPIO-1 downto 0);
+    -- signal gpio_i         : std_logic_vector(NUM_GPIO-1 downto 0);
+    -- signal gpio_t         : std_logic_vector(NUM_GPIO-1 downto 0);
+
     -- Internal loopbacks used by the monitor's peripheral self-tests.
     signal spi_loopback  : std_logic_vector(0 downto 0);
     signal gpio_loopback : std_logic_vector(7 downto 0);
@@ -61,6 +76,13 @@ begin
 
     soc_inst: bonfire_core_soc_top
     generic map (
+    --   NUM_SPI => NUM_SPI,
+    --   NUM_GPIO => NUM_GPIO,
+    --   ENABLE_UART1 => ENABLE_UART1,
+    --   ENABLE_SPI => ENABLE_SPI,
+    --   NUM_LEDS => NUM_LEDS,
+    --   ENABLE_GPIO => ENABLE_GPIO,
+    --   DEBUG => DEBUG
         INST_UART_ONLY => false,
         ENABLE_SPI => true,
         ENABLE_GPIO => true
