@@ -22,6 +22,7 @@ class PipelinedBackend:
     @block
     def backend(self, fetchBundle, frontEnd, databus, clock, reset, out,
                 debugport, debugRegisterBundle=None):
+        
         conf = self.config
         bypass = conf.writeback_bypass
 
@@ -50,6 +51,15 @@ class PipelinedBackend:
             wb_rd.next = self.execute.rd_adr_o
             wb_data.next = self.execute.result_o
 
+
+        if bypass:
+            @always_comb
+            def forward_comb():
+                self.execute.forward_we_i.next = wb_valid and wb_we
+                self.execute.forward_rd_i.next = wb_rd
+                self.execute.forward_data_i.next = wb_data
+
+
         @always_comb
         def common_comb():
             self.reg_portA.ra.next = self.decode.rs1_adr_o
@@ -62,9 +72,7 @@ class PipelinedBackend:
             self.reg_writePort.we.next = wb_valid and wb_we
             self.reg_writePort.wd.next = wb_data
 
-            self.execute.forward_we_i.next = bypass and wb_valid and wb_we
-            self.execute.forward_rd_i.next = wb_rd
-            self.execute.forward_data_i.next = wb_data
+            
 
             out.busy_o.next = self.decode.busy_o
 
@@ -81,19 +89,23 @@ class PipelinedBackend:
             debugport.rd_adr_o.next = wb_rd
             debugport.reg_we_o.next = wb_valid and wb_we
 
-        raw_hazard = Signal(bool(0))
+       
 
-        @always_comb
-        def four_stage_hazard():
-            pipeline_pending.next = wb_valid or self.execute.busy_o
-            hazard_rs1 = wb_valid and wb_we and wb_rd != 0 and \
-                self.decode.valid_o and self.decode.uses_rs1_o and \
-                self.decode.source_rs1_o == wb_rd
-            hazard_rs2 = wb_valid and wb_we and wb_rd != 0 and \
-                self.decode.valid_o and self.decode.uses_rs2_o and \
-                self.decode.source_rs2_o == wb_rd
-            raw_hazard.next = hazard_rs1 or hazard_rs2
-            self.execute.hazard_i.next = raw_hazard and not bypass
+        if not bypass:
+            @always_comb
+            def four_stage_hazard():
+                pipeline_pending.next = wb_valid or self.execute.busy_o
+
+                hazard_rs1 = wb_valid and wb_we and wb_rd != 0 and \
+                    self.decode.valid_o and self.decode.uses_rs1_o and \
+                    self.decode.source_rs1_o == wb_rd
+
+                hazard_rs2 = wb_valid and wb_we and wb_rd != 0 and \
+                    self.decode.valid_o and self.decode.uses_rs2_o and \
+                    self.decode.source_rs2_o == wb_rd
+                raw_hazard = hazard_rs1 or hazard_rs2
+
+                self.execute.hazard_i.next = raw_hazard
 
         if debugRegisterBundle:
             debug_redirect_valid = Signal(bool(0))
