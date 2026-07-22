@@ -1,0 +1,39 @@
+[*]
+[*] GTKWave Analyzer v3.4.0 (w)1999-2022 BSI
+[*] Wed Jul 22 10:34:57 2026
+[*]
+[dumpfile] "/Users/thomashornschuh/development/bonfire/bonfire-core/waveforms/hazards_pipe4_interlocked.vcd"
+[dumpfile_mtime] "Wed Jul 22 10:24:49 2026"
+[dumpfile_size] 3542846
+[savefile] "/Users/thomashornschuh/development/bonfire/bonfire-core/waveforms/hazards_interlocked.gtkw"
+[timestart] 280
+[size] 1616 1045
+[pos] 358 220
+*-4.380441 329 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb.
+[treeopen] tb.BonfireCoreTop0_createInstance0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.FetchUnit0_SimpleFetchUnit0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.
+[treeopen] tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.ExecuteBundle0_SimpleExecute0.
+[sst_width] 373
+[signals_width] 226
+[sst_expanded] 1
+[sst_vpaned_height] 314
+@28
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.clock
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.execute_hazard_i
+@22
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.wb_data[31:0]
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.wb_rd[4:0]
+@28
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.wb_valid
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.wb_we
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.decode_uses_rs1_o
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.decode_uses_rs2_o
+@22
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.decode_source_rs1_o[4:0]
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.decode_source_rs2_o[4:0]
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.ExecuteBundle0_SimpleExecute0.op1[31:0]
+tb.BonfireCoreTop0_createInstance0.PipelinedBackend0_backend0.ExecuteBundle0_SimpleExecute0.op2[31:0]
+[pattern_trace] 1
+[pattern_trace] 0

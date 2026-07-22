@@ -11,9 +11,10 @@ from tb import tb_core
 from tests.conftest import assert_monitor_pass, run_sim, waveform_config
 
 
-_PIPELINE_CASES = (
-    (4, False, "pipe4"),
-)
+_PIPELINE_FIXTURES = {
+    "pipe4_case": (4, False),
+    "pipe4_bypass_case": (4, True),
+}
 _MONITOR_SUCCESS = "Monitor write:"
 _MONITOR_SUCCESS_SUFFIX = "10000000: 00000001 (1)"
 
@@ -60,28 +61,29 @@ def _hex_files(repo_root: Path, single: str | None = None) -> list[str]:
 
 
 def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
-    if "test_case" not in metafunc.fixturenames:
+    fixture_name = next(
+        (name for name in _PIPELINE_FIXTURES if name in metafunc.fixturenames),
+        None,
+    )
+    if fixture_name is None:
         return
 
     repo_root = Path(__file__).resolve().parents[3]
     selected_hex = metafunc.config.getoption("--bonfire-hex")
+    pipeline_length, writeback_bypass = _PIPELINE_FIXTURES[fixture_name]
+
     cases = []
     ids = []
-    for pipeline_length, writeback_bypass, pipeline_id in _PIPELINE_CASES:
-        for hex_path in _hex_files(repo_root, selected_hex):
-            for enable_debug_module, debug_id in ((False, "debug_off"), (True, "debug_on")):
-                cases.append((
-                    hex_path,
-                    pipeline_length,
-                    writeback_bypass,
-                    enable_debug_module,
-                ))
-                ids.append("{}-{}-{}".format(
-                    pipeline_id,
-                    Path(hex_path).stem,
-                    debug_id,
-                ))
-    metafunc.parametrize("test_case", cases, ids=ids)
+    for hex_path in _hex_files(repo_root, selected_hex):
+        for enable_debug_module, debug_id in ((False, "debug_off"), (True, "debug_on")):
+            cases.append((
+                hex_path,
+                pipeline_length,
+                writeback_bypass,
+                enable_debug_module,
+            ))
+            ids.append("{}-{}".format(Path(hex_path).stem, debug_id))
+    metafunc.parametrize(fixture_name, cases, ids=ids)
 
 
 def _paths_for_hex(repo_root: Path, request: pytest.FixtureRequest, hex_path: str) -> tuple[str, str, str]:
@@ -121,7 +123,7 @@ def _paths_for_hex(repo_root: Path, request: pytest.FixtureRequest, hex_path: st
     return hex_rel, elf_rel, sig_rel
 
 
-def test_core(
+def _test_core(
     sim_env,
     capsys: pytest.CaptureFixture[str],
     request: pytest.FixtureRequest,
@@ -178,3 +180,21 @@ def test_core(
         assert monitor_lines, "No monitor writes found in output"
         assert monitor_lines[-1].endswith(_MONITOR_SUCCESS_SUFFIX), \
             "Final monitor write must be 0x10000000 <- 1"
+
+
+def test_core_pipeline4(
+    sim_env,
+    capsys: pytest.CaptureFixture[str],
+    request: pytest.FixtureRequest,
+    pipe4_case: tuple[str, int, bool, bool],
+):
+    _test_core(sim_env, capsys, request, pipe4_case)
+
+
+def test_core_pipeline4_bypass(
+    sim_env,
+    capsys: pytest.CaptureFixture[str],
+    request: pytest.FixtureRequest,
+    pipe4_bypass_case: tuple[str, int, bool, bool],
+):
+    _test_core(sim_env, capsys, request, pipe4_bypass_case)

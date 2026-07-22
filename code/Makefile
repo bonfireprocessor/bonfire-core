@@ -83,7 +83,7 @@ $(DEBUG_TEST_BUILD_DIR)/%.hex : $(DEBUG_TEST_BUILD_DIR)/%.elf | $(DEBUG_TEST_BUI
 	@$(TARGET_OBJDUMP) -t $< >$(basename $@).sym
 	$(TARGET_PREFIX)-size  $<
 
-PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap fence
+PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap fence hazards
 HEXES := $(addprefix $(CORE_TEST_BUILD_DIR)/,$(addsuffix .hex,$(PROGRAMS)))
 DEBUG_PROGRAMS := debug endless gdb_demo
 DEBUG_HEXES := $(addprefix $(DEBUG_TEST_BUILD_DIR)/,$(addsuffix .hex,$(DEBUG_PROGRAMS)))

@@ -40,12 +40,14 @@ class ExecuteBundle(PipelineControl):
 
         self.invalid_opcode_fault = Signal(bool(0))
 
-        # Optional downstream interlock and writeback forwarding. They remain
-        # tied low in the legacy three-stage backend.
-        self.hazard_i = Signal(bool(0))
-        self.forward_we_i = Signal(bool(0))
-        self.forward_rd_i = Signal(modbv(0)[5:])
-        self.forward_data_i = Signal(modbv(0)[xlen:])
+        # Optional downstream interlock and writeback forwarding. 
+           
+        if config.writeback_bypass:
+            self.forward_we_i = Signal(bool(0))
+            self.forward_rd_i = Signal(modbv(0)[5:])
+            self.forward_data_i = Signal(modbv(0)[xlen:])
+
+        self.hazard_i = Signal(bool(0)) # Always instanziated but only used with 4 Stage Pipeline without Bypass
 
         PipelineControl.__init__(self)
 
@@ -81,6 +83,9 @@ class ExecuteBundle(PipelineControl):
         jump_we = Signal(bool(0)) # rd write enable on jal/jalr
         debug_redirect_kill = Signal(bool(0))
         debug_ebreak_enable = Signal(bool(0))
+
+        op1 = Signal(modbv(0)[self.config.xlen:])
+        op2 = Signal(modbv(0)[self.config.xlen:])
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
@@ -129,16 +134,28 @@ class ExecuteBundle(PipelineControl):
                 # if self.debug_exec_jump.next:
                 #     print(now(), "jump or branch")
 
+
+        if self.config.pipeline_length>3 and self.config.writeback_bypass:
+            @always_comb
+            def frwd_comb():
+                op1.next = decode.op1_o
+                op2.next = decode.op2_o
+                if self.forward_we_i and self.forward_rd_i != 0:
+                    if decode.uses_rs1_o and decode.source_rs1_o == self.forward_rd_i:
+                        op1 .next= self.forward_data_i
+                    if decode.uses_rs2_o and decode.source_rs2_o == self.forward_rd_i:
+                        op2.next  = self.forward_data_i
+        else:
+            @always_comb
+            def op_comb():
+                op1.next = decode.op1_o
+                op2.next = decode.op2_o
+
+
         @always_comb
         def comb():
 
-            op1 = decode.op1_o
-            op2 = decode.op2_o
-            if self.forward_we_i and self.forward_rd_i != 0:
-                if decode.uses_rs1_o and decode.source_rs1_o == self.forward_rd_i:
-                    op1 = self.forward_data_i
-                if decode.uses_rs2_o and decode.source_rs2_o == self.forward_rd_i:
-                    op2 = self.forward_data_i
+           
 
             # ALU Input wirings
             self.alu.funct3_i.next = decode.funct3_o

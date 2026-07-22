@@ -123,6 +123,11 @@ Run a single program (examples):
 pytest -s -vv tests/system/core/test_core_programs.py --bonfire-hex code/build/core-tests/loadsave.hex
 ```
 
+VSCode discovers the four-stage interlocked and bypass configurations as
+separate test groups, `test_core_pipeline4` and `test_core_pipeline4_bypass`.
+Expand either group to select one program/configuration, then use **Debug Test**
+to start the Python debugger for exactly that parametrized test.
+
 Notes:
 - `wb_test.hex` is intentionally skipped (special case).
 - `--bonfire-elf PATH` and `--bonfire-sig PATH` can be used with
