@@ -89,9 +89,15 @@ class ExecuteBundle(PipelineControl):
         jump_dest_r = Signal(intbv(0)[self.config.xlen:])
         jump_busy = Signal(bool(0)) # Only used when not config.jump_bypass
 
-        load_pending = Signal(bool(0))
-        shift_pending = Signal(bool(0))
-        pipelined_shifter = self.config.shifter_mode == "pipelined"
+        if not self.wb_stage:
+            # Decode may already hold the following instruction when a
+            # multi-cycle unit retires. Therefore loads and pipelined shifts
+            # use the instruction class captured at issue, while single-cycle
+            # ALU and CSR operations use the current registered decode class.
+            load_pending = Signal(bool(0))
+            shift_pending = Signal(bool(0))
+            pipelined_shifter = self.config.shifter_mode == "pipelined"
+
         jump_we = Signal(bool(0)) # rd write enable on jal/jalr
         debug_redirect_kill = Signal(bool(0))
         debug_ebreak_enable = Signal(bool(0))
@@ -127,17 +133,6 @@ class ExecuteBundle(PipelineControl):
             jump_busy.next = False
 
             if self.taken:
-                load_pending.next = decode.load_cmd
-                shift_pending.next = pipelined_shifter and decode.alu_cmd and \
-                    (decode.funct3_o == a3.RV32_F3_SLL or \
-                     decode.funct3_o == a3.RV32_F3_SRL_SRA)
-            else:
-                if self.ls.valid_o:
-                    load_pending.next = False
-                if self.alu.valid_o:
-                    shift_pending.next = False
-
-            if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
@@ -146,8 +141,21 @@ class ExecuteBundle(PipelineControl):
                 # if self.debug_exec_jump.next:
                 #     print(now(), "jump or branch")
 
+        if not self.wb_stage:
+            @always_seq(clock.posedge, reset=reset)
+            def pending_seq():
+                if self.taken:
+                    load_pending.next = decode.load_cmd
+                    shift_pending.next = pipelined_shifter and decode.alu_cmd and \
+                        (decode.funct3_o == a3.RV32_F3_SLL or \
+                         decode.funct3_o == a3.RV32_F3_SRL_SRA)
+                else:
+                    if self.ls.valid_o:
+                        load_pending.next = False
+                    if self.alu.valid_o:
+                        shift_pending.next = False
 
-        if self.config.pipeline_length>3 and self.config.writeback_bypass:
+        if self.config.writeback_bypass:
             @always_comb
             def frwd_comb():
                 op1.next = decode.op1_o
@@ -221,25 +229,29 @@ class ExecuteBundle(PipelineControl):
                 self.csr_valid_o.next = False
                 self.jump_valid_o.next = False
 
-                if self.taken and jump_we:
+                # The source selector is registered together with the functional
+                # unit results. Completion signals can therefore identify the
+                # retiring source directly; JALR needs jump-link priority over
+                # the simultaneously valid ALU result used as its target.
+                if jump_we:
                     self.jump_valid_o.next = True
-                elif load_pending:
+                elif self.ls.we_o:
                     self.load_valid_o.next = True
-                elif shift_pending or decode.alu_cmd:
+                elif self.alu.valid_o:
                     self.alu_valid_o.next = True
-                elif decode.csr_cmd:
+                elif self.csr.valid_o:
                     self.csr_valid_o.next = True
 
         else:
             @always_comb
             def result_mux():
-                if self.taken and jump_we:
-                    self.result_o.next = decode.next_ip_o
+                # result_o is an unqualified data bus. The selected source may
+                # drive it while a multi-cycle operation is still pending; its
+                # value is only valid in the retire cycle, when execute.valid_o
+                # (and reg_we_o for a register write) qualifies it.
 
-                # Decode may already hold the following instruction when a
-                # multi-cycle unit completes. Use the class captured at issue for
-                # loads and pipelined shifts; single-cycle ALU and CSR results can
-                # use the current registered decode class.
+                if jump_we:
+                    self.result_o.next = decode.next_ip_o
                 elif load_pending:
                     self.result_o.next = self.ls.result_o
                 elif shift_pending or decode.alu_cmd:
@@ -309,7 +321,7 @@ class ExecuteBundle(PipelineControl):
             if self.config.enableDebugModule:
                 decode.execute_ebreak_i.next = False
 
-            if self.en_i and self.taken:
+            if self.taken:
                 if decode.branch_cmd:
 
                     f3 = decode.funct3_o
