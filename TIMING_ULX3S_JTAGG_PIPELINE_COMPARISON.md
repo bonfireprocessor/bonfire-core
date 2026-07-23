@@ -1,94 +1,94 @@
-# ULX3S JTAGG: Pipeline-Vergleich
+# ULX3S JTAGG Pipeline Comparison
 
-Messung vom 2026-07-22 für `::bonfire-core-soc:0`, Target
-`ulx3s_jtagg`, mit `fw_monitor`, ECP5-85K/CABGA381, Speed Grade 6 und der
-projektlokalen OSS-CAD-Toolchain (Yosys 0.67). Der LPF-Constraint beträgt
-25 MHz; alle Varianten erfüllen ihn.
+Measurement from 2026-07-22 for `::bonfire-core-soc:0`, target `ulx3s_jtagg`,
+with `fw_monitor`, ECP5-85K/CABGA381, speed grade 6, and the project-local
+OSS-CAD toolchain (Yosys 0.67). The LPF constraint is 25 MHz, and every
+configuration meets it.
 
-## Ergebnisse
+## Results
 
-| Konfiguration | Sysclk-Fmax | LUT4 | TRELLIS_FF | `hazards.S` bis Monitor-Pass |
+| Configuration | Sysclk Fmax | LUT4 | TRELLIS_FF | `hazards.S` to monitor pass |
 |---|---:|---:|---:|---:|
-| 3 Stufen | **81,39 MHz** | 3.060 | 1.620 | 230 Takte |
-| 4 Stufen, historisches Shared-Result, Bypass an | 78,36 MHz | 3.017 | 1.654 | 230 Takte |
-| 4 Stufen, historisches Shared-Result, Bypass aus | 81,07 MHz | 2.832 | 1.654 | 253 Takte |
-| 4 Stufen, Quellenregister, Bypass an | **82,93 MHz** | 3.034 | 1.754 | 230 Takte |
-| 4 Stufen, Quellenregister, Bypass aus | 80,43 MHz | **2.740** | 1.754 | 253 Takte |
+| 3 stages | **81.39 MHz** | 3,060 | 1,620 | 230 cycles |
+| 4 stages, historical shared result, bypass enabled | 78.36 MHz | 3,017 | 1,654 | 230 cycles |
+| 4 stages, historical shared result, bypass disabled | 81.07 MHz | 2,832 | 1,654 | 253 cycles |
+| 4 stages, source registers, bypass enabled | **82.93 MHz** | 3,034 | 1,754 | 230 cycles |
+| 4 stages, source registers, bypass disabled | 80.43 MHz | **2,740** | 1,754 | 253 cycles |
 
-Gegenüber drei Stufen bedeutet das:
+Compared with the three-stage pipeline:
 
-- Vier Stufen mit Bypass: −3,03 MHz (−3,7 %), 43 LUT4 weniger und 34 FF
-  mehr; keine zusätzliche Laufzeit im gezielten Hazard-Test.
-- Vier Stufen ohne Bypass: −0,32 MHz (−0,4 %), 228 LUT4 weniger und 34 FF
-  mehr; wegen RAW-Interlocks 23 zusätzliche Takte (+10,0 %).
-- Quellenregister mit registrierter One-Hot-Auswahl kosten gegenüber dem
-  bisherigen Vier-Stufen-Backend 100 FF. Die vier Datenregister werden ohne
-  vorgeschaltete Ladeauswahl direkt von den Funktionseinheiten gespeist.
-  Ohne Bypass sinkt Fmax in diesem Einzelaufbau um 0,64 MHz; mit Bypass steigt
-  sie um 4,57 MHz. Da das Target keinen festen Seed verwendet, bleibt der
-  Abstand trotz dieser deutlichen Verbesserung eine Einzelmessung; die
-  Variante wird deshalb noch nicht als Target-Default gesetzt.
+- The historical shared-result implementation with bypass was 3.03 MHz
+  slower (3.7%), used 43 fewer LUT4s and 34 more FFs, and added no cycles to
+  the focused hazard test.
+- The historical shared-result implementation without bypass was 0.32 MHz
+  slower (0.4%), used 228 fewer LUT4s and 34 more FFs, and required 23
+  additional cycles (10.0%) because of RAW interlocks.
+- Source registers with registered one-hot selection cost 100 FFs compared
+  with the former four-stage backend. The four data registers are driven
+  directly by the functional units without an input-side load selection. In
+  this single run, Fmax is 0.64 MHz lower without bypass and 4.57 MHz higher
+  with bypass. Because the target does not use a fixed seed, even this larger
+  improvement remains a single placement result and is not by itself a reason
+  to change target defaults.
 
-Die Fmax-Werte sind jeweils der letzte Sysclk-Wert aus `next.log` nach dem
-vollständigen Routing. Die Ressourcenwerte stammen aus der abschließenden
-Yosys-Zellstatistik.
+The Fmax figures are the final routed Sysclk values in `next.log`. Resource
+figures come from the final Yosys cell statistics.
 
-## Ausführungsmessung
+## Execution-Time Measurement
 
-`code/core-tests/hazards.S` enthält direkte Producer-Consumer-Folgen für
-ALU, Shifter, Load, Store, Branch, CSR sowie JAL/JALR. Die MyHDL-Clock hat
-eine Periodendauer von 10; Monitor-Schreibzugriffe liegen auf steigenden
-Flanken.
+`code/core-tests/hazards.S` contains direct producer-consumer sequences for
+the ALU, shifter, loads, stores, branches, CSR instructions, and JAL/JALR.
+The MyHDL clock period is 10 time units, and monitor writes occur on rising
+edges.
 
-| Konfiguration | Monitor-Zeitstempel | Taktzahl |
+| Configuration | Monitor timestamp | Cycle count |
 |---|---:|---:|
-| 3 Stufen | `@2295` | 230 |
-| 4 Stufen, Bypass an | `@2295` | 230 |
-| 4 Stufen, Bypass aus | `@2525` | 253 |
-| 4 Stufen, Quellenregister, Bypass an | `@2295` | 230 |
-| 4 Stufen, Quellenregister, Bypass aus | `@2525` | 253 |
+| 3 stages | `@2295` | 230 |
+| 4 stages, bypass enabled | `@2295` | 230 |
+| 4 stages, bypass disabled | `@2525` | 253 |
+| 4 stages, source registers, bypass enabled | `@2295` | 230 |
+| 4 stages, source registers, bypass disabled | `@2525` | 253 |
 
-Die Taktzahl ist `(Zeitstempel + 5) / 10`, weil die erste steigende Flanke
-bei Zeit 5 liegt.
+The cycle count is `(timestamp + 5) / 10`, because the first rising edge
+occurs at time 5.
 
-## Warum ist die Drei-Stufen-Fmax auf ULX3S höher als auf IcePi Zero?
+## Why Is Three-Stage Fmax Higher on ULX3S Than on IcePi Zero?
 
-Der Vergleich bezieht sich auf die aktuelle Messung in
-`TIMING_ICEPIZERO_JTAGG_PIPELINE_COMPARISON.md`: IcePi Zero erreicht mit
-derselben Drei-Stufen-Architektur 69,81 MHz, ULX3S 81,39 MHz. Der Engpass ist
-in beiden Fällen derselbe strukturelle Pfad:
+The comparison refers to the current measurement in
+`TIMING_ICEPIZERO_JTAGG_PIPELINE_COMPARISON.md`: the same three-stage
+architecture reaches 69.81 MHz on IcePi Zero and 81.39 MHz on ULX3S. Both
+targets have the same structural bottleneck:
 
 ```text
-SoC-BRAM-DOB -> LoadStoreUnit rdmux_out -> ls_result_o-FF
+SoC BRAM DOB -> LoadStoreUnit rdmux_out -> ls_result_o FF
 ```
 
-| Target | Gesamtdelay | Logik | Routing |
+| Target | Total delay | Logic | Routing |
 |---|---:|---:|---:|
-| IcePi Zero, ECP5-25K | 14,32 ns | 8,29 ns | 6,03 ns |
-| ULX3S, ECP5-85K | 12,29 ns | 7,45 ns | 4,84 ns |
+| IcePi Zero, ECP5-25K | 14.32 ns | 8.29 ns | 6.03 ns |
+| ULX3S, ECP5-85K | 12.29 ns | 7.45 ns | 4.84 ns |
 
-Der Unterschied von 2,03 ns erklärt die Fmax-Differenz. Insbesondere sind
-auf dem 85K sowohl die BRAM-zu-LUT-Verbindung als auch die anschließende
-Load-Formatierungslogik günstiger gepackt und geroutet. Der ULX3S-Pfad hat
-1,19 ns weniger Routing- und 0,84 ns weniger Logikdelay.
+The 2.03 ns difference explains the Fmax gap. On the 85K device, both the
+BRAM-to-LUT connection and the following load-formatting logic are placed and
+routed more efficiently. The ULX3S path uses 1.19 ns less routing delay and
+0.84 ns less logic delay.
 
-Das ist keine andere Drei-Stufen-Core-Architektur: Beide Pfade enden am
-LoadStore-Resultatregister. Die wesentlichen Unterschiede sind das
-physische Target (85K statt 25K), die resultierende Platzierung/Packing-Form
-und geringfügig verschiedene, plattformabhängige `monitor.hex`-Inhalte.
+This is not a different three-stage core architecture: both paths terminate
+at the load/store result register. The material differences are the physical
+target (85K instead of 25K), the resulting placement and packing, and the
+slightly different platform-specific `monitor.hex` contents.
 
-## Reproduktionsbedingungen und Einschränkung
+## Reproduction Conditions and Limitations
 
-Jede Konfiguration wurde in einem eigenen frischen Build-Root erzeugt. Es
-wurden nur `pipeline_length` und `writeback_bypass` geändert; JTAGG,
-`jump_bypass: false`, Firmware und Toolchain waren innerhalb des ULX3S-
-Vergleichs identisch.
+Each configuration was generated in a separate clean build root. Only
+`pipeline_length` and `writeback_bypass` changed; JTAGG,
+`jump_bypass: false`, firmware, and toolchain were identical within the ULX3S
+comparison.
 
-Die Quellenregister-Läufe bilden die aktuelle Vier-Stufen-Implementierung
-ab; die Shared-Result-Zeilen sind historische Vergleichsmessungen. Sie wurden
-in temporären Build-Roots erzeugt, ohne die lokale Target-Datei zu verändern.
+The source-register rows represent the current four-stage implementation; the
+shared-result rows are historical comparison measurements. They were
+generated in temporary build roots without changing the local target file.
 
-Das ULX3S-Target setzt keinen festen nextpnr-Seed. Die Werte sind daher
-Einzelmessungen; kleine Unterschiede können Placement-Schwankungen
-enthalten. Für belastbare Feindifferenzen sollte ein fixer Seed gesetzt und
-mehrfach gemessen werden.
+The ULX3S target does not use a fixed nextpnr seed. These are therefore single
+measurements, and small differences may be placement noise. Use a fixed seed
+and repeated runs for reliable fine-grained comparisons.
