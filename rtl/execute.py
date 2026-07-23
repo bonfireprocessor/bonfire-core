@@ -23,6 +23,8 @@ class ExecuteBundle(PipelineControl):
 
         xlen = config.xlen
 
+        self.wb_stage = config.pipeline_length==4
+
         #functional units
         self.alu=alu.AluBundle(xlen)
         self.ls = loadstore.LoadStoreBundle(config)
@@ -32,6 +34,16 @@ class ExecuteBundle(PipelineControl):
 
         # output
         self.result_o = Signal(intbv(0)[xlen:])
+
+        if self.wb_stage:
+            # Mutually exclusive result selectors. The source-registered
+            # four-stage backend registers these one-hot signals with their
+            # respective functional-unit values and performs its mux afterwards.
+            self.alu_valid_o = Signal(bool(0))
+            self.load_valid_o = Signal(bool(0))
+            self.csr_valid_o = Signal(bool(0))
+            self.jump_valid_o = Signal(bool(0))
+
         self.reg_we_o = Signal(bool(0)) # Register File Write Enable
         self.rd_adr_o =  Signal(modbv(0)[5:]) # Target register
 
@@ -40,8 +52,8 @@ class ExecuteBundle(PipelineControl):
 
         self.invalid_opcode_fault = Signal(bool(0))
 
-        # Optional downstream interlock and writeback forwarding. 
-           
+        # Optional downstream interlock and writeback forwarding.
+
         if config.writeback_bypass:
             self.forward_we_i = Signal(bool(0))
             self.forward_rd_i = Signal(modbv(0)[5:])
@@ -155,8 +167,6 @@ class ExecuteBundle(PipelineControl):
         @always_comb
         def comb():
 
-           
-
             # ALU Input wirings
             self.alu.funct3_i.next = decode.funct3_o
             self.alu.funct7_6_i.next = decode.funct7_o[5]
@@ -197,29 +207,51 @@ class ExecuteBundle(PipelineControl):
             self.ls.en_i.next = ( decode.store_cmd or decode.load_cmd ) and self.taken
             self.csr.en_i.next = decode.csr_cmd and self.taken
 
-            # Debug Interface
+            # Simulation Debug Signals
             debugport.jump_exec.next = self.taken and ( decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd)
             debugport.jump.next = jump
 
 
-        @always_comb
-        def mux():
-            # Output multiplexers
 
-            if self.taken and jump_we:
-                self.result_o.next = decode.next_ip_o
-            # Decode may already hold the following instruction when a
-            # multi-cycle unit completes. Use the class captured at issue for
-            # loads and pipelined shifts; single-cycle ALU and CSR results can
-            # use the current registered decode class.
-            elif load_pending:
-                self.result_o.next = self.ls.result_o
-            elif shift_pending or decode.alu_cmd:
-                self.result_o.next = self.alu.res_o
-            elif decode.csr_cmd:
-                self.result_o.next = self.csr.result_o
-            else:
-                self.result_o.next = 0
+        if self.wb_stage:
+            @always_comb
+            def wb_prepare():
+                self.alu_valid_o.next = False
+                self.load_valid_o.next = False
+                self.csr_valid_o.next = False
+                self.jump_valid_o.next = False
+
+                if self.taken and jump_we:
+                    self.jump_valid_o.next = True
+                elif load_pending:
+                    self.load_valid_o.next = True
+                elif shift_pending or decode.alu_cmd:
+                    self.alu_valid_o.next = True
+                elif decode.csr_cmd:
+                    self.csr_valid_o.next = True
+
+        else:
+            @always_comb
+            def result_mux():
+                if self.taken and jump_we:
+                    self.result_o.next = decode.next_ip_o
+
+                # Decode may already hold the following instruction when a
+                # multi-cycle unit completes. Use the class captured at issue for
+                # loads and pipelined shifts; single-cycle ALU and CSR results can
+                # use the current registered decode class.
+                elif load_pending:
+                    self.result_o.next = self.ls.result_o
+                elif shift_pending or decode.alu_cmd:
+                    self.result_o.next = self.alu.res_o
+                elif decode.csr_cmd:
+                    self.result_o.next = self.csr.result_o
+                else:
+                    self.result_o.next = 0
+
+
+        @always_comb
+        def comb_misc():
 
             self.reg_we_o.next =  self.alu.valid_o or self.ls.we_o  or self.csr.valid_o or jump_we
 

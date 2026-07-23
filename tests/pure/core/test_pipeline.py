@@ -24,18 +24,17 @@ def test_simple_pipeline_staged(sim_env):
 
 
 @pytest.mark.parametrize(
-    "pipeline_length,writeback_bypass",
-    [(4, False), (4, True)],
+    "writeback_bypass",
+    [False, True],
 )
-def test_pipelined_backend(sim_env, pipeline_length, writeback_bypass):
+def test_pipelined_backend(sim_env, writeback_bypass):
     conf = config.BonfireConfig()
-    conf.pipeline_length = pipeline_length
+    conf.pipeline_length = 4
     conf.writeback_bypass = writeback_bypass
     run_sim(
         tb_simple_pipeline.tb(config=conf, test_conversion=False),
         trace=False,
-        filename="tb_pipeline_{}_bypass_{}".format(
-            pipeline_length, int(writeback_bypass)),
+        filename="tb_pipeline_4_bypass_{}".format(int(writeback_bypass)),
         waveforms_dir=sim_env["waveforms_dir"],
     )
 

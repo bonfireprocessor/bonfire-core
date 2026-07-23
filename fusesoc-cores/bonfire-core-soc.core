@@ -160,7 +160,7 @@ targets:
         num_gpio: 8
         register_wishbone_dbus: true
         pipeline_length: 4
-        writeback_bypass: false
+        writeback_bypass: true
     flags:
       simulation_target : true
     tools:
@@ -273,7 +273,7 @@ targets:
         ecppack_options: ['--svf', 'bonfire-core-soc_0.svf']
       filesets: [scripts]
     flow_options:
-      nextpnr_options: ['--85k', '--package', 'CABGA381', '--speed', '6']
+      nextpnr_options: ['--85k', '--package', 'CABGA381', '--speed', '6',  '--report', 'bonfire-core-soc_0.timing.json', '--detailed-timing-report']
     flags:  
       extended_soc : false
     filesets: [ulx3s_lpf, ulx3s_top, scripts]
@@ -285,8 +285,8 @@ targets:
         num_leds: 8
         led_active_low: false
         laned_memory: false
-        pipeline_length: 4
-        writeback_bypass: false
+        # pipeline_length: 4
+        # writeback_bypass: false
     toplevel: ulx3s_top
     
 
@@ -346,13 +346,13 @@ targets:
         debug_jtag_transport: ecp5_jtagg
         enable_debug_ndmreset: true
         pipeline_length: 4
-        writeback_bypass: false
+        writeback_bypass: true
    
 
   icepizero: &target_icepizero
     <<: *target_ecp5
     flow_options:
-      nextpnr_options: ['--25k', '--package', 'CABGA256', '--speed', '6', '--seed', '1', '--timing-allow-fail', '--report', 'bonfire-core-soc_0.timing.json', '--detailed-timing-report']
+      nextpnr_options: ['--25k', '--package', 'CABGA256', '--speed', '6',  '--timing-allow-fail', '--report', 'bonfire-core-soc_0.timing.json', '--detailed-timing-report']
     flags:  
       extended_soc : false
     filesets: [icepizero_lpf, icepizero_top, scripts]
@@ -367,8 +367,7 @@ targets:
         laned_memory: false
         enable_jtag_debug: false
         jump_bypass: false
-        pipeline_length: 4
-        writeback_bypass: false
+
     toplevel: icepizero_top
 
   icepizero_jtag:
@@ -385,6 +384,8 @@ targets:
         laned_memory: false
         enable_jtag_debug: true
         enable_debug_ndmreset: true
+        pipeline_length: 3
+        writeback_bypass: false
 
   icepizero_jtagg:
     <<: *target_icepizero
