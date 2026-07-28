@@ -14,17 +14,20 @@ pytestmark = pytest.mark.filterwarnings("ignore::myhdl.ToVHDLWarning")
 
 
 @pytest.mark.parametrize(
-    ("enable_debug", "pipeline_length", "name"),
+    ("enable_debug", "pipeline_length", "writeback_bypass", "name"),
     [
-        (False, 3, "bonfire_core_top_plain"),
-        (True, 3, "bonfire_core_top_debug"),
-        (False, 4, "bonfire_core_top_pipeline4"),
-        (True, 4, "bonfire_core_top_pipeline4_debug"),
+        (False, 3, False, "bonfire_core_top_plain"),
+        (True, 3, False, "bonfire_core_top_debug"),
+        (False, 4, False, "bonfire_core_top_pipeline4"),
+        (True, 4, False, "bonfire_core_top_pipeline4_debug"),
+        (False, 4, True, "bonfire_core_top_pipeline4_bypass"),
+        (True, 4, True, "bonfire_core_top_pipeline4_bypass_debug"),
     ],
 )
 def test_core_vhdl_conversion(
     enable_debug: bool,
     pipeline_length: int,
+    writeback_bypass: bool,
     name: str,
     repo_root,
 ):
@@ -32,6 +35,7 @@ def test_core_vhdl_conversion(
     conf = config.BonfireConfig()
     conf.enableDebugModule = enable_debug
     conf.pipeline_length = pipeline_length
+    conf.writeback_bypass = writeback_bypass
 
     clock = Signal(bool(0))
     reset = ResetSignal(0, active=1, isasync=False)
