@@ -37,6 +37,25 @@ check_csr(mvendorid,0)
 check_csr(marchid,0)
 check_csr(mhartid,0)
 
+csrr t4,CSR_MBONFIRECFG
+srli t1,t4,5
+beqz t1,config_ok
+li s2,0
+j test_failure
+
+config_ok:
+csrr t4,mcycleh
+
+csrr t1,mcycle
+nop
+nop
+nop
+csrr t2,mcycle
+bne t1,t2,mcycle_ok
+li s2,-2
+j test_failure
+
+mcycle_ok:
 
 check_csr(mstatus,0x1800)
 
@@ -59,13 +78,6 @@ li t1,0xdead0000
 csrw mepc,t1
 check_csr(mepc,0xdead0000)
 
-
-// // Read mcycle/h and write to monitor
-// csrr t1,mcycle
-// sw t1,24(s0)
-// beqz t1, finish // failure->
-// csrr t1,mcycleh
-// sw t1,28(s0)
 
 // csrr t1,minstret
 // sw t1,32(s0)
@@ -94,6 +106,11 @@ check_csr(mepc,0xdead0000)
 
 
 li a0,1 // success
+j finish
+
+test_failure:
+sw s2,4(s0)
+li a0,-1
 j finish
 
 trap_failure: // should not be called

@@ -26,9 +26,10 @@ Small C programs for the MyHDL SoC live under `soc/apps/`:
 - `soc/apps/hello_io/main.c`: Extended SoC simulation test for UART output,
   GPIO input/output readback, and SPI port-0 loopback.
 - `soc/apps/monitor/main.c`: minimal interactive UART monitor with `I` info
-  and `D [addr]` memory dump commands, `R addr`/`W addr value` 32-bit memory
-  access, plus `G` GPIO and `S` SPI-loopback peripheral tests. Addresses and
-  values are hexadecimal, optionally with a `0x` prefix.
+  (including decoded Bonfire configuration, `mcycle`, and uptime), `C` to
+  reset `mcycle`, and `D [addr]` memory dump commands, `R addr`/`W addr value`
+  32-bit memory access, plus `G` GPIO and `S` SPI-loopback peripheral tests.
+  Addresses and values are hexadecimal, optionally with a `0x` prefix.
 - `soc/apps/uart_echo/main.c`: native UART TX/RX echo integration test used by
   the MyHDL and converted-VHDL SoC testbenches.
 

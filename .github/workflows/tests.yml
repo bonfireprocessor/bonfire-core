@@ -37,6 +37,7 @@ jobs:
             apt-packages: >-
               binutils-riscv64-unknown-elf
               gcc-riscv64-unknown-elf
+              picolibc-riscv64-unknown-elf
               bc
               bsdextrautils
               ghdl
@@ -50,6 +51,7 @@ jobs:
             apt-packages: >-
               binutils-riscv64-unknown-elf
               gcc-riscv64-unknown-elf
+              picolibc-riscv64-unknown-elf
               bc
               bsdextrautils
               ghdl
@@ -180,6 +182,7 @@ jobs:
           sudo apt-get install -y \
             binutils-riscv64-unknown-elf \
             gcc-riscv64-unknown-elf \
+            picolibc-riscv64-unknown-elf \
             bc \
             bsdextrautils \
             ghdl \
@@ -238,6 +241,7 @@ jobs:
           sudo apt-get install -y \
             binutils-riscv64-unknown-elf \
             gcc-riscv64-unknown-elf \
+            picolibc-riscv64-unknown-elf \
             bc \
             bsdextrautils \
             ghdl \

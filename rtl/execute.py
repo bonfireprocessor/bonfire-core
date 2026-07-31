@@ -192,6 +192,7 @@ class ExecuteBundle(PipelineControl):
             self.csr.csr_adr.next = decode.priv_funct_12
             self.csr.op1_i.next = op1
             self.csr.funct3_i.next = decode.funct3_o
+            self.csr.source_i.next = decode.source_rs1_o
 
             # Pipeline
             busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy or self.hazard_i

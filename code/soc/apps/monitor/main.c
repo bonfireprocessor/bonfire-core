@@ -16,6 +16,16 @@
 #define SPI_PROBE_PATTERN_B 0x2aau
 #define SPI_CLOCK_MASK 0x3ffu
 
+#define CSR_MBONFIRECFG 0xfc0
+#define STRINGIFY_INNER(value) #value
+#define STRINGIFY(value) STRINGIFY_INNER(value)
+
+#define BONFIRE_CONFIG_PIPELINE_4_STAGE (1u << 0)
+#define BONFIRE_CONFIG_WRITEBACK_BYPASS (1u << 1)
+#define BONFIRE_CONFIG_DEBUG_MODULE (1u << 2)
+#define BONFIRE_CONFIG_JUMP_PREDICTOR (1u << 3)
+#define BONFIRE_CONFIG_MEM_WRITE_EARLY_TERM (1u << 4)
+
 static uint32_t dump_address = BONFIRE_SRAM_BASE;
 
 static int wishbone_dummy_detected(void)
@@ -163,8 +173,101 @@ static int read_line(char *buffer, uint32_t size)
     return pos != 0u;
 }
 
+static const char *enabled_status(uint32_t value, uint32_t mask)
+{
+    return (value & mask) != 0u ? "enabled" : "disabled";
+}
+
+static uint32_t read_bonfire_config(void)
+{
+    uint32_t value;
+
+    __asm__ volatile (
+        "csrr %0, " STRINGIFY(CSR_MBONFIRECFG)
+        : "=r" (value));
+
+    return value;
+}
+
+static uint32_t read_mcycle_low(void)
+{
+    uint32_t value;
+
+    __asm__ volatile ("csrr %0, mcycle" : "=r" (value));
+
+    return value;
+}
+
+static uint32_t read_mcycle_high(void)
+{
+    uint32_t value;
+
+    __asm__ volatile ("csrr %0, mcycleh" : "=r" (value));
+
+    return value;
+}
+
+static void read_mcycle(uint32_t *high, uint32_t *low)
+{
+    uint32_t high_before;
+    uint32_t high_after;
+
+    do {
+        high_before = read_mcycle_high();
+        *low = read_mcycle_low();
+        high_after = read_mcycle_high();
+    } while (high_before != high_after);
+
+    *high = high_after;
+}
+
+static void print_mcycle_and_uptime(void)
+{
+    uint64_t uptime;
+    uint64_t quotient;
+    uint32_t high;
+    uint32_t low;
+    uint32_t days;
+    uint32_t hours;
+    uint32_t minutes;
+    uint32_t seconds;
+
+    read_mcycle(&high, &low);
+    printk("mcycle=0x%x%x\n", high, low);
+
+    uptime = (((uint64_t)high << 32) | low) / BONFIRE_SYSCLK_HZ;
+    quotient = uptime / 60u;
+    seconds = (uint32_t)(uptime - quotient * 60u);
+    uptime = quotient;
+    quotient = uptime / 60u;
+    minutes = (uint32_t)(uptime - quotient * 60u);
+    uptime = quotient;
+    quotient = uptime / 24u;
+    hours = (uint32_t)(uptime - quotient * 24u);
+    days = (uint32_t)quotient;
+
+    printk("uptime=%u days %u:%u:%u\n",
+           days, hours, minutes, seconds);
+}
+
+static void reset_mcycle(void)
+{
+    uint32_t inhibit_carry = 0xffffffffu;
+
+    __asm__ volatile (
+        "csrw mcycle, %0\n"
+        "csrw mcycleh, zero\n"
+        "csrw mcycle, zero"
+        :
+        : "r" (inhibit_carry));
+
+    printk("mcycle reset\n");
+    print_mcycle_and_uptime();
+}
+
 static void print_info(void)
 {
+    uint32_t bonfire_config = read_bonfire_config();
     uint32_t divisor = bonfire_uart_divisor();
     uint32_t uart_control = bonfire_uart_read_control();
     uint32_t uart_control_divisor = uart_control & BONFIRE_UART_CONTROL_DIVISOR_MASK;
@@ -179,12 +282,30 @@ static void print_info(void)
     printk("uart_control=0x%x\n", uart_control);
     printk("  divisor=0x%x (%u)\n", uart_control_divisor, uart_control_divisor);
     printk("  extended_enable=0x%x\n", uart_control_extended);
+    printk("bonfire_config=0x%x\n", bonfire_config);
+    printk("  pipeline=%s\n",
+           (bonfire_config & BONFIRE_CONFIG_PIPELINE_4_STAGE) != 0u
+               ? "4-stage" : "3-stage");
+    printk("  writeback_bypass=%s\n",
+           enabled_status(bonfire_config,
+                          BONFIRE_CONFIG_WRITEBACK_BYPASS));
+    printk("  debug_module=%s\n",
+           enabled_status(bonfire_config,
+                          BONFIRE_CONFIG_DEBUG_MODULE));
+    printk("  jump_predictor=%s\n",
+           enabled_status(bonfire_config,
+                          BONFIRE_CONFIG_JUMP_PREDICTOR));
+    printk("  mem_write_early_term=%s\n",
+           enabled_status(bonfire_config,
+                          BONFIRE_CONFIG_MEM_WRITE_EARLY_TERM));
+    print_mcycle_and_uptime();
     printk("sram_base=0x%x\n", BONFIRE_SRAM_BASE);
     printk("sram_size=%u\n", BONFIRE_SRAM_SIZE);
     printk("wishbone_dummy=%s\n", wishbone_dummy_detected() ? "yes" : "no");
     printk("gpio=%s\n", gpio_detected() ? "detected" : "not detected");
     printk("spi=%s\n", spi_detected() ? "detected" : "not detected");
-    printk("commands: I=info D [addr]=dump R addr=read W addr value=write\n");
+    printk("commands: I=info C=clear mcycle D [addr]=dump\n");
+    printk("          R addr=read W addr value=write\n");
     printk("          G=gpio test S=spi loopback\n");
 }
 
@@ -321,6 +442,8 @@ static void handle_command(char *line)
 
     if (command == 'I') {
         print_info();
+    } else if (command == 'C') {
+        reset_mcycle();
     } else if (command == 'D') {
         if (parse_hex(args, &args, &value)) {
             dump_address = value & 0xfffffffcu;
