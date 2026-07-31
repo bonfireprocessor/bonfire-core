@@ -45,6 +45,32 @@ OBJDUMP_FLAGS := -d -S
 CORE_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -g
 DEBUG_CFLAGS := $(CORE_CFLAGS) -Og -ffreestanding -fno-builtin -Wall -Wextra
 SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Og -g -ffreestanding -fno-builtin -Wall -Wextra
+MONITOR_CFLAGS := $(filter-out -Og,$(SOC_CFLAGS)) -Os
+
+# The monitor uses the GCC runtime for operations that RV32I cannot implement
+# directly (for example 64-bit division), but keeps the project-local console
+# and startup code. Prefer Picolibc when its GCC specs are installed; otherwise
+# select Newlib Nano plus the no-syscall stubs, or regular Newlib as fallback.
+PICOLIBC_SPECS_PATH := $(shell $(TARGET_CC) -print-file-name=picolibc.specs)
+NEWLIB_NANO_SPECS_PATH := $(shell $(TARGET_CC) -print-file-name=nano.specs)
+NEWLIB_NOSYS_SPECS_PATH := $(shell $(TARGET_CC) -print-file-name=nosys.specs)
+
+ifneq ($(PICOLIBC_SPECS_PATH),picolibc.specs)
+    MONITOR_RUNTIME := picolibc
+    MONITOR_RUNTIME_SPECS := --specs=picolibc.specs
+else ifneq ($(NEWLIB_NANO_SPECS_PATH),nano.specs)
+    ifneq ($(NEWLIB_NOSYS_SPECS_PATH),nosys.specs)
+        MONITOR_RUNTIME := newlib-nano
+        MONITOR_RUNTIME_SPECS := --specs=nano.specs --specs=nosys.specs
+    else
+        MONITOR_RUNTIME := unavailable
+    endif
+else ifneq ($(NEWLIB_NOSYS_SPECS_PATH),nosys.specs)
+    MONITOR_RUNTIME := newlib
+    MONITOR_RUNTIME_SPECS := --specs=nosys.specs
+else
+    MONITOR_RUNTIME := unavailable
+endif
 
 SOC_APPS := led wishbone hello hello_io monitor uart_echo
 SOC_PLATFORMS := sim fireant icepizero ulx3s cmods7
@@ -94,7 +120,19 @@ $(BUILD_DIR)/soc/$(1)/$(2).elf: $(SOC_DIR)/apps/$(2)/main.c $(SOC_COMMON_SRCS) $
 	@$$(TARGET_CC) $$(SOC_CFLAGS) -D$$(SOC_PLATFORM_DEFINES_$(1)) -I$$(SOC_DIR)/include -I$$(SOC_DIR)/platforms -nostdlib -nostartfiles -T$$(SOC_DIR)/linker/$(1).ld -Wl,--gc-sections -o $$@ $$(SOC_DIR)/startup/crt0.S $$< $$(SOC_COMMON_SRCS)
 endef
 
-$(foreach platform,$(SOC_PLATFORMS),$(foreach app,$(SOC_APPS),$(eval $(call SOC_APP_RULE,$(platform),$(app)))))
+$(foreach platform,$(SOC_PLATFORMS),$(foreach app,$(filter-out monitor,$(SOC_APPS)),$(eval $(call SOC_APP_RULE,$(platform),$(app)))))
+
+define SOC_MONITOR_RULE
+$(BUILD_DIR)/soc/$(1)/monitor.elf: $(SOC_DIR)/apps/monitor/main.c $(SOC_COMMON_SRCS) $(SOC_DIR)/startup/crt0_runtime.S $(SOC_DIR)/linker/$(1).ld $(SOC_DIR)/linker/common-sections.ld
+	@mkdir -p $$(@D)
+	@if [ "$$(MONITOR_RUNTIME)" = "unavailable" ]; then \
+		echo "error: monitor requires picolibc.specs or Newlib nosys.specs"; \
+		exit 1; \
+	fi
+	@$$(TARGET_CC) $$(MONITOR_CFLAGS) $$(MONITOR_RUNTIME_SPECS) -D$$(SOC_PLATFORM_DEFINES_$(1)) -I$$(SOC_DIR)/include -I$$(SOC_DIR)/platforms -nostartfiles -T$$(SOC_DIR)/linker/$(1).ld -Wl,--gc-sections -Wl,-Map,$$@.map -o $$@ $$(SOC_DIR)/startup/crt0_runtime.S $$< $$(SOC_COMMON_SRCS)
+endef
+
+$(foreach platform,$(SOC_PLATFORMS),$(eval $(call SOC_MONITOR_RULE,$(platform))))
 
 $(BUILD_DIR)/soc/%.hex : $(BUILD_DIR)/soc/%.elf
 	@$(TARGET_OBJCOPY) -O binary $< $(basename $@).bin
@@ -121,4 +159,5 @@ info:
 	@echo "Setting ARCH to $(ARCH)"
 	@echo "SOC_PLATFORM $(SOC_PLATFORM)"
 	@echo "SOC_APP $(SOC_APP)"
+	@echo "MONITOR_RUNTIME $(MONITOR_RUNTIME)"
     

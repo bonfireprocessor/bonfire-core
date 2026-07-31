@@ -106,6 +106,7 @@ class MulDivFunct:
 
 class CSRAdr:
     status = 0
+    mcycle = 0x00  # CSR 0xb00
     isa = 1
     tvec = 5
     vendorid = 0x11
@@ -119,6 +120,8 @@ class CSRAdr:
     ip = 0x44
     dcsr = 0xb0
     dpc = 0xb1
+    mcycleh = 0x80  # CSR 0xb80
+    mbonfirecfg = 0xc0  # CSR 0xfc0
 
 
 # Local Variables:
