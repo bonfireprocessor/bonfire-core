@@ -326,4 +326,4 @@ Unlike the earlier intermediate approach, these opcodes are now specific to the 
 - `tests/test_jtag_dtm.py`
 - `tests/test_openocd_remote_bitbang.py`
 - `tests/test_vhdl_conversion.py`
-- `scripts/README.md`
+- `docs/scripts/README.md`

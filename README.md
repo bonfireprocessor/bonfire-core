@@ -150,15 +150,10 @@ Test-suite overview (groups, mapping, environment variables) is documented here:
 
 - [`tests/README.md`](tests/README.md)
 
-### Legacy tb_run.py / Compliance
+### RISC-V Compliance Testing
 
-The legacy runner **`tb_run.py`** is still available for debugging/compatibility:
-- [`TB_RUN.md`](TB_RUN.md)
-
-RISC-V compliance testing (riscv-compliance harness + signature dumping):
-- [`COMPLIANCE.md`](COMPLIANCE.md)
-
-(see above)
+For RISC-V compliance testing (rv32i + rv32Zicsr), see:
+- [`docs/root-level-projects/COMPLIANCE.md`](docs/root-level-projects/COMPLIANCE.md)
 
 # New Bonfire Core SOC
 
@@ -186,35 +181,11 @@ Build all currently defined SoC firmware variants:
 
 ### Running the MyHDL Testbench
 
-
-
-    python tb_run.py  --new_soc --hex=code/build/soc/sim/led.hex  [ -vcd=<vcdfile> ]
-
-The Output should look like this:
-````
-eof at adr:0x54
-Created  laned ram with size 2048 words
-5 3
-Shifter implemented with one pipeline stage: 3:0 || 5:3 
-Shifter instance with config 3 0
-Shifter instance with config 5 3
-Shifter instance with config 5 3
-LED status @1185 ns: 1
-LED status @1985 ns: 2
-LED status @2785 ns: 3
-LED status @3585 ns: 4
-LED status @4385 ns: 5
-LED status @5185 ns: 6
-LED status @5985 ns: 7
-LED status @6785 ns: 8
-LED status @7585 ns: 9
-LED status @8385 ns: a
-LED status @9185 ns: b
-LED status @9985 ns: c
-LED status @10785 ns: d
-LED status @11585 ns: e
-LED status @12385 ns: f
-````
+Run pytest-based tests (recommended):
+```bash
+pytest -vv tests/system/soc/test_soc_tb.py --bonfire-hex=code/build/soc/sim/led.hex --waveform --vcd=trace
+```
+See [`tests/README.md`](tests/README.md) for test suite documentation.
 
 
 ### Running the VHDL Testbench
