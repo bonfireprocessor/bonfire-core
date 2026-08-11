@@ -10,7 +10,7 @@ It covers the same broad test intents that historically existed in the
 - `conversion/` — VHDL conversion checks grouped by domain
 - `fusesoc/` — FuseSoC packaging/build integration tests
 
-For the legacy `tb_run.py` commands, see: [`../TB_RUN.md`](../TB_RUN.md)
+For the legacy `tb_run.py` commands, see: docs/root-level-projects/plan_remove_tb_run.md
 
 ## Run everything
 
@@ -106,7 +106,7 @@ Purpose: run the complete core in a testbench environment (16KB RAM @ 0) with th
 These tests execute `code/build/core-tests/*.hex` programs using `tb_core` and treat a run as PASS when the final monitor base write (`0x10000000`) equals `1`.
 The discovery directory can be overridden with `BONFIRE_CORE_HEX_DIR`.
 
-The test programs are documented in: [`../code/README.md`](../code/README.md)
+The test programs are documented in: [docs/code/README.md](docs/code/README.md)
 
 Pytest file:
 - `tests/system/core/test_core_programs.py`
@@ -213,4 +213,4 @@ If `--vcd` is omitted, each test uses a stable default basename and writes to
 ## General notes
 - Some legacy testbenches emit VHDL conversion output into `./vhdl_gen/`.
 - Waveforms are written into `./waveforms`.
-- The RISC-V compliance suite uses `run_compliance.py` (via `run_compliance.sh`) directly, not pytest. See [COMPLIANCE.md](../COMPLIANCE.md).
+- The RISC-V compliance suite uses `run_compliance.py` (via `run_compliance.sh`) directly, not pytest. See docs/root-level-projects/COMPLIANCE.md.

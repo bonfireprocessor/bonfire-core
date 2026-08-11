@@ -2,9 +2,7 @@
 
 This document describes how to run the **riscv-compliance** suite against **bonfire-core**.
 
-The compliance suite calls **`run_compliance.sh`** (a lightweight wrapper around `run_compliance.py`), which runs the simulator directly without pytest overhead.
-
-`tb_run.py` remains useful for debugging, but it is not the recommended entry point for the compliance suite.
+The compliance suite uses `run_compliance.sh` (wrapper around `run_compliance.py`) which runs the MyHDL testbench directly with HEX/ELF/sig files. This approach is lightweight and avoids pytest overhead, making it suitable for large-scale RISC-V compliance testing.
 
 ## How the compliance harness works
 

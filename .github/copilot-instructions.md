@@ -95,8 +95,7 @@ Small RISC-V assembly programs in [code/](../code/):
 - Use **monitor convention**: write `1` to `0x10000000` for success, `-1` for failure
 - See [code/README.md](../code/README.md) for program descriptions
 
-### Legacy Runner
-[tb_run.py](../tb_run.py) still available for debugging but **not recommended** for daily use. See [TB_RUN.md](../TB_RUN.md).
+
 
 ## RISC-V Compliance Testing
 
@@ -332,7 +331,7 @@ GitHub Actions workflows in [.github/workflows/](../../../.github/workflows/):
 ## Further Reading
 
 - [README.md](../README.md) — Project overview, setup, test workflow
-- [TB_RUN.md](../TB_RUN.md) — Legacy tb_run.py documentation
+
 - [COMPLIANCE.md](../COMPLIANCE.md) — RISC-V compliance testing
 - [scripts/README.md](../scripts/README.md) — Universal runner documentation
 - [tests/README.md](../tests/README.md) — Pytest test suite structure

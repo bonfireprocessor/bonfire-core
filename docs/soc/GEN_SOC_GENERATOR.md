@@ -5,7 +5,7 @@ It focuses on the generator implementation under
 `fusesoc-cores/generators/` and explains the rules that are not obvious from
 the `.core` file alone.
 
-![Bonfire SoC generator flow](assets/gen_soc_flow.png)
+![Bonfire SoC generator flow](soc/assets/gen_soc_flow.png)
 
 ## Entry Points
 
@@ -137,7 +137,7 @@ The generator currently supports three variants:
 | `basic_soc_testbench` | `gentb: true` and not `extended_soc` | MyHDL SoC testbench converted directly to VHDL |
 | `extended_soc_top` | `extended_soc: true` | MyHDL SoC converted as an internal core plus generated VHDL wrapper and optional VHDL testbench |
 
-![Generation variants and outputs](assets/gen_soc_outputs.png)
+![Generation variants and outputs](soc/assets/gen_soc_outputs.png)
 
 The important distinction is that only `extended_soc_top` has a wrapper layer.
 For non-extended generation, the public top-level entity and the MyHDL-generated
@@ -148,7 +148,7 @@ entity are necessarily the same VHDL entity.
 FuseSoC generator parameters use `snake_case`. Internal `soc_config` and VHDL
 template keys use `lowerCamelCase`.
 
-![Parameter and name resolution](assets/gen_soc_config.png)
+![Parameter and name resolution](soc/assets/gen_soc_config.png)
 
 `SoCGenerationConfigBuilder` converts the normal SoC parameters with
 `snake_to_lower_camel()`:
