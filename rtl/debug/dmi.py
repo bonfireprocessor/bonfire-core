@@ -54,11 +54,18 @@ class DebugModuleInterface:
                 debugRegs.haltreq.next = False
                 debugRegs.resumereq.next = False
 
-            # Abstract Command execution management
+            # Abstract Command execution management  
             if debugRegs.abstract_command_state == t_abstract_command_state.regvalid:
                 debugRegs.data_regs[0].next = debugRegs.abstract_command_result
             elif debugRegs.abstract_command_state == t_abstract_command_state.taken:
                 debugRegs.abstract_command_new.next = False
+
+            # Centralized command start condition guard (shared across all autoexec paths)
+            cmd_start_result_local = 0
+            if debugRegs.abstract_command_state != t_abstract_command_state.none:
+                cmd_start_result_local = 1  # busy
+            elif debugRegs.hart_state == t_debug_hart_state.running:
+                cmd_start_result_local = 4  # running
 
             dtm.dbo.next = 0
             if dtm.en:
@@ -87,10 +94,8 @@ class DebugModuleInterface:
                         # autoexecprogbuf0: complete the register access and
                         # request the last abstract command again.
                         if debugRegs.abstract_auto_progbuf[0] and debugRegs.cmderr == 0:
-                            if debugRegs.abstract_command_state != t_abstract_command_state.none:
-                                debugRegs.cmderr.next = 1  # busy
-                            elif debugRegs.hart_state == t_debug_hart_state.running:
-                                debugRegs.cmderr.next = 4
+                            if cmd_start_result_local != 0:
+                                debugRegs.cmderr.next = cmd_start_result_local
                             else:
                                 debugRegs.abstract_command_new.next = True
                     elif self.config.progbuf_size == 2 and dtm.adr == 0x21:  # progbuf1
@@ -98,10 +103,8 @@ class DebugModuleInterface:
                         # autoexecprogbuf1 mirrors progbuf0 handling for a
                         # two-entry program buffer.
                         if debugRegs.abstract_auto_progbuf[1] and debugRegs.cmderr == 0:
-                            if debugRegs.abstract_command_state != t_abstract_command_state.none:
-                                debugRegs.cmderr.next = 1  # busy
-                            elif debugRegs.hart_state == t_debug_hart_state.running:
-                                debugRegs.cmderr.next = 4
+                            if cmd_start_result_local != 0:
+                                debugRegs.cmderr.next = cmd_start_result_local
                             else:
                                 debugRegs.abstract_command_new.next = True
                     elif (dtm.adr >= 0x04) and (dtm.adr <= 0x04+self.config.numdata-1):  # data0 to dataN
@@ -111,10 +114,8 @@ class DebugModuleInterface:
                         # DMI read and schedules the next abstract command. This
                         # is why repeated data0 reads can stream memory words.
                         if debugRegs.abstract_auto_data[data_index] and debugRegs.cmderr == 0:
-                            if debugRegs.abstract_command_state != t_abstract_command_state.none:
-                                debugRegs.cmderr.next = 1  # busy
-                            elif debugRegs.hart_state == t_debug_hart_state.running:
-                                debugRegs.cmderr.next = 4
+                            if cmd_start_result_local != 0:
+                                debugRegs.cmderr.next = cmd_start_result_local
                             else:
                                 debugRegs.abstract_command_new.next = True
                     elif dtm.adr == 0x16:  # abstractcs
@@ -138,10 +139,8 @@ class DebugModuleInterface:
                         # Writes to dataN can also be autoexec triggers. The
                         # written value is visible to the command started here.
                         if debugRegs.abstract_auto_data[data_index] and debugRegs.cmderr == 0:
-                            if debugRegs.abstract_command_state != t_abstract_command_state.none:
-                                debugRegs.cmderr.next = 1  # busy
-                            elif debugRegs.hart_state == t_debug_hart_state.running:
-                                debugRegs.cmderr.next = 4
+                            if cmd_start_result_local != 0:
+                                debugRegs.cmderr.next = cmd_start_result_local
                             else:
                                 debugRegs.abstract_command_new.next = True
                     elif dtm.adr == 0x16:  # abstractcs
@@ -181,10 +180,8 @@ class DebugModuleInterface:
                         # Allow tools to update progbuf0 and immediately run the
                         # previously configured abstract command.
                         if debugRegs.abstract_auto_progbuf[0] and debugRegs.cmderr == 0:
-                            if debugRegs.abstract_command_state != t_abstract_command_state.none:
-                                debugRegs.cmderr.next = 1  # busy
-                            elif debugRegs.hart_state == t_debug_hart_state.running:
-                                debugRegs.cmderr.next = 4
+                            if cmd_start_result_local != 0:
+                                debugRegs.cmderr.next = cmd_start_result_local
                             else:
                                 debugRegs.abstract_command_new.next = True
                     elif self.config.progbuf_size == 2 and dtm.adr == 0x21:
@@ -192,10 +189,8 @@ class DebugModuleInterface:
                         # Same autoexec behavior for the optional second
                         # progbuf entry.
                         if debugRegs.abstract_auto_progbuf[1] and debugRegs.cmderr == 0:
-                            if debugRegs.abstract_command_state != t_abstract_command_state.none:
-                                debugRegs.cmderr.next = 1  # busy
-                            elif debugRegs.hart_state == t_debug_hart_state.running:
-                                debugRegs.cmderr.next = 4
+                            if cmd_start_result_local != 0:
+                                debugRegs.cmderr.next = cmd_start_result_local
                             else:
                                 debugRegs.abstract_command_new.next = True
 
