@@ -28,8 +28,9 @@ build
 # fusesoc cache/libraries created by local tooling
 fusesoc_libraries/
 
-# Temporary test directory
+# Temporary test and agent planning directories
 temp/
+/.agents/pi/plan/
 .venv
 
 # Project-local OSS CAD Suite
