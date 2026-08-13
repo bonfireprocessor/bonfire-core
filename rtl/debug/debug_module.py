@@ -71,9 +71,6 @@ def DebugModuleController(
 
     command_request = Signal(bool(0))
     command_exec_active = Signal(bool(0))
-    command_transfer = Signal(bool(0))
-    command_writeback = Signal(bool(0))
-    command_postexec = Signal(bool(0))
     retire_boundary_reached = Signal(bool(0))
 
     @always_comb
@@ -87,9 +84,6 @@ def DebugModuleController(
             debug_regs.abstract_command_state == t_abstract_command_state.exec or
             debug_regs.abstract_command_state == t_abstract_command_state.exec2
         )
-        command_transfer.next = debug_regs.transfer
-        command_writeback.next = debug_regs.write
-        command_postexec.next = debug_regs.postexec
         retire_boundary_reached.next = not (
             decode_view.valid_o or decode_view.stall_i or decode_view.retire_pending_i
         )
@@ -100,7 +94,7 @@ def DebugModuleController(
         debug_control.data0.next = debug_regs.data_regs[0]
 
         if command_request:
-            debug_control.regwrite.next = command_writeback
+            debug_control.regwrite.next = debug_regs.write
         else:
             debug_control.regwrite.next = False
 
@@ -118,25 +112,25 @@ def DebugModuleController(
     def debug_module_seq():
         if debug_control.halt:
             if debug_regs.abstract_command_state == t_abstract_command_state.none:
-                if command_request and (command_transfer or command_postexec):
+                if command_request and (debug_regs.transfer or debug_regs.postexec):
                     debug_regs.abstract_command_state.next = t_abstract_command_state.taken
 
             elif debug_regs.abstract_command_state == t_abstract_command_state.taken:
-                if command_transfer and command_writeback:
-                    if command_postexec:
+                if debug_regs.transfer and debug_regs.write:
+                    if debug_regs.postexec:
                         debug_regs.abstract_command_state.next = t_abstract_command_state.exec
                     else:
                         debug_regs.abstract_command_state.next = t_abstract_command_state.none
 
-                elif command_transfer:
+                elif debug_regs.transfer:
                     debug_regs.abstract_command_state.next = t_abstract_command_state.regvalid
                     debug_regs.abstract_command_result.next = decode_view.rs1_data_i
 
-                elif command_postexec:
+                elif debug_regs.postexec:
                     debug_regs.abstract_command_state.next = t_abstract_command_state.exec
 
             elif debug_regs.abstract_command_state == t_abstract_command_state.regvalid:
-                if command_postexec:
+                if debug_regs.postexec:
                     debug_regs.abstract_command_state.next = t_abstract_command_state.exec
                 else:
                     debug_regs.abstract_command_state.next = t_abstract_command_state.none

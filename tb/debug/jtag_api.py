@@ -10,11 +10,8 @@ from collections.abc import Generator
 from myhdl import delay, modbv, now
 
 from rtl.config import BonfireConfig
+from rtl.debug.constants import DMI_OP_READ, DMI_OP_WRITE, DTM_IDLE, DTM_VERSION
 from rtl.debug.jtag_dtm import (
-    DTM_IDLE,
-    DTM_VERSION,
-    DMI_OP_READ,
-    DMI_OP_WRITE,
     JTAG_IDCODE,
     JTAG_INSTR_DMI,
     JTAG_INSTR_DTMCS,

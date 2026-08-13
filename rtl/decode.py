@@ -10,8 +10,15 @@ from rtl.instructions import ArithmeticFunct3  as f3
 from rtl.instructions import SystemFunct3
 from rtl.instructions import PrivFunct12
 from rtl.util import signed_resize
-from rtl.debug import *
-from rtl.debug.debug_module import DebugHartControlBundle, DebugModuleController, DebugHartViewBundle
+from rtl.debug import (
+    DebugCSRBundle,
+    DebugCSRUpdateBundle,
+    DebugHartControlBundle,
+    DebugHartViewBundle,
+    DebugModuleController,
+    t_abstract_command_state,
+    t_abstract_command_type,
+)
 from rtl.debug.debug_entry import DebugEntryController, DebugEntryOutputs
 
 from rtl.pipeline_control import *

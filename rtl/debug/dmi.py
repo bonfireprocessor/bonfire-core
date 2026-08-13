@@ -9,55 +9,7 @@ from typing import Any
 
 from myhdl import Signal, block, always, always_comb, instances, modbv
 
-from rtl.debug.constants import (
-    ABSTRACTAUTO_PROGBUF_BASE,
-    ABSTRACTCS_BUSY_BIT,
-    ABSTRACTCS_CMDERR_LSB,
-    ABSTRACTCS_CMDERR_MSB,
-    ABSTRACTCS_DATACOUNT_MSB,
-    ABSTRACTCS_DATACOUNT_LSB,
-    ABSTRACTCS_PROGBUFSIZE_LSB,
-    ABSTRACTCS_PROGBUFSIZE_MSB,
-    CMDERR_BUSY,
-    CMDERR_HART_RUNNING,
-    CMDERR_NONE,
-    CMDERR_NOT_SUPPORTED,
-    COMMAND_AARPOSTINCREMENT_BIT,
-    COMMAND_AARSIZE_LSB,
-    COMMAND_AARSIZE_MSB,
-    COMMAND_POSTEXEC_BIT,
-    COMMAND_TRANSFER_BIT,
-    COMMAND_TYPE_MSB,
-    COMMAND_TYPE_LSB,
-    COMMAND_WRITE_BIT,
-    COMMAND_REGNO_MSB,
-    COMMAND_REGNO_LSB,
-    DMI_ADDR_ABSTRACTAUTO,
-    DMI_ADDR_ABSTRACTCS,
-    DMI_ADDR_COMMAND,
-    DMI_ADDR_DATA0,
-    DMI_ADDR_DMCONTROL,
-    DMI_ADDR_DMSTATUS,
-    DMI_ADDR_HARTINFO,
-    DMI_ADDR_PROGBUF0,
-    DMI_ADDR_PROGBUF1,
-    DMCONTROL_DMACTIVE_BIT,
-    DMCONTROL_HALTREQ_BIT,
-    DMCONTROL_NDMRESET_BIT,
-    DMCONTROL_RESUMEREQ_BIT,
-    DMSTATUS_ALLHALTED_BIT,
-    DMSTATUS_ALLRESUMEACK_BIT,
-    DMSTATUS_ALLRUNNING_BIT,
-    DMSTATUS_ANYHALTED_BIT,
-    DMSTATUS_ANYRESUMEACK_BIT,
-    DMSTATUS_ANYRUNNING_BIT,
-    DMSTATUS_AUTHENTICATED_BIT,
-    DMSTATUS_IMPBREAK_BIT,
-    HARTINFO_DATAACCESS_LSB,
-    HARTINFO_DATAACCESS_MSB,
-    HARTINFO_NSCRATCH_LSB,
-    HARTINFO_NSCRATCH_MSB,
-)
+import rtl.debug.constants as constants
 from rtl.debug.dm_registers import DebugModuleRegisterBundle, DmiBundle
 from rtl.debug.types import (
     t_abstract_command_state,
@@ -98,11 +50,11 @@ class DebugModuleInterface:
         @always_comb
         def command_state_decode():
             if debug_regs.abstract_command_state != t_abstract_command_state.none:
-                command_start_error.next = CMDERR_BUSY
+                command_start_error.next = constants.CMDERR_BUSY
             elif debug_regs.hart_state == t_debug_hart_state.running:
-                command_start_error.next = CMDERR_HART_RUNNING
+                command_start_error.next = constants.CMDERR_HART_RUNNING
             else:
-                command_start_error.next = CMDERR_NONE
+                command_start_error.next = constants.CMDERR_NONE
 
         @always(clock.posedge)
         def seq():
@@ -124,138 +76,138 @@ class DebugModuleInterface:
 
             dtm.dbo.next = 0
             if dtm.en:
-                is_data_reg = (dtm.adr >= DMI_ADDR_DATA0) and (
-                    dtm.adr <= DMI_ADDR_DATA0 + self.config.numdata - 1
+                is_data_reg = (dtm.adr >= constants.DMI_ADDR_DATA0) and (
+                    dtm.adr <= constants.DMI_ADDR_DATA0 + self.config.numdata - 1
                 )
 
                 if not dtm.we:
                     # Status and control register reads.
-                    if dtm.adr == DMI_ADDR_DMSTATUS:
-                        dtm.dbo.next[DMSTATUS_IMPBREAK_BIT] = True
-                        dtm.dbo.next[DMSTATUS_ALLRESUMEACK_BIT] = debug_regs.resumeack
-                        dtm.dbo.next[DMSTATUS_ANYRESUMEACK_BIT] = debug_regs.resumeack
-                        dtm.dbo.next[DMSTATUS_ALLRUNNING_BIT] = debug_regs.hart_state == t_debug_hart_state.running
-                        dtm.dbo.next[DMSTATUS_ANYRUNNING_BIT] = debug_regs.hart_state == t_debug_hart_state.running
-                        dtm.dbo.next[DMSTATUS_ALLHALTED_BIT] = debug_regs.hart_state == t_debug_hart_state.halted
-                        dtm.dbo.next[DMSTATUS_ANYHALTED_BIT] = debug_regs.hart_state == t_debug_hart_state.halted
-                        dtm.dbo.next[DMSTATUS_AUTHENTICATED_BIT] = True
+                    if dtm.adr == constants.DMI_ADDR_DMSTATUS:
+                        dtm.dbo.next[22] = True
+                        dtm.dbo.next[17] = debug_regs.resumeack
+                        dtm.dbo.next[16] = debug_regs.resumeack
+                        dtm.dbo.next[11] = debug_regs.hart_state == t_debug_hart_state.running
+                        dtm.dbo.next[10] = debug_regs.hart_state == t_debug_hart_state.running
+                        dtm.dbo.next[9] = debug_regs.hart_state == t_debug_hart_state.halted
+                        dtm.dbo.next[8] = debug_regs.hart_state == t_debug_hart_state.halted
+                        dtm.dbo.next[7] = True
                         dtm.dbo.next[4:] = DEBUG_SPEC_VERSION
-                    elif dtm.adr == DMI_ADDR_DMCONTROL:
-                        dtm.dbo.next[DMCONTROL_NDMRESET_BIT] = self.config.enableDebugNdmreset and debug_regs.ndmreset
-                        dtm.dbo.next[DMCONTROL_DMACTIVE_BIT] = True
-                    elif dtm.adr == DMI_ADDR_HARTINFO:
-                        dtm.dbo.next[HARTINFO_NSCRATCH_MSB:HARTINFO_NSCRATCH_LSB] = self.config.num_dscratch
-                        dtm.dbo.next[HARTINFO_DATAACCESS_MSB:HARTINFO_DATAACCESS_LSB] = self.config.numdata
-                    elif dtm.adr == DMI_ADDR_ABSTRACTAUTO:
-                        dtm.dbo.next[ABSTRACTAUTO_PROGBUF_BASE + self.config.progbuf_size:ABSTRACTAUTO_PROGBUF_BASE] = debug_regs.abstract_auto_progbuf
+                    elif dtm.adr == constants.DMI_ADDR_DMCONTROL:
+                        dtm.dbo.next[1] = self.config.enableDebugNdmreset and debug_regs.ndmreset
+                        dtm.dbo.next[0] = True
+                    elif dtm.adr == constants.DMI_ADDR_HARTINFO:
+                        dtm.dbo.next[24:20] = self.config.num_dscratch
+                        dtm.dbo.next[16:12] = self.config.numdata
+                    elif dtm.adr == constants.DMI_ADDR_ABSTRACTAUTO:
+                        dtm.dbo.next[16 + self.config.progbuf_size:16] = debug_regs.abstract_auto_progbuf
                         dtm.dbo.next[self.config.numdata:] = debug_regs.abstract_auto_data
 
                     # Program buffer and data window reads.
-                    elif dtm.adr == DMI_ADDR_PROGBUF0:
+                    elif dtm.adr == constants.DMI_ADDR_PROGBUF0:
                         dtm.dbo.next = debug_regs.progbuf0
                         # autoexecprogbuf0: complete the register access and
                         # request the last abstract command again.
-                        if debug_regs.abstract_auto_progbuf[0] and debug_regs.cmderr == CMDERR_NONE:
-                            if command_start_error != CMDERR_NONE:
+                        if debug_regs.abstract_auto_progbuf[0] and debug_regs.cmderr == constants.CMDERR_NONE:
+                            if command_start_error != constants.CMDERR_NONE:
                                 debug_regs.cmderr.next = command_start_error
                             else:
                                 debug_regs.abstract_command_new.next = True
-                    elif self.config.progbuf_size == 2 and dtm.adr == DMI_ADDR_PROGBUF1:
+                    elif self.config.progbuf_size == 2 and dtm.adr == constants.DMI_ADDR_PROGBUF1:
                         dtm.dbo.next = debug_regs.progbuf1
                         # autoexecprogbuf1 mirrors progbuf0 handling for a
                         # two-entry program buffer.
-                        if debug_regs.abstract_auto_progbuf[1] and debug_regs.cmderr == CMDERR_NONE:
-                            if command_start_error != CMDERR_NONE:
+                        if debug_regs.abstract_auto_progbuf[1] and debug_regs.cmderr == constants.CMDERR_NONE:
+                            if command_start_error != constants.CMDERR_NONE:
                                 debug_regs.cmderr.next = command_start_error
                             else:
                                 debug_regs.abstract_command_new.next = True
                     elif is_data_reg:
-                        data_index = dtm.adr - DMI_ADDR_DATA0
+                        data_index = dtm.adr - constants.DMI_ADDR_DATA0
                         dtm.dbo.next = debug_regs.data_regs[data_index]
                         # autoexecdataN returns the current dataN value for this
                         # DMI read and schedules the next abstract command. This
                         # is why repeated data0 reads can stream memory words.
-                        if debug_regs.abstract_auto_data[data_index] and debug_regs.cmderr == CMDERR_NONE:
-                            if command_start_error != CMDERR_NONE:
+                        if debug_regs.abstract_auto_data[data_index] and debug_regs.cmderr == constants.CMDERR_NONE:
+                            if command_start_error != constants.CMDERR_NONE:
                                 debug_regs.cmderr.next = command_start_error
                             else:
                                 debug_regs.abstract_command_new.next = True
 
                     # Abstract command register block reads.
-                    elif dtm.adr == DMI_ADDR_ABSTRACTCS:
-                        dtm.dbo.next[ABSTRACTCS_PROGBUFSIZE_MSB:ABSTRACTCS_PROGBUFSIZE_LSB] = self.config.progbuf_size
-                        dtm.dbo.next[ABSTRACTCS_BUSY_BIT] = debug_regs.abstract_command_state != t_abstract_command_state.none
-                        dtm.dbo.next[ABSTRACTCS_CMDERR_MSB:ABSTRACTCS_CMDERR_LSB] = debug_regs.cmderr
-                        dtm.dbo.next[ABSTRACTCS_DATACOUNT_MSB:ABSTRACTCS_DATACOUNT_LSB] = self.config.numdata
+                    elif dtm.adr == constants.DMI_ADDR_ABSTRACTCS:
+                        dtm.dbo.next[29:24] = self.config.progbuf_size
+                        dtm.dbo.next[12] = debug_regs.abstract_command_state != t_abstract_command_state.none
+                        dtm.dbo.next[11:8] = debug_regs.cmderr
+                        dtm.dbo.next[4:] = self.config.numdata
 
                 else:  # Write
                     # Control register writes.
-                    if dtm.adr == DMI_ADDR_DMCONTROL:
-                        debug_regs.haltreq.next = debug_regs.hart_state == t_debug_hart_state.running and dtm.dbi[DMCONTROL_HALTREQ_BIT]
-                        if debug_regs.hart_state == t_debug_hart_state.halted and dtm.dbi[DMCONTROL_RESUMEREQ_BIT]:
+                    if dtm.adr == constants.DMI_ADDR_DMCONTROL:
+                        debug_regs.haltreq.next = debug_regs.hart_state == t_debug_hart_state.running and dtm.dbi[31]
+                        if debug_regs.hart_state == t_debug_hart_state.halted and dtm.dbi[30]:
                             debug_regs.resumereq.next = True
                             debug_regs.resumeack.next = False
 
                         if self.config.enableDebugNdmreset:
-                            debug_regs.ndmreset.next = dtm.dbi[DMCONTROL_NDMRESET_BIT]
+                            debug_regs.ndmreset.next = dtm.dbi[1]
 
                     # Data and program buffer writes with optional autoexec.
                     elif is_data_reg:
-                        data_index = dtm.adr - DMI_ADDR_DATA0
+                        data_index = dtm.adr - constants.DMI_ADDR_DATA0
                         debug_regs.data_regs[data_index].next = dtm.dbi
                         # Writes to dataN can also be autoexec triggers. The
                         # written value is visible to the command started here.
-                        if debug_regs.abstract_auto_data[data_index] and debug_regs.cmderr == CMDERR_NONE:
-                            if command_start_error != CMDERR_NONE:
+                        if debug_regs.abstract_auto_data[data_index] and debug_regs.cmderr == constants.CMDERR_NONE:
+                            if command_start_error != constants.CMDERR_NONE:
                                 debug_regs.cmderr.next = command_start_error
                             else:
                                 debug_regs.abstract_command_new.next = True
-                    elif dtm.adr == DMI_ADDR_ABSTRACTCS:
-                        debug_regs.cmderr.next = debug_regs.cmderr & ~dtm.dbi[ABSTRACTCS_CMDERR_MSB:ABSTRACTCS_CMDERR_LSB]
-                    elif dtm.adr == DMI_ADDR_ABSTRACTAUTO:
+                    elif dtm.adr == constants.DMI_ADDR_ABSTRACTCS:
+                        debug_regs.cmderr.next = debug_regs.cmderr & ~dtm.dbi[11:8]
+                    elif dtm.adr == constants.DMI_ADDR_ABSTRACTAUTO:
                         # abstractauto[15:0] selects dataN autoexec triggers.
                         # abstractauto[31:16] selects progbufN autoexec triggers.
                         debug_regs.abstract_auto_data.next = dtm.dbi[self.config.numdata:]
-                        debug_regs.abstract_auto_progbuf.next = dtm.dbi[ABSTRACTAUTO_PROGBUF_BASE + self.config.progbuf_size:ABSTRACTAUTO_PROGBUF_BASE]
-                    elif dtm.adr == DMI_ADDR_COMMAND:
-                        if debug_regs.cmderr == CMDERR_NONE:
+                        debug_regs.abstract_auto_progbuf.next = dtm.dbi[16 + self.config.progbuf_size:16]
+                    elif dtm.adr == constants.DMI_ADDR_COMMAND:
+                        if debug_regs.cmderr == constants.CMDERR_NONE:
                             if debug_regs.abstract_command_state != t_abstract_command_state.none:
-                                debug_regs.cmderr.next = CMDERR_BUSY
+                                debug_regs.cmderr.next = constants.CMDERR_BUSY
                             if debug_regs.hart_state == t_debug_hart_state.running:
-                                debug_regs.cmderr.next = CMDERR_HART_RUNNING
-                            elif dtm.dbi[COMMAND_TYPE_MSB:COMMAND_TYPE_LSB] == 0:
+                                debug_regs.cmderr.next = constants.CMDERR_HART_RUNNING
+                            elif dtm.dbi[32:24] == 0:
                                 debug_regs.command_type.next = t_abstract_command_type.access_reg
-                                debug_regs.aarsize.next = dtm.dbi[COMMAND_AARSIZE_MSB:COMMAND_AARSIZE_LSB]
-                                debug_regs.aarpostincrement.next = dtm.dbi[COMMAND_AARPOSTINCREMENT_BIT]
-                                debug_regs.postexec.next = dtm.dbi[COMMAND_POSTEXEC_BIT]
-                                transfer = dtm.dbi[COMMAND_TRANSFER_BIT]
+                                debug_regs.aarsize.next = dtm.dbi[23:20]
+                                debug_regs.aarpostincrement.next = dtm.dbi[19]
+                                debug_regs.postexec.next = dtm.dbi[18]
+                                transfer = dtm.dbi[17]
                                 debug_regs.transfer.next = transfer
-                                debug_regs.write.next = dtm.dbi[COMMAND_WRITE_BIT]
-                                debug_regs.regno.next = dtm.dbi[COMMAND_REGNO_MSB:COMMAND_REGNO_LSB]
+                                debug_regs.write.next = dtm.dbi[16]
+                                debug_regs.regno.next = dtm.dbi[5:0]
 
-                                if dtm.dbi[COMMAND_AARSIZE_MSB:COMMAND_AARSIZE_LSB] == 2 and (
-                                    dtm.dbi[COMMAND_WRITE_BIT:COMMAND_REGNO_MSB] == 0x80 or not transfer
+                                if dtm.dbi[23:20] == 2 and (
+                                    dtm.dbi[16:5] == 0x80 or not transfer
                                 ):
                                     debug_regs.abstract_command_new.next = True
                                 else:
-                                    debug_regs.cmderr.next = CMDERR_NOT_SUPPORTED
+                                    debug_regs.cmderr.next = constants.CMDERR_NOT_SUPPORTED
                             else:
-                                debug_regs.cmderr.next = CMDERR_NOT_SUPPORTED
-                    elif dtm.adr == DMI_ADDR_PROGBUF0:
+                                debug_regs.cmderr.next = constants.CMDERR_NOT_SUPPORTED
+                    elif dtm.adr == constants.DMI_ADDR_PROGBUF0:
                         debug_regs.progbuf0.next = dtm.dbi
                         # Allow tools to update progbuf0 and immediately run the
                         # previously configured abstract command.
-                        if debug_regs.abstract_auto_progbuf[0] and debug_regs.cmderr == CMDERR_NONE:
-                            if command_start_error != CMDERR_NONE:
+                        if debug_regs.abstract_auto_progbuf[0] and debug_regs.cmderr == constants.CMDERR_NONE:
+                            if command_start_error != constants.CMDERR_NONE:
                                 debug_regs.cmderr.next = command_start_error
                             else:
                                 debug_regs.abstract_command_new.next = True
-                    elif self.config.progbuf_size == 2 and dtm.adr == DMI_ADDR_PROGBUF1:
+                    elif self.config.progbuf_size == 2 and dtm.adr == constants.DMI_ADDR_PROGBUF1:
                         debug_regs.progbuf1.next = dtm.dbi
                         # Same autoexec behavior for the optional second
                         # progbuf entry.
-                        if debug_regs.abstract_auto_progbuf[1] and debug_regs.cmderr == CMDERR_NONE:
-                            if command_start_error != CMDERR_NONE:
+                        if debug_regs.abstract_auto_progbuf[1] and debug_regs.cmderr == constants.CMDERR_NONE:
+                            if command_start_error != constants.CMDERR_NONE:
                                 debug_regs.cmderr.next = command_start_error
                             else:
                                 debug_regs.abstract_command_new.next = True

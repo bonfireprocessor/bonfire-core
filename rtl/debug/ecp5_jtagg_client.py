@@ -9,7 +9,7 @@ from typing import Any
 
 from myhdl import Signal, always, always_comb, block, instances, modbv
 
-from rtl.debug.constants import DMI_OP_BUSY, DTM_IDLE, DTM_VERSION, DTMCS_DMIRESET_BIT
+import rtl.debug.constants as constants
 from rtl.debug.dm_registers import DmiBundle
 from rtl.debug.dtm_transport import DmiCdcBridge
 from rtl.type_aliases import BitSignal
@@ -86,7 +86,7 @@ def Ecp5JtaggClient(
                 active_er2.next = False
                 if request_pending:
                     busy_response = modbv(0)[dmi_width:]
-                    busy_response[2:0] = DMI_OP_BUSY
+                    busy_response[2:0] = constants.DMI_OP_BUSY
                     dmi_shift_reg.next = busy_response
                 else:
                     dmi_shift_reg.next = response_payload
@@ -94,11 +94,11 @@ def Ecp5JtaggClient(
                 active_er1.next = False
                 active_er2.next = True
                 dtmcs = modbv(0)[32:]
-                dtmcs[3:0] = DTM_VERSION
+                dtmcs[3:0] = constants.DTM_VERSION
                 dtmcs[9:4] = abits
                 if request_pending:
-                    dtmcs[12:10] = DMI_OP_BUSY
-                dtmcs[15:12] = DTM_IDLE
+                    dtmcs[12:10] = constants.DMI_OP_BUSY
+                dtmcs[15:12] = constants.DTM_IDLE
                 dtmcs_shift_reg.next = dtmcs
             elif jtagg_i.jshift or jshift_d:
                 # JTAGG registers JTDI on the rising edge and samples JTDO on
@@ -115,7 +115,7 @@ def Ecp5JtaggClient(
                 if active_er1:
                     request_payload.next = dmi_shift_reg
                     request_toggle.next = not request_toggle
-                elif active_er2 and dtmcs_shift_reg[DTMCS_DMIRESET_BIT]:
+                elif active_er2 and dtmcs_shift_reg[16]:
                     dmireset_toggle.next = not dmireset_toggle
             elif jtagg_i.jrt1:
                 active_er1.next = True

@@ -9,11 +9,7 @@ from typing import Any
 
 from myhdl import Signal, always, always_comb, block, instances, modbv
 
-from rtl.debug.constants import (
-    DMI_OP_READ,
-    DMI_OP_SUCCESS,
-    DMI_OP_WRITE,
-)
+import rtl.debug.constants as constants
 from rtl.debug.dm_registers import DmiBundle
 from rtl.type_aliases import BitSignal
 
@@ -116,7 +112,7 @@ def DmiCdcBridge(
             elif read_capture:
                 # Read responses are returned one cycle after the DMI request so
                 # dtm.dbo is sampled after the target register logic has updated.
-                response_payload_o.next[2:0] = DMI_OP_SUCCESS
+                response_payload_o.next[2:0] = constants.DMI_OP_SUCCESS
                 response_payload_o.next[34:2] = dtm.dbo
                 response_toggle.next = request_toggle_seen
                 read_capture.next = False
@@ -125,16 +121,16 @@ def DmiCdcBridge(
                 request_toggle_seen.next = request_toggle_sync
                 dtm.adr.next = request_payload_i[dmi_width:34]
                 dtm.dbi.next = request_payload_i[34:2]
-                response_payload_o.next[2:0] = DMI_OP_SUCCESS
+                response_payload_o.next[2:0] = constants.DMI_OP_SUCCESS
                 response_payload_o.next[34:2] = 0
                 response_payload_o.next[dmi_width:34] = request_payload_i[dmi_width:34]
 
-                if request_payload_i[2:0] == DMI_OP_READ:
+                if request_payload_i[2:0] == constants.DMI_OP_READ:
                     dtm.we.next = False
                     dtm.en.next = True
                     request_active.next = True
                     read_pending.next = True
-                elif request_payload_i[2:0] == DMI_OP_WRITE:
+                elif request_payload_i[2:0] == constants.DMI_OP_WRITE:
                     dtm.we.next = True
                     dtm.en.next = True
                     request_active.next = True

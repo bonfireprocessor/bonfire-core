@@ -27,90 +27,90 @@ t_tap_state = enum(
 
 
 @block
-def TapStateController(tck_i, reset, trstn_i, tms_i, tap_state_o):
+def TapStateController(tck_i, reset, trstn_i, tms_i, tap_state):
     @always(tck_i.posedge)
     def state_transition():
         if reset or not trstn_i:
-            tap_state_o.next = t_tap_state.test_logic_reset
-        elif tap_state_o == t_tap_state.test_logic_reset:
+            tap_state.next = t_tap_state.test_logic_reset
+        elif tap_state == t_tap_state.test_logic_reset:
             if tms_i:
-                tap_state_o.next = t_tap_state.test_logic_reset
+                tap_state.next = t_tap_state.test_logic_reset
             else:
-                tap_state_o.next = t_tap_state.run_test_idle
-        elif tap_state_o == t_tap_state.run_test_idle:
+                tap_state.next = t_tap_state.run_test_idle
+        elif tap_state == t_tap_state.run_test_idle:
             if tms_i:
-                tap_state_o.next = t_tap_state.select_dr_scan
+                tap_state.next = t_tap_state.select_dr_scan
             else:
-                tap_state_o.next = t_tap_state.run_test_idle
-        elif tap_state_o == t_tap_state.select_dr_scan:
+                tap_state.next = t_tap_state.run_test_idle
+        elif tap_state == t_tap_state.select_dr_scan:
             if tms_i:
-                tap_state_o.next = t_tap_state.select_ir_scan
+                tap_state.next = t_tap_state.select_ir_scan
             else:
-                tap_state_o.next = t_tap_state.capture_dr
-        elif tap_state_o == t_tap_state.capture_dr:
+                tap_state.next = t_tap_state.capture_dr
+        elif tap_state == t_tap_state.capture_dr:
             if tms_i:
-                tap_state_o.next = t_tap_state.exit1_dr
+                tap_state.next = t_tap_state.exit1_dr
             else:
-                tap_state_o.next = t_tap_state.shift_dr
-        elif tap_state_o == t_tap_state.shift_dr:
+                tap_state.next = t_tap_state.shift_dr
+        elif tap_state == t_tap_state.shift_dr:
             if tms_i:
-                tap_state_o.next = t_tap_state.exit1_dr
+                tap_state.next = t_tap_state.exit1_dr
             else:
-                tap_state_o.next = t_tap_state.shift_dr
-        elif tap_state_o == t_tap_state.exit1_dr:
+                tap_state.next = t_tap_state.shift_dr
+        elif tap_state == t_tap_state.exit1_dr:
             if tms_i:
-                tap_state_o.next = t_tap_state.update_dr
+                tap_state.next = t_tap_state.update_dr
             else:
-                tap_state_o.next = t_tap_state.pause_dr
-        elif tap_state_o == t_tap_state.pause_dr:
+                tap_state.next = t_tap_state.pause_dr
+        elif tap_state == t_tap_state.pause_dr:
             if tms_i:
-                tap_state_o.next = t_tap_state.exit2_dr
+                tap_state.next = t_tap_state.exit2_dr
             else:
-                tap_state_o.next = t_tap_state.pause_dr
-        elif tap_state_o == t_tap_state.exit2_dr:
+                tap_state.next = t_tap_state.pause_dr
+        elif tap_state == t_tap_state.exit2_dr:
             if tms_i:
-                tap_state_o.next = t_tap_state.update_dr
+                tap_state.next = t_tap_state.update_dr
             else:
-                tap_state_o.next = t_tap_state.shift_dr
-        elif tap_state_o == t_tap_state.update_dr:
+                tap_state.next = t_tap_state.shift_dr
+        elif tap_state == t_tap_state.update_dr:
             if tms_i:
-                tap_state_o.next = t_tap_state.select_dr_scan
+                tap_state.next = t_tap_state.select_dr_scan
             else:
-                tap_state_o.next = t_tap_state.run_test_idle
-        elif tap_state_o == t_tap_state.select_ir_scan:
+                tap_state.next = t_tap_state.run_test_idle
+        elif tap_state == t_tap_state.select_ir_scan:
             if tms_i:
-                tap_state_o.next = t_tap_state.test_logic_reset
+                tap_state.next = t_tap_state.test_logic_reset
             else:
-                tap_state_o.next = t_tap_state.capture_ir
-        elif tap_state_o == t_tap_state.capture_ir:
+                tap_state.next = t_tap_state.capture_ir
+        elif tap_state == t_tap_state.capture_ir:
             if tms_i:
-                tap_state_o.next = t_tap_state.exit1_ir
+                tap_state.next = t_tap_state.exit1_ir
             else:
-                tap_state_o.next = t_tap_state.shift_ir
-        elif tap_state_o == t_tap_state.shift_ir:
+                tap_state.next = t_tap_state.shift_ir
+        elif tap_state == t_tap_state.shift_ir:
             if tms_i:
-                tap_state_o.next = t_tap_state.exit1_ir
+                tap_state.next = t_tap_state.exit1_ir
             else:
-                tap_state_o.next = t_tap_state.shift_ir
-        elif tap_state_o == t_tap_state.exit1_ir:
+                tap_state.next = t_tap_state.shift_ir
+        elif tap_state == t_tap_state.exit1_ir:
             if tms_i:
-                tap_state_o.next = t_tap_state.update_ir
+                tap_state.next = t_tap_state.update_ir
             else:
-                tap_state_o.next = t_tap_state.pause_ir
-        elif tap_state_o == t_tap_state.pause_ir:
+                tap_state.next = t_tap_state.pause_ir
+        elif tap_state == t_tap_state.pause_ir:
             if tms_i:
-                tap_state_o.next = t_tap_state.exit2_ir
+                tap_state.next = t_tap_state.exit2_ir
             else:
-                tap_state_o.next = t_tap_state.pause_ir
-        elif tap_state_o == t_tap_state.exit2_ir:
+                tap_state.next = t_tap_state.pause_ir
+        elif tap_state == t_tap_state.exit2_ir:
             if tms_i:
-                tap_state_o.next = t_tap_state.update_ir
+                tap_state.next = t_tap_state.update_ir
             else:
-                tap_state_o.next = t_tap_state.shift_ir
+                tap_state.next = t_tap_state.shift_ir
         else:
             if tms_i:
-                tap_state_o.next = t_tap_state.select_dr_scan
+                tap_state.next = t_tap_state.select_dr_scan
             else:
-                tap_state_o.next = t_tap_state.run_test_idle
+                tap_state.next = t_tap_state.run_test_idle
 
     return instances()

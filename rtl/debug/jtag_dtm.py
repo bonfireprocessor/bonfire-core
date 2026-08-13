@@ -14,17 +14,8 @@ from typing import Any
 
 from myhdl import Signal, always, always_comb, block, instances, modbv
 
+import rtl.debug.constants as constants
 from rtl.debug.dm_registers import DmiBundle
-from rtl.debug.constants import (
-    DMI_OP_BUSY,
-    DMI_OP_NOP,
-    DMI_OP_READ,
-    DMI_OP_SUCCESS,
-    DMI_OP_WRITE,
-    DTM_IDLE,
-    DTM_VERSION,
-    DTMCS_DMIRESET_BIT,
-)
 from rtl.debug.dtm_transport import (
     DmiCdcBridge,
 )
@@ -135,17 +126,17 @@ class JtagDTM:
                     elif instruction == JTAG_INSTR_DMI:
                         if request_pending:
                             busy_response = modbv(0)[dmi_width:]
-                            busy_response[2:0] = DMI_OP_BUSY
+                            busy_response[2:0] = constants.DMI_OP_BUSY
                             dmi_shift_reg.next = busy_response
                         else:
                             dmi_shift_reg.next = response_payload
                     elif instruction == JTAG_INSTR_DTMCS:
                         dtmcs = modbv(0)[32:]
-                        dtmcs[3:0] = DTM_VERSION
+                        dtmcs[3:0] = constants.DTM_VERSION
                         dtmcs[9:4] = abits
                         if request_pending:
-                            dtmcs[12:10] = DMI_OP_BUSY
-                        dtmcs[15:12] = DTM_IDLE
+                            dtmcs[12:10] = constants.DMI_OP_BUSY
+                        dtmcs[15:12] = constants.DTM_IDLE
                         dtmcs_shift_reg.next = dtmcs
                 elif tap_state == t_tap_state.shift_dr:
                     if instruction == JTAG_INSTR_BYPASS:
@@ -163,7 +154,7 @@ class JtagDTM:
                     if instruction == JTAG_INSTR_DMI:
                         request_payload.next = dmi_shift_reg
                         request_toggle.next = not request_toggle
-                    elif instruction == JTAG_INSTR_DTMCS and dtmcs_shift_reg[DTMCS_DMIRESET_BIT]:
+                    elif instruction == JTAG_INSTR_DTMCS and dtmcs_shift_reg[16]:
                         dmireset_toggle.next = not dmireset_toggle
 
         tap_fsm = TapStateController(tck_i, reset, trstn_i, tms_i, tap_state)
