@@ -40,6 +40,8 @@ def DebugEntryController(
     instruction_ready = Signal(bool(0))
     step_halt_event = Signal(bool(0))
     haltreq_event = Signal(bool(0))
+    halt_boundary_ready = Signal(bool(0))
+    resume_ready = Signal(bool(0))
 
     @always_comb
     def debug_event_comb():
@@ -54,6 +56,10 @@ def DebugEntryController(
         instruction_ready.next = decode_enable and not downstream_busy and \
             not decode_kill and not debug_control.kill and \
             not fetch_redirect_pending
+        halt_boundary_ready.next = decode_enable and not decode_kill and \
+            not debug_control.kill and not fetch_redirect_pending
+        resume_ready.next = debug_registers.resumereq and not downstream_busy and \
+            not debug_registers.req_ack
 
         # Single-step stops at the first valid instruction after the stepped
         # instruction; that instruction is suppressed by halt_event below.
@@ -67,9 +73,7 @@ def DebugEntryController(
         # may enter Debug Mode directly. Step and haltreq still use the guarded
         # Decode boundary to avoid stopping on a wrong-path instruction.
         outputs.halt_event.next = execute_ebreak or ( \
-            not debug_control.halt and decode_enable and \
-            not decode_kill and not debug_control.kill and \
-            not fetch_redirect_pending and ( \
+            not debug_control.halt and halt_boundary_ready and ( \
             state == t_debug_entry_state.step_next or \
             (debug_registers.haltreq and not debug_registers.req_ack)))
 
@@ -83,8 +87,7 @@ def DebugEntryController(
             debug_registers.dpc_jump.next = False
 
         if debug_control.halt:
-            if debug_registers.resumereq and not downstream_busy and \
-               not debug_registers.req_ack:
+            if resume_ready:
                 debug_registers.req_ack.next = True
                 debug_control.halt.next = False
                 debug_registers.dpc_jump.next = True

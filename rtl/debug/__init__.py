@@ -15,6 +15,17 @@ from rtl.debug.types import (
     CSR_DPC,
     XDEBUGVER,
 )
+from rtl.debug.constants import (
+    DMI_OP_NOP,
+    DMI_OP_READ,
+    DMI_OP_WRITE,
+    DMI_OP_SUCCESS,
+    DMI_OP_BUSY,
+    DTM_VERSION,
+    DTM_IDLE,
+    DTMCS_DMIRESET_BIT,
+)
+from rtl.debug.tap_fsm import t_tap_state, TapStateController
 from rtl.debug.dm_registers import DebugModuleRegisterBundle, DmiBundle
 from rtl.debug.debug_csrs import DebugCSRBundle, DebugCSRUpdateBundle, DebugCSRReadViewBundle
 from rtl.debug.dmi import DebugModuleInterface
@@ -35,6 +46,16 @@ __all__ = [
     "DEBUG_SPEC_VERSION",
     "CSR_DPC",
     "XDEBUGVER",
+    "DMI_OP_NOP",
+    "DMI_OP_READ",
+    "DMI_OP_WRITE",
+    "DMI_OP_SUCCESS",
+    "DMI_OP_BUSY",
+    "DTM_VERSION",
+    "DTM_IDLE",
+    "DTMCS_DMIRESET_BIT",
+    "t_tap_state",
+    "TapStateController",
     # registers
     "DebugModuleRegisterBundle",
     "DmiBundle",

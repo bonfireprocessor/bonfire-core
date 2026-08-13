@@ -9,14 +9,9 @@ from typing import Any
 
 from myhdl import Signal, always, always_comb, block, instances, modbv
 
+from rtl.debug.constants import DMI_OP_BUSY, DTM_IDLE, DTM_VERSION, DTMCS_DMIRESET_BIT
 from rtl.debug.dm_registers import DmiBundle
-from rtl.debug.dtm_transport import (
-    DMI_OP_BUSY,
-    DmiCdcBridge,
-    DTM_IDLE,
-    DTM_VERSION,
-    DTMCS_DMIRESET_BIT,
-)
+from rtl.debug.dtm_transport import DmiCdcBridge
 from rtl.type_aliases import BitSignal
 
 ECP5_JTAGG_IR_ER1 = 0x32

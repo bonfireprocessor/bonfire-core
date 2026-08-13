@@ -67,70 +67,88 @@ def DebugModuleController(
         config.ip_low,
         config.progbuf_size,
     ))
+    debug_regs = debugRegisterBundle
+
+    command_request = Signal(bool(0))
+    command_exec_active = Signal(bool(0))
+    command_transfer = Signal(bool(0))
+    command_writeback = Signal(bool(0))
+    command_postexec = Signal(bool(0))
+    retire_boundary_reached = Signal(bool(0))
 
     @always_comb
-    def debug_event_comb():
-      
-        debug_control.regno.next = debugRegisterBundle.regno
-        debug_control.data0.next = debugRegisterBundle.data_regs[0]
-       
-        if debugRegisterBundle.abstract_command_new and \
-           debugRegisterBundle.abstract_command_state == t_abstract_command_state.none and \
-           debugRegisterBundle.command_type == t_abstract_command_type.access_reg:
-            debug_control.regwrite.next = debugRegisterBundle.write
+    def command_decode():
+        command_request.next = (
+            debug_regs.abstract_command_new and
+            debug_regs.abstract_command_state == t_abstract_command_state.none and
+            debug_regs.command_type == t_abstract_command_type.access_reg
+        )
+        command_exec_active.next = (
+            debug_regs.abstract_command_state == t_abstract_command_state.exec or
+            debug_regs.abstract_command_state == t_abstract_command_state.exec2
+        )
+        command_transfer.next = debug_regs.transfer
+        command_writeback.next = debug_regs.write
+        command_postexec.next = debug_regs.postexec
+        retire_boundary_reached.next = not (
+            decode_view.valid_o or decode_view.stall_i or decode_view.retire_pending_i
+        )
+
+    @always_comb
+    def debug_outputs():
+        debug_control.regno.next = debug_regs.regno
+        debug_control.data0.next = debug_regs.data_regs[0]
+
+        if command_request:
+            debug_control.regwrite.next = command_writeback
         else:
             debug_control.regwrite.next = False
+
+    @always_comb
+    def dm_state():
+        debug_control.kill.next = debug_regs.dpc_jump
+        debug_control.exec.next = command_exec_active
+
+        if debug_control.halt:
+            debug_regs.hart_state.next = t_debug_hart_state.halted
+        else:
+            debug_regs.hart_state.next = t_debug_hart_state.running
 
     @always(clock.posedge)
     def debug_module_seq():
         if debug_control.halt:
-            if debugRegisterBundle.abstract_command_state == t_abstract_command_state.none:
-                if debugRegisterBundle.abstract_command_new and \
-                   debugRegisterBundle.command_type == t_abstract_command_type.access_reg and \
-                   (debugRegisterBundle.transfer or debugRegisterBundle.postexec):
-                    debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.taken
+            if debug_regs.abstract_command_state == t_abstract_command_state.none:
+                if command_request and (command_transfer or command_postexec):
+                    debug_regs.abstract_command_state.next = t_abstract_command_state.taken
 
-            elif debugRegisterBundle.abstract_command_state == t_abstract_command_state.taken:
-                if debugRegisterBundle.transfer and debugRegisterBundle.write:
-                    if debugRegisterBundle.postexec:
-                        debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.exec
+            elif debug_regs.abstract_command_state == t_abstract_command_state.taken:
+                if command_transfer and command_writeback:
+                    if command_postexec:
+                        debug_regs.abstract_command_state.next = t_abstract_command_state.exec
                     else:
-                        debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.none
+                        debug_regs.abstract_command_state.next = t_abstract_command_state.none
 
-                elif debugRegisterBundle.transfer:
-                    debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.regvalid
-                    debugRegisterBundle.abstract_command_result.next = decode_view.rs1_data_i
+                elif command_transfer:
+                    debug_regs.abstract_command_state.next = t_abstract_command_state.regvalid
+                    debug_regs.abstract_command_result.next = decode_view.rs1_data_i
 
-                elif debugRegisterBundle.postexec:
-                    debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.exec
+                elif command_postexec:
+                    debug_regs.abstract_command_state.next = t_abstract_command_state.exec
 
-            elif debugRegisterBundle.abstract_command_state == t_abstract_command_state.regvalid:
-                if debugRegisterBundle.postexec:
-                    debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.exec
+            elif debug_regs.abstract_command_state == t_abstract_command_state.regvalid:
+                if command_postexec:
+                    debug_regs.abstract_command_state.next = t_abstract_command_state.exec
                 else:
-                    debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.none
-            elif debugRegisterBundle.abstract_command_state == t_abstract_command_state.exec or \
-                 debugRegisterBundle.abstract_command_state == t_abstract_command_state.exec2:
-                debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.wait_retire
-            elif debugRegisterBundle.abstract_command_state == t_abstract_command_state.wait_retire:
-                if not (decode_view.valid_o or decode_view.stall_i or
-                        decode_view.retire_pending_i):
+                    debug_regs.abstract_command_state.next = t_abstract_command_state.none
+            elif command_exec_active:
+                debug_regs.abstract_command_state.next = t_abstract_command_state.wait_retire
+            elif debug_regs.abstract_command_state == t_abstract_command_state.wait_retire:
+                if retire_boundary_reached:
                     if not progbuf_last and not decode_view.dm_break:
                         progbuf_pointer.next = 1
-                        debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.exec2
+                        debug_regs.abstract_command_state.next = t_abstract_command_state.exec2
                     else:
-                        debugRegisterBundle.abstract_command_state.next = t_abstract_command_state.none
+                        debug_regs.abstract_command_state.next = t_abstract_command_state.none
                         progbuf_pointer.next = 0
-
-    @always_comb
-    def dm_state():
-        debug_control.kill.next = debugRegisterBundle.dpc_jump
-        debug_control.exec.next = debugRegisterBundle.abstract_command_state == t_abstract_command_state.exec or \
-                       debugRegisterBundle.abstract_command_state == t_abstract_command_state.exec2
-
-        if debug_control.halt:
-            debugRegisterBundle.hart_state.next = t_debug_hart_state.halted
-        else:
-            debugRegisterBundle.hart_state.next = t_debug_hart_state.running
 
     return instances()
