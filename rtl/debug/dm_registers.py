@@ -76,10 +76,6 @@ class DebugModuleRegisterBundle:
         # dpc, written by debug core
         self.dpc = Signal(modbv(0)[self.config.xlen:self.config.ip_low])
 
-        # helpers
-        self.dpc_jump = Signal(bool(0))
-
-
 class DmiBundle:
     def __init__(self, config: Any) -> None:
         self.config = config

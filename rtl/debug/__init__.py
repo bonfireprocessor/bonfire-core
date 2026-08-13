@@ -18,11 +18,6 @@ from rtl.debug.types import (
 from rtl.debug.dm_registers import DebugModuleRegisterBundle, DmiBundle
 from rtl.debug.debug_csrs import DebugCSRBundle, DebugCSRUpdateBundle, DebugCSRReadViewBundle
 from rtl.debug.dmi import DebugModuleInterface
-from rtl.debug.debug_module import (
-    DebugHartViewBundle,
-    DebugHartControlBundle,
-    DebugModuleController,
-)
 from rtl.debug.jtag_dtm import JtagDTM
 from rtl.debug.ecp5_jtagg_client import Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
 from rtl.debug.ecp5_jtagg_tap import Ecp5JtaggTapEmulator
@@ -44,10 +39,6 @@ __all__ = [
     "DebugCSRReadViewBundle",
     # dmi
     "DebugModuleInterface",
-    # debug module
-    "DebugHartViewBundle",
-    "DebugHartControlBundle",
-    "DebugModuleController",
     # debug transport module
     "JtagDTM",
     "Ecp5JtaggClient",
