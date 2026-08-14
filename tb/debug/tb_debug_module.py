@@ -409,6 +409,7 @@ class BonfireCoreDebugTestbench:
                 yield self.check_gpr(api, regno=1, check_value=0xDEADBEEF)
 
             self.log("testing progbuf0 read/write and postexec path")
+            yield self.check_dpc(api, 0x0C, "dpc before progbuf execution")
             opcode = 0x00100513  # addi a0, zero, 1
             mark("writing progbuf0")
             yield api.writeProgbuf0(opcode)
@@ -421,6 +422,7 @@ class BonfireCoreDebugTestbench:
             self.log("progbuf execution completed")
             mark("checking progbuf result")
             yield self.check_gpr(api, regno=10, check_value=1)
+            yield self.check_dpc(api, 0x0C, "dpc after one-instruction progbuf")
 
             if self.config.progbuf_size == 2:
                 self.log("testing two-instruction progbuf execution")
@@ -432,6 +434,7 @@ class BonfireCoreDebugTestbench:
                 mark("checking two progbuf instruction results")
                 yield self.check_gpr(api, regno=10, check_value=0x11)
                 yield self.check_gpr(api, regno=11, check_value=0x22)
+                yield self.check_dpc(api, 0x0C, "dpc after two-instruction progbuf")
 
             self.log("testing memory read through progbuf")
             mark("reading memory through progbuf")

@@ -64,7 +64,7 @@ def HartDebugController(
         elif state == t_hart_debug_state.halt_pending:
             if events.pipeline_empty:
                 debug_regs.req_ack.next = True
-                debug_csr_update.dpc.next = events.architectural_pc[config.xlen:config.ip_low]
+                debug_csr_update.dpc.next = events.next_pc[config.xlen:config.ip_low]
                 debug_csr_update.cause.next = 3
                 debug_csr_update.we_dpc.next = True
                 debug_csr_update.we_cause.next = True

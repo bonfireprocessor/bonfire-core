@@ -138,8 +138,12 @@ The controller generates `hart_state`, halt/resume acknowledgement, resume redir
 - Program Buffer issue has priority over Fetch while the hart is halted.
 - It stalls Fetch while normal instruction acceptance is disabled, during a debug redirect, while Decode is busy, or while a Program Buffer word is being offered.
 - It consumes the Program Buffer EBREAK end marker without forwarding it to Decode.
-- It records the accepted instruction PC and its sequential next PC.
-- It replaces the sequential next PC with an Execute redirect target for taken branches, jumps, traps, and returns.
+- For normal instructions, it records the sequential next PC and replaces it
+  with an Execute redirect target for taken branches, jumps, traps, and
+  returns.
+- Program Buffer instructions reuse the stalled Fetch PC inputs. Their PC is
+  not part of the debug interface and does not update the architectural next
+  PC or `dpc`.
 - It reports completion only after all pipeline stages relevant to the selected backend are empty.
 
 Resume redirects are combined with normal Execute redirects at the backend output, with the debug resume target taking priority.
@@ -151,10 +155,10 @@ The controllers communicate through explicit bundles rather than by depending on
 | Bundle | Producer -> Consumer | Purpose |
 | --- | --- | --- |
 | `AbstractRegisterTransferBundle` | `AbstractCommandController` -> Decode/register-file path, with read data returned to the controller | GPR register number, direction, write data, and read result for an abstract register transfer |
-| `ProgramBufferIssueBundle` | `AbstractCommandController` -> `DebugPipelineAdapter` | Program Buffer word, architectural PC, valid indication, and last-word indication |
-| `ProgramBufferCompletionBundle` | `DebugPipelineAdapter` -> `AbstractCommandController` | Reports that a word was accepted, completed, or consumed as the EBREAK terminator |
+| `ProgbufIssueBundle` | `AbstractCommandController` -> `DebugPipelineAdapter` | Program Buffer word, valid indication, and last-word indication |
+| `ProgbufCompletionBundle` | `DebugPipelineAdapter` -> `AbstractCommandController` | Reports that a word was accepted, completed, or consumed as the EBREAK terminator |
 | `DebugPipelineRequestBundle` | `HartDebugController` -> `DebugPipelineAdapter` and backend | Controls normal Fetch acceptance, pipeline flush, and resume redirect address |
-| `DebugPipelineEventBundle` | `DebugPipelineAdapter` -> `HartDebugController` | Reports instruction acceptance and PC, instruction completion and resolved next PC, Program Buffer origin, pipeline-empty state, and qualified Execute EBREAK events |
+| `DebugPipelineEventBundle` | `DebugPipelineAdapter` -> `HartDebugController` | Reports normal-instruction acceptance and completion, resolved architectural next PC, pipeline-empty state, and qualified Execute EBREAK events |
 
 ---
 
@@ -364,6 +368,9 @@ With `config.enableDebugModule=False`, none of the debug controller instances or
    - `quick_access` command type is defined but not implemented.
    - Only 32-bit transfer size is accepted.
    - `aarpostincrement` is parsed but not functionally applied.
+   - Instruction-stuffed Program Buffer execution has no guaranteed PC value;
+     PC-relative instructions and control-flow sequences are not a portable
+     supported behavior.
 
 3. **CSR/debug register access scope is limited**
    - Current command decode path is tailored to core GPR + limited debug CSR handling.

@@ -52,9 +52,9 @@
   <text x="1165" y="365" class="edge-label">halt, resume, DPC/DCSR</text>
 
   <path d="M 595 550 L 760 615" class="edge"/>
-  <text x="535" y="590" class="edge-label">ProgramBufferIssue</text>
+  <text x="535" y="590" class="edge-label">ProgbufIssue</text>
   <path d="M 660 680 L 565 680 L 565 550" class="edge"/>
-  <text x="300" y="672" class="edge-label">ProgramBufferCompletion</text>
+  <text x="300" y="672" class="edge-label">ProgbufCompletion</text>
 
   <path d="M 1205 550 L 1040 615" class="edge"/>
   <text x="1105" y="590" class="edge-label">DebugPipelineRequest</text>

@@ -13,8 +13,8 @@ from rtl.regfile import RFReadPort, RFWritePort, RegisterFile
 from rtl.debug.abstract_command import (
     AbstractCommandController,
     AbstractRegisterTransferBundle,
-    ProgramBufferCompletionBundle,
-    ProgramBufferIssueBundle,
+    ProgbufCompletionBundle,
+    ProgbufIssueBundle,
 )
 from rtl.debug.hart_debug import HartDebugController
 from rtl.debug.pipeline_adapter import (
@@ -47,8 +47,8 @@ class PipelinedBackend:
             self.reg_writePort, conf.xlen)
         if conf.enableDebugModule:
             register_transfer = AbstractRegisterTransferBundle(conf)
-            program_issue = ProgramBufferIssueBundle(conf)
-            program_completion = ProgramBufferCompletionBundle()
+            progbuf_issue = ProgbufIssueBundle(conf)
+            progbuf_completion = ProgbufCompletionBundle()
             pipeline_request = DebugPipelineRequestBundle(conf)
             pipeline_events = DebugPipelineEventBundle(conf)
             pipeline_empty = Signal(bool(0))
@@ -152,15 +152,15 @@ class PipelinedBackend:
         if conf.enableDebugModule:
             abstract_command_inst = AbstractCommandController(
                 conf, clock, debugRegisterBundle, register_transfer,
-                program_issue, program_completion)
+                progbuf_issue, progbuf_completion)
             hart_debug_inst = HartDebugController(
                 conf, clock, debugRegisterBundle,
                 self.decode.debugCSRBundle, self.decode.debugCSRUpdateBundle,
                 pipeline_request, pipeline_events)
             pipeline_adapter_inst = DebugPipelineAdapter(
                 conf, clock, fetchBundle, frontEnd, self.decode,
-                pipeline_request, pipeline_events, program_issue,
-                program_completion, pipeline_empty,
+                pipeline_request, pipeline_events, progbuf_issue,
+                progbuf_completion, pipeline_empty,
                 self.execute.jump_o, self.execute.jump_dest_o,
                 self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o)
 

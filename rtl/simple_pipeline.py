@@ -13,8 +13,8 @@ from rtl.regfile import *
 from rtl.debug.abstract_command import (
     AbstractCommandController,
     AbstractRegisterTransferBundle,
-    ProgramBufferCompletionBundle,
-    ProgramBufferIssueBundle,
+    ProgbufCompletionBundle,
+    ProgbufIssueBundle,
 )
 from rtl.debug.hart_debug import HartDebugController
 from rtl.debug.pipeline_adapter import (
@@ -67,8 +67,8 @@ class SimpleBackend:
 
         if self.config.enableDebugModule:
             register_transfer = AbstractRegisterTransferBundle(self.config)
-            program_issue = ProgramBufferIssueBundle(self.config)
-            program_completion = ProgramBufferCompletionBundle()
+            progbuf_issue = ProgbufIssueBundle(self.config)
+            progbuf_completion = ProgbufCompletionBundle()
             pipeline_request = DebugPipelineRequestBundle(self.config)
             pipeline_events = DebugPipelineEventBundle(self.config)
             pipeline_empty = Signal(bool(0))
@@ -83,15 +83,15 @@ class SimpleBackend:
 
             abstract_command_inst = AbstractCommandController(
                 self.config, clock, debugRegisterBundle, register_transfer,
-                program_issue, program_completion)
+                progbuf_issue, progbuf_completion)
             hart_debug_inst = HartDebugController(
                 self.config, clock, debugRegisterBundle,
                 self.decode.debugCSRBundle, self.decode.debugCSRUpdateBundle,
                 pipeline_request, pipeline_events)
             pipeline_adapter_inst = DebugPipelineAdapter(
                 self.config, clock, fetchBundle, frontEnd, self.decode,
-                pipeline_request, pipeline_events, program_issue,
-                program_completion, pipeline_empty,
+                pipeline_request, pipeline_events, progbuf_issue,
+                progbuf_completion, pipeline_empty,
                 self.execute.jump_o, self.execute.jump_dest_o,
                 self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o)
         else:
