@@ -2,29 +2,54 @@
 
 This document describes the current debug stack in **bonfire-core**:
 
-- RISC-V Debug Module implementation (`rtl/debugModule.py`)
-- Native JTAG Debug Transport Module (`rtl/jtag_dtm.py`)
+- DMI-visible Debug Module registers and protocol handling (`rtl/debug/dm_registers.py`, `rtl/debug/dmi.py`)
+- Abstract-command, hart-state, and pipeline integration logic (`rtl/debug/abstract_command.py`, `rtl/debug/hart_debug.py`, `rtl/debug/pipeline_adapter.py`)
+- Native JTAG Debug Transport Module (`rtl/debug/jtag_dtm.py`)
 - Shared DTM transport logic (`rtl/debug/dtm_transport.py`)
 - ECP5 JTAGG frontend (`rtl/debug/ecp5_jtagg_client.py`)
 - OpenOCD remote_bitbang simulation server (`openocd_bitbang`)
-- Integration of the debug path into the Bonfire core (`rtl/bonfire_core_top.py` + decode/fetch/backend path)
+- Optional integration of the debug path into the Bonfire core (`rtl/bonfire_core_top.py` and the selected pipeline backend)
+
+---
+
+## Debug Access Paths
+
+All supported debug frontends converge at the DMI boundary. The external or
+simulation-specific portions are:
+
+- Native JTAG simulation: `GDB -> OpenOCD -> remote_bitbang TCP -> native JTAG TAP/DTM -> DMI`
+- ECP5 JTAGG simulation: `GDB -> OpenOCD -> remote_bitbang TCP -> emulated ECP5 TAP -> JTAGG frontend -> DMI`
+- Direct simulation server: `GDB -> Simulation GDB Server -> DMI`
+- ECP5 hardware: `GDB -> OpenOCD -> FTDI adapter -> ECP5 FPGA TAP/JTAGG -> JTAGG frontend -> DMI`
+
+The supported Ice Pi Zero and ULX3S configurations use their FTDI FT231XQ
+interface through OpenOCD's `ft232r` adapter driver. Direct module tests can
+also drive DMI without GDB or JTAG.
+
+From DMI onward, every frontend uses the same internal path:
+
+`DMI -> DebugModuleInterface -> DebugModuleRegisterBundle -> debug controllers -> DebugPipelineAdapter -> pipeline`
 
 ---
 
 ## 1. Architecture Overview
 
-Current end-to-end debug paths:
-
-- `GDB -> OpenOCD -> remote_bitbang TCP protocol -> native JTAG TAP/DTM -> DMI signals -> Debug Module registers/state -> core decode/fetch control`
-- `GDB -> OpenOCD -> remote_bitbang TCP protocol -> emulated ECP5 TAP -> JTAGG frontend -> DMI signals -> Debug Module registers/state -> core decode/fetch control`
-
-For direct simulation tests, the Debug Module can also be driven without JTAG via direct DMI stimulus.
-
 The implementation targets **RISC-V Debug Spec 0.13** semantics in a pragmatic subset (single-hart focus, abstract command driven debug flow).
+
+The implementation separates four concerns:
+
+1. The JTAG/DTM frontend transports DMI requests and responses.
+2. `DebugModuleInterface` implements the DMI register protocol and stores requests and command fields in `DebugModuleRegisterBundle`.
+3. `AbstractCommandController` and `HartDebugController` own abstract-command sequencing and architectural hart debug state respectively.
+4. `DebugPipelineAdapter` is the boundary between debug control and the normal Fetch/Decode/Execute pipeline.
+
+Normal Fetch and the Program Buffer are independent instruction sources. When debug support is enabled, `DebugPipelineAdapter` selects between them immediately before Decode. The downstream Decode and Execute stages use the same functional paths for either source.
+
+![Debug Module integration into the Bonfire pipeline](debug_module_pipeline_integration.png)
 
 ---
 
-## 2. Debug Module (`rtl/debugModule.py`)
+## 2. Debug Module Registers and Controllers
 
 ### 2.1 Main responsibilities
 
@@ -73,14 +98,67 @@ Autoexec support:
 
 ### 2.4 Core interaction behavior
 
-- Halt request captured in decode stage when an instruction is active
-- On halt, current PC is stored into `dpc`
-- Resume request triggers `dpc_jump` to restart execution from stored `dpc`
-- While halted, decode can inject register write operations and progbuf instructions
+- A halt request stops acceptance of new normal Fetch instructions while allowing an already accepted instruction to complete.
+- The hart enters halted state after the pipeline becomes empty and stores the next architectural PC in `dpc`.
+- Resume redirects Fetch to the address stored in `dpc`.
+- Single step accepts exactly one normal instruction, waits for architectural completion, and stores its resolved next PC in `dpc`.
+- An Execute-qualified EBREAK with `dcsr.ebreakm` set enters Debug Mode at the EBREAK PC instead of taking the normal breakpoint trap.
+- Program Buffer instructions enter the pipeline through the debug instruction source rather than through Decode-owned command orchestration.
+
+### 2.5 Abstract command controller (`rtl/debug/abstract_command.py`)
+
+`AbstractCommandController` owns the abstract-command execution lifecycle after a command has been accepted by the DMI register interface. Its responsibilities are:
+
+- Run accepted access-register commands only while the hart reports halted state.
+- Sequence GPR reads and writes through `AbstractRegisterTransferBundle`.
+- Start optional post-execution after the register transfer.
+- Issue `progbuf0` and, when configured, `progbuf1` one word at a time.
+- Wait for each issued Program Buffer instruction to complete before issuing the next word.
+- Treat the Program Buffer EBREAK instruction (`0x00100073`) as an end marker reported by the pipeline adapter.
+
+GPR transfers deliberately reuse the existing register-file and pipeline write paths. A read selects the requested register on the Decode register-file port. A write is represented as a small internal ALU operation, so no separate register-file writeback mux is introduced.
+
+### 2.6 Hart debug controller (`rtl/debug/hart_debug.py`)
+
+`HartDebugController` is the single owner of the hart debug-mode state machine. Its internal states are:
+
+- `running`: normal instruction acceptance is allowed.
+- `halt_pending`: normal Fetch is stopped while accepted pipeline work drains.
+- `halted`: the hart is stopped, but abstract commands and Program Buffer execution remain available.
+- `step_issue`: one normal instruction may be accepted after a resume redirect.
+- `step_wait`: no further normal instruction may be accepted while the stepped instruction completes.
+
+The controller generates `hart_state`, halt/resume acknowledgement, resume redirects, and DPC/DCSR cause updates. Halt request, single-step completion, and Execute EBREAK therefore use explicit architectural pipeline events rather than reconstructing instruction validity from Decode, jump, kill, and Fetch state.
+
+### 2.7 Pipeline adapter (`rtl/debug/pipeline_adapter.py`)
+
+`DebugPipelineAdapter` provides the optional debug boundary in front of Decode:
+
+- It selects normal Fetch or a Program Buffer word as the Decode input.
+- Program Buffer issue has priority over Fetch while the hart is halted.
+- It stalls Fetch while normal instruction acceptance is disabled, during a debug redirect, while Decode is busy, or while a Program Buffer word is being offered.
+- It consumes the Program Buffer EBREAK end marker without forwarding it to Decode.
+- It records the accepted instruction PC and its sequential next PC.
+- It replaces the sequential next PC with an Execute redirect target for taken branches, jumps, traps, and returns.
+- It reports completion only after all pipeline stages relevant to the selected backend are empty.
+
+Resume redirects are combined with normal Execute redirects at the backend output, with the debug resume target taking priority.
+
+### 2.8 Controller interfaces
+
+The controllers communicate through explicit bundles rather than by depending on Decode-internal debug state:
+
+| Bundle | Producer -> Consumer | Purpose |
+| --- | --- | --- |
+| `AbstractRegisterTransferBundle` | `AbstractCommandController` -> Decode/register-file path, with read data returned to the controller | GPR register number, direction, write data, and read result for an abstract register transfer |
+| `ProgramBufferIssueBundle` | `AbstractCommandController` -> `DebugPipelineAdapter` | Program Buffer word, architectural PC, valid indication, and last-word indication |
+| `ProgramBufferCompletionBundle` | `DebugPipelineAdapter` -> `AbstractCommandController` | Reports that a word was accepted, completed, or consumed as the EBREAK terminator |
+| `DebugPipelineRequestBundle` | `HartDebugController` -> `DebugPipelineAdapter` and backend | Controls normal Fetch acceptance, pipeline flush, and resume redirect address |
+| `DebugPipelineEventBundle` | `DebugPipelineAdapter` -> `HartDebugController` | Reports instruction acceptance and PC, instruction completion and resolved next PC, Program Buffer origin, pipeline-empty state, and qualified Execute EBREAK events |
 
 ---
 
-## 3. Native JTAG DTM (`rtl/jtag_dtm.py`)
+## 3. Native JTAG DTM (`rtl/debug/jtag_dtm.py`)
 
 ### 3.1 Main responsibilities
 
@@ -102,26 +180,36 @@ Key constants:
 - DTM version: 1
 - Fixed IR map: `IRLEN=5`, `IDCODE=0x01`, `DTMCS=0x10`, `DMI=0x11`, `BYPASS=0x1F`
 
-### 3.3 Clock-domain handling
+### 3.3 Native clock-domain handling
 
-- External JTAG pins (`tck/tms/tdi/trstn`) are synchronized into system clock domain
-- TAP transitions and DR/IR updates are evaluated using synchronized edge detection
+- The native TAP state machine, IR/DR shifting, and DTM scan handling run
+  directly in the external `TCK` clock domain. `TMS`, `TDI`, `TDO`, and
+  `TRSTN` are handled there; they are not individually synchronized into the
+  system clock domain.
+- Completed scan requests are handed to `DmiCdcBridge`; only the DMI
+  transaction crosses into the system clock domain.
 
 ---
 
 ## 4. Shared DTM transport logic (`rtl/debug/dtm_transport.py`)
 
-This block contains the frontend-independent scan-register and DMI request/response logic shared by the native JTAG DTM and the ECP5 JTAGG frontend.
+This block contains `DmiCdcBridge`, the frontend-independent DMI
+request/response clock-domain crossing shared by the native JTAG DTM and the
+ECP5 JTAGG frontend. Scan registers remain in their respective frontend and
+run in the frontend's `TCK` or `JTCK` domain.
 
 Implemented behavior:
 
-- DMI scan format: `{address, data, op}` (LSB-first)
-- Supports DMI operations:
+- Transfers a stable DMI payload containing `{address, data, op}` from the scan
+  clock domain into the system clock domain using a synchronized request toggle
+- Supports DMI operations after the crossing:
   - NOP
   - READ
   - WRITE
 - Read pipeline behavior implemented via internal request/response staging
-- `dmireset` handling through DTMCS bit 16
+- Holds the response payload stable while a response toggle is synchronized
+  back into the scan clock domain
+- Transfers `dmireset` through a separately synchronized toggle
 - `dmistat` currently kept at OK under normal operation
 
 It intentionally does **not** contain:
@@ -157,7 +245,14 @@ Key constants:
 - `ER1 = 0x32`
 - `ER2 = 0x38`
 
-### 5.2 Simulation support
+### 5.2 Clock-domain handling
+
+The JTAGG scan/update logic runs directly in the ECP5 `JTCK` domain. As with
+the native TAP, `DmiCdcBridge` transfers only complete DMI transactions and DTM
+reset requests into the system clock domain and returns completed responses to
+the `JTCK` domain.
+
+### 5.3 Simulation support
 
 For simulation and OpenOCD-facing tests, the repository also contains:
 
@@ -216,16 +311,27 @@ The debug trace monitor reports:
 
 In `BonfireCoreTop`:
 
-- Debug module logic is instantiated when `config.enableDebugModule` is true
-- Core instance requires a `debugTransportBundle` in this mode
-- DMI interface instance connects transport signals to debug register/state bundle
+- `DebugModuleRegisterBundle` and `DebugModuleInterface` are created only when `config.enableDebugModule` is true.
+- The core instance requires a `debugTransportBundle` in this mode.
+- The DMI interface connects the selected transport frontend to the shared debug register bundle.
+- Fetch itself has no dependency on the debug register bundle or hart debug state.
 
 ### 7.2 Pipeline integration
 
-- Decode stage owns most debug command orchestration
-- Fetch stage suppresses normal forward progress while hart is halted
-- Backend jump output is OR-combined with debug `dpc_jump` recovery path
-- Progbuf instructions are multiplexed into decode when halted + exec state active
+Both `SimpleBackend` and `PipelinedBackend` instantiate the same debug controllers and bundle interfaces when debug support is enabled. The backend supplies the pipeline-specific completion boundary:
+
+- In the three-stage backend, the pipeline is empty when Decode is invalid and Execute is neither busy nor valid.
+- In the four-stage backend, the same condition also requires the registered Writeback stage to be invalid.
+
+The remaining integration points are intentionally narrow:
+
+- `DebugPipelineAdapter` drives the Decode instruction, PC, and enable inputs and controls the Fetch stall input.
+- Decode retains only the `AbstractRegisterTransferBundle` GPR access path.
+- Execute reports qualified EBREAK events and accepts the debug flush request.
+- Execute redirect and destination signals feed the adapter so completion events contain the resolved architectural next PC.
+- The backend combines Execute and resume redirects, giving the resume redirect priority.
+
+With `config.enableDebugModule=False`, none of the debug controller instances or their bundles are created. Fetch connects directly to Decode through the normal pipeline connection, Execute has no debug-event outputs, and the backend uses the normal Execute redirect path unchanged.
 
 ### 7.3 Transport options used in tests
 
@@ -279,14 +385,50 @@ In `BonfireCoreTop`:
 ## 10. Practical Bring-up Notes
 
 1. Build debug test images before running OpenOCD bitbang flows.
-2. Start server:
-   - `scripts/bonfire-core --openocd-bitbang --port 3335`
-3. For native JTAG, use the default transport and `openocd_bitbang/bonfire.cfg`.
-4. For the ECP5-style transport, start the server with:
-   - `--jtag-transport ecp5_jtagg`
-   and use:
-   - `openocd_bitbang/bonfire_ecp5_er.cfg`
-5. Optionally enable:
+2. For native JTAG simulation, start the remote-bitbang server and OpenOCD in
+   separate terminals:
+
+   ```bash
+   scripts/bonfire-core --openocd-bitbang --port 3335
+   openocd -f openocd_bitbang/bonfire.cfg
+   ```
+
+3. For ECP5 JTAGG simulation, select the JTAGG transport and its matching
+   OpenOCD configuration:
+
+   ```bash
+   scripts/bonfire-core --openocd-bitbang \
+     --port 3335 \
+     --jtag-transport ecp5_jtagg
+   openocd -f openocd_bitbang/bonfire_ecp5_er.cfg
+   ```
+
+4. For a programmed Ice Pi Zero or ULX3S using the ECP5 `JTAGG` primitive,
+   start OpenOCD directly against the board's FTDI interface:
+
+   ```bash
+   openocd -f openocd/ecp5_jtagg.cfg
+   ```
+
+5. To bypass OpenOCD and JTAG in simulation, start the built-in GDB server:
+
+   ```bash
+   scripts/bonfire-core --gdbserver --port 5500
+   ```
+
+   It loads `code/build/debug-tests/endless.hex` by default. Select another
+   image with `--hex PATH`, then connect from GDB:
+
+   ```bash
+   gdb-multiarch code/build/debug-tests/endless.elf
+   ```
+
+   ```gdb
+   set architecture riscv:rv32
+   target remote localhost:5500
+   ```
+
+6. Optionally enable the simulation server diagnostics:
    - `--observe-jtag` for TAP visibility
    - `--debug-trace` for abstract command/progbuf diagnostics
 
@@ -305,25 +447,32 @@ Unlike the earlier intermediate approach, these opcodes are now specific to the 
 
 ## 11. Relevant Source Files
 
-- `rtl/debugModule.py`
-- `rtl/jtag_dtm.py`
+- `rtl/debug/dm_registers.py`
+- `rtl/debug/dmi.py`
+- `rtl/debug/abstract_command.py`
+- `rtl/debug/hart_debug.py`
+- `rtl/debug/pipeline_adapter.py`
+- `rtl/debug/jtag_dtm.py`
 - `rtl/debug/dtm_transport.py`
 - `rtl/debug/ecp5_jtagg_client.py`
 - `rtl/debug/ecp5_jtagg_tap.py`
 - `rtl/decode.py`
+- `rtl/execute.py`
 - `rtl/fetch.py`
 - `rtl/simple_pipeline.py`
+- `rtl/pipelined_backend.py`
 - `rtl/bonfire_core_top.py`
 - `openocd_bitbang/main.py`
 - `openocd_bitbang/sim_testbench.py`
 - `openocd_bitbang/remote_bitbang.py`
 - `openocd_bitbang/bonfire.cfg`
 - `openocd_bitbang/bonfire_ecp5_er.cfg`
-- `tb/tb_debug_module.py`
-- `tb/tb_jtag_dtm.py`
-- `tb/tb_ecp5_jtagg.py`
-- `tests/test_debug_module.py`
-- `tests/test_jtag_dtm.py`
-- `tests/test_openocd_remote_bitbang.py`
-- `tests/test_vhdl_conversion.py`
-- `docs/scripts/README.md`
+- `tb/debug/tb_debug_module.py`
+- `tb/debug/tb_jtag_dtm.py`
+- `tb/debug/tb_ecp5_jtagg.py`
+- `tests/system/debug/test_debug_module.py`
+- `tests/pure/debug/test_jtag_dtm.py`
+- `tests/system/debug/test_openocd_remote_bitbang.py`
+- `tests/conversion/debug/test_vhdl_conversion_debug.py`
+- `scripts/README.md`
+- `openocd/README.md`
