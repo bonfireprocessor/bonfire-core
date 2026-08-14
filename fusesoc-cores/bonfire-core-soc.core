@@ -330,6 +330,8 @@ targets:
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
         enable_debug_ndmreset: true
+        pipeline_length: 4
+        writeback_bypass: true
 
   ulx3s_jtagg:
     <<: *target_ulx3s
@@ -367,6 +369,8 @@ targets:
         laned_memory: false
         enable_jtag_debug: false
         jump_bypass: false
+        pipeline_length: 4
+        writeback_bypass: true
 
     toplevel: icepizero_top
 
@@ -384,8 +388,8 @@ targets:
         laned_memory: false
         enable_jtag_debug: true
         enable_debug_ndmreset: true
-        pipeline_length: 3
-        writeback_bypass: false
+        pipeline_length: 4
+        writeback_bypass: true
 
   icepizero_jtagg:
     <<: *target_icepizero
@@ -402,6 +406,8 @@ targets:
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
         enable_debug_ndmreset: true
+        pipeline_length: 4
+        writeback_bypass: true
         
 
   icepizero_extended:
@@ -422,6 +428,8 @@ targets:
         enable_gpio: true
         num_gpio: 8
         register_wishbone_dbus: true
+        pipeline_length: 4
+        writeback_bypass: true 
 
   icepizero_extended_jtagg:
     <<: *target_icepizero
@@ -444,3 +452,5 @@ targets:
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
         enable_debug_ndmreset: true
+        pipeline_length: 4
+        writeback_bypass: true 

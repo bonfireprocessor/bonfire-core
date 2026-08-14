@@ -141,10 +141,10 @@
             "args": ["--port=3335","--debug-trace"]
         },
         {
-            "name": "GDB debug on FPGA: Ice Pi Zero monitor (OpenOCD/JTAGG)",
+            "name": "GDB debug on FPGA:ULX3S monitor (OpenOCD/JTAGG)",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/code/build/soc/icepizero/monitor.elf",
+            "program": "${workspaceFolder}/code/build/soc/ulx3s/monitor.elf",
             "cwd": "${workspaceFolder}",
             "MIMode": "gdb",
             "stopAtEntry": true,
