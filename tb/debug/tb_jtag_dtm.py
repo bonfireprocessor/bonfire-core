@@ -12,12 +12,11 @@ from myhdl import *
 
 from rtl.config import BonfireConfig
 from rtl.debug import DmiBundle
+from rtl.debug.constants import DMI_OP_READ, DMI_OP_WRITE, DTM_IDLE
+from rtl.debug.tap_fsm import t_tap_state
 from rtl.type_aliases import BitSignal
 from tb.ClkDriver import ClkDriver
 from rtl.debug.jtag_dtm import (
-    DTM_IDLE,
-    DMI_OP_READ,
-    DMI_OP_WRITE,
     JTAG_IDCODE,
     JTAG_INSTR_DMI,
     JTAG_INSTR_DTMCS,
@@ -25,7 +24,6 @@ from rtl.debug.jtag_dtm import (
     JTAG_INSTR_IDCODE,
     JTAG_IR_WIDTH,
     JtagDTM,
-    t_tap_state,
 )
 
 

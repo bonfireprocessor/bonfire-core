@@ -9,16 +9,9 @@ from typing import Any
 
 from myhdl import Signal, always, always_comb, block, instances, modbv
 
+import rtl.debug.constants as constants
 from rtl.debug.dm_registers import DmiBundle
 from rtl.type_aliases import BitSignal
-
-DMI_OP_READ = 1
-DMI_OP_WRITE = 2
-DMI_OP_SUCCESS = 0
-DMI_OP_BUSY = 3
-DTM_VERSION = 1
-DTM_IDLE = 1
-DTMCS_DMIRESET_BIT = 16
 
 
 @block
@@ -60,7 +53,7 @@ def DmiCdcBridge(
         pending_o.next = request_toggle_i != response_toggle_sync
 
     @always(scan_clock.posedge)
-    def response_sync():
+    def response_synchronizer():
         if reset or not scan_resetn:
             response_toggle_meta.next = False
             response_toggle_sync.next = False
@@ -76,6 +69,7 @@ def DmiCdcBridge(
         dmireset_toggle_sync.next = dmireset_toggle_meta
 
         if reset:
+            # Reset and clear the core-facing DMI request channel.
             request_toggle_meta.next = False
             request_toggle_sync.next = False
             request_toggle_seen.next = False
@@ -93,6 +87,8 @@ def DmiCdcBridge(
             dtm.dbi.next = 0
         else:
             if dmireset_toggle_sync != dmireset_toggle_seen:
+                # DTM reset aborts any in-flight request and immediately acks
+                # the scan side with the synchronized request toggle.
                 dmireset_toggle_seen.next = dmireset_toggle_sync
                 request_toggle_seen.next = request_toggle_sync
                 request_active.next = False
@@ -103,6 +99,8 @@ def DmiCdcBridge(
                 dtm.en.next = False
                 dtm.we.next = False
             elif request_active:
+                # Hold DMI enable for exactly one core cycle, then wait one more
+                # cycle before sampling read data.
                 dtm.en.next = False
                 dtm.we.next = False
                 request_active.next = False
@@ -112,24 +110,27 @@ def DmiCdcBridge(
                 else:
                     response_toggle.next = request_toggle_seen
             elif read_capture:
-                response_payload_o.next[2:0] = DMI_OP_SUCCESS
+                # Read responses are returned one cycle after the DMI request so
+                # dtm.dbo is sampled after the target register logic has updated.
+                response_payload_o.next[2:0] = constants.DMI_OP_SUCCESS
                 response_payload_o.next[34:2] = dtm.dbo
                 response_toggle.next = request_toggle_seen
                 read_capture.next = False
             elif request_toggle_sync != request_toggle_seen:
+                # New scan-side transaction detected after toggle synchronization.
                 request_toggle_seen.next = request_toggle_sync
                 dtm.adr.next = request_payload_i[dmi_width:34]
                 dtm.dbi.next = request_payload_i[34:2]
-                response_payload_o.next[2:0] = DMI_OP_SUCCESS
+                response_payload_o.next[2:0] = constants.DMI_OP_SUCCESS
                 response_payload_o.next[34:2] = 0
                 response_payload_o.next[dmi_width:34] = request_payload_i[dmi_width:34]
 
-                if request_payload_i[2:0] == DMI_OP_READ:
+                if request_payload_i[2:0] == constants.DMI_OP_READ:
                     dtm.we.next = False
                     dtm.en.next = True
                     request_active.next = True
                     read_pending.next = True
-                elif request_payload_i[2:0] == DMI_OP_WRITE:
+                elif request_payload_i[2:0] == constants.DMI_OP_WRITE:
                     dtm.we.next = True
                     dtm.en.next = True
                     request_active.next = True

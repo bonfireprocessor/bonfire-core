@@ -56,14 +56,35 @@ def _run_debug_module_test(
         pytest.fail("Monitor base indicates failure: 0x{:08x}".format(monitor_result["value"]), pytrace=False)
 
 
-def test_debug_module(sim_env, repo_root: Path, request: pytest.FixtureRequest):
+@pytest.mark.parametrize(
+    ("pipeline_length", "writeback_bypass"),
+    (
+        (3, False),
+        (4, False),
+        (4, True),
+    ),
+    ids=("3-stage", "4-stage", "4-stage-bypass"),
+)
+def test_debug_module(
+    sim_env,
+    repo_root: Path,
+    request: pytest.FixtureRequest,
+    pipeline_length: int,
+    writeback_bypass: bool,
+):
+    def configure(conf: config.BonfireConfig) -> None:
+        conf.pipeline_length = pipeline_length
+        conf.writeback_bypass = writeback_bypass
+
     _run_debug_module_test(
         sim_env,
         repo_root,
         debug_transport="dmi",
-        waveform_name="debug_module",
+        waveform_name="debug_module_{}_bypass_{}".format(
+            pipeline_length, int(writeback_bypass)),
         duration=45_000,
         request=request,
+        configure_debug=configure,
     )
 
 

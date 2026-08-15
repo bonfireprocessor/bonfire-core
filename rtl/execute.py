@@ -52,6 +52,10 @@ class ExecuteBundle(PipelineControl):
 
         self.invalid_opcode_fault = Signal(bool(0))
 
+        if config.enableDebugModule:
+            self.debug_ebreak_o = Signal(bool(0))
+            self.debug_ebreak_pc_o = Signal(modbv(0)[xlen:])
+
         # Optional downstream interlock and writeback forwarding.
 
         if config.writeback_bypass:
@@ -66,7 +70,10 @@ class ExecuteBundle(PipelineControl):
 
 
     @block
-    def SimpleExecute(self, decode, databus, debugport, clock, reset, debugRegisterBundle=None):
+    def SimpleExecute(
+        self, decode, databus, debugport, clock, reset,
+        debugRegisterBundle=None, debug_flush_i=None,
+    ):
         """
         Simple execution Unit designed for single stage in-order execution
         decode : DecodeBundle class instance
@@ -99,8 +106,9 @@ class ExecuteBundle(PipelineControl):
             pipelined_shifter = self.config.shifter_mode == "pipelined"
 
         jump_we = Signal(bool(0)) # rd write enable on jal/jalr
-        debug_redirect_kill = Signal(bool(0))
         debug_ebreak_enable = Signal(bool(0))
+        debug_ebreak = Signal(bool(0))
+        debug_ebreak_pc = Signal(modbv(0)[self.config.xlen:])
 
         op1 = Signal(modbv(0)[self.config.xlen:])
         op2 = Signal(modbv(0)[self.config.xlen:])
@@ -121,10 +129,15 @@ class ExecuteBundle(PipelineControl):
 
         if self.config.enableDebugModule:
             debug_ebreak_enable = decode.debugCSRBundle.ebreakm
+            assert debug_flush_i is not None, "debug execute requires debug_flush_i"
+            debug_flush = debug_flush_i
 
-            @always_seq(clock.posedge, reset=reset)
-            def debug_redirect_seq():
-                debug_redirect_kill.next = debugRegisterBundle.dpc_jump
+            @always_comb
+            def debug_events():
+                self.debug_ebreak_o.next = debug_ebreak
+                self.debug_ebreak_pc_o.next = debug_ebreak_pc
+        else:
+            debug_flush = False
 
 
         @always_seq(clock.posedge,reset=reset)
@@ -200,12 +213,12 @@ class ExecuteBundle(PipelineControl):
 
             if self.config.jump_bypass:
                 if self.config.enableDebugModule:
-                    decode.kill_i.next = (self.taken and jump) or debug_redirect_kill
+                    decode.kill_i.next = (self.taken and jump) or debug_flush
                 else:
                     decode.kill_i.next = self.taken and jump
             else:
                 if self.config.enableDebugModule:
-                    decode.kill_i.next = jump_busy or debug_redirect_kill
+                    decode.kill_i.next = jump_busy or debug_flush
                 else:
                     decode.kill_i.next = jump_busy
 
@@ -319,8 +332,8 @@ class ExecuteBundle(PipelineControl):
             self.csrUpdate.mepc.next = decode.mepc_o[upper:lower]
             self.csrUpdate.we_mepc.next = False
 
-            if self.config.enableDebugModule:
-                decode.execute_ebreak_i.next = False
+            debug_ebreak.next = False
+            debug_ebreak_pc.next = decode.mepc_o
 
             if self.taken:
                 if decode.branch_cmd:
@@ -353,7 +366,7 @@ class ExecuteBundle(PipelineControl):
                 elif decode.sys_cmd:
                     if debug_ebreak_enable and \
                        decode.priv_funct_12 == PrivFunct12.RV32_F12_EBREAK:
-                        decode.execute_ebreak_i.next = True
+                        debug_ebreak.next = True
                     elif decode.priv_funct_12==PrivFunct12.RV32_F12_EBREAK or  decode.priv_funct_12==PrivFunct12.RV32_F12_ECALL:
                         jump_dest.next[upper:lower] = self.trapCSR.mtvec
                         jump.next = True

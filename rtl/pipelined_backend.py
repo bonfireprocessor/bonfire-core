@@ -10,6 +10,18 @@ from myhdl import *
 from rtl.decode import DecodeBundle
 from rtl.execute import ExecuteBundle
 from rtl.regfile import RFReadPort, RFWritePort, RegisterFile
+from rtl.debug.abstract_command import (
+    AbstractCommandController,
+    AbstractRegisterTransferBundle,
+    ProgbufCompletionBundle,
+    ProgbufIssueBundle,
+)
+from rtl.debug.hart_debug import HartDebugController
+from rtl.debug.pipeline_adapter import (
+    DebugPipelineAdapter,
+    DebugPipelineEventBundle,
+    DebugPipelineRequestBundle,
+)
 
 
 class PipelinedBackend:
@@ -33,14 +45,28 @@ class PipelinedBackend:
         regfile_inst = RegisterFile(
             clock, self.reg_portA, self.reg_portB,
             self.reg_writePort, conf.xlen)
-        decode_inst = self.decode.decoder(
-            clock, reset, debugRegisterBundle=debugRegisterBundle)
+        if conf.enableDebugModule:
+            register_transfer = AbstractRegisterTransferBundle(conf)
+            progbuf_issue = ProgbufIssueBundle(conf)
+            progbuf_completion = ProgbufCompletionBundle()
+            pipeline_request = DebugPipelineRequestBundle(conf)
+            pipeline_events = DebugPipelineEventBundle(conf)
+            pipeline_empty = Signal(bool(0))
 
-        exec_inst = self.execute.SimpleExecute(
-            self.decode, databus, debugport, clock, reset,
-            debugRegisterBundle=debugRegisterBundle)
+            decode_inst = self.decode.decoder(
+                clock, reset, debugRegisterBundle=debugRegisterBundle,
+                register_transfer=register_transfer)
+            exec_inst = self.execute.SimpleExecute(
+                self.decode, databus, debugport, clock, reset,
+                debugRegisterBundle=debugRegisterBundle,
+                debug_flush_i=pipeline_request.flush)
+        else:
+            decode_inst = self.decode.decoder(clock, reset)
+            exec_inst = self.execute.SimpleExecute(
+                self.decode, databus, debugport, clock, reset)
         d_e_inst = self.execute.connect(clock, reset, previous=self.decode)
-        f_d_inst = self.decode.connect(clock, reset, previous=frontEnd)
+        if not conf.enableDebugModule:
+            f_d_inst = self.decode.connect(clock, reset, previous=frontEnd)
 
         wb_valid = Signal(bool(0))
         wb_we = Signal(bool(0))
@@ -54,7 +80,6 @@ class PipelinedBackend:
         wb_csr_data = Signal(modbv(0)[conf.xlen:])
         wb_jump_data = Signal(modbv(0)[conf.xlen:])
         wb_data = Signal(modbv(0)[conf.xlen:])
-        pipeline_pending = Signal(bool(0))
 
         @always_seq(clock.posedge, reset=reset)
         def writeback_seq():
@@ -115,14 +140,7 @@ class PipelinedBackend:
             self.reg_writePort.we.next = wb_valid and wb_we
             self.reg_writePort.wd.next = wb_data
 
-            pipeline_pending.next = wb_valid or self.execute.busy_o
             out.busy_o.next = self.decode.busy_o
-
-            self.decode.word_i.next = fetchBundle.word_i
-            self.decode.current_ip_i.next = fetchBundle.current_ip_i
-            self.decode.next_ip_i.next = fetchBundle.next_ip_i
-            self.decode.fetch_redirect_pending_i.next = fetchBundle.redirect_pending_i
-            self.decode.retire_pending_i.next = pipeline_pending
 
         @always_comb
         def debugout():
@@ -131,24 +149,41 @@ class PipelinedBackend:
             debugport.rd_adr_o.next = wb_rd
             debugport.reg_we_o.next = wb_valid and wb_we
 
-        if debugRegisterBundle:
-            debug_redirect_valid = Signal(bool(0))
-            debug_redirect_dest = Signal(modbv(0)[conf.xlen:])
+        if conf.enableDebugModule:
+            abstract_command_inst = AbstractCommandController(
+                conf, clock, debugRegisterBundle, register_transfer,
+                progbuf_issue, progbuf_completion)
+            hart_debug_inst = HartDebugController(
+                conf, clock, debugRegisterBundle,
+                self.decode.debugCSRBundle, self.decode.debugCSRUpdateBundle,
+                pipeline_request, pipeline_events)
+            pipeline_adapter_inst = DebugPipelineAdapter(
+                conf, clock, fetchBundle, frontEnd, self.decode,
+                pipeline_request, pipeline_events, progbuf_issue,
+                progbuf_completion, pipeline_empty,
+                self.execute.jump_o, self.execute.jump_dest_o,
+                self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o)
 
-            @always_seq(clock.posedge, reset=reset)
-            def debug_redirect_seq():
-                debug_redirect_valid.next = debugRegisterBundle.dpc_jump
-                debug_redirect_dest.next = concat(
-                    debugRegisterBundle.dpc, intbv(0)[conf.ip_low:])
+            @always_comb
+            def debug_pipeline_status():
+                pipeline_empty.next = not self.decode.valid_o and \
+                    not self.execute.busy_o and not self.execute.valid_o and \
+                    not wb_valid
 
             @always_comb
             def proc_out():
-                out.jump_o.next = self.execute.jump_o or debug_redirect_valid
-                if debug_redirect_valid:
-                    out.jump_dest_o.next = debug_redirect_dest
+                out.jump_o.next = self.execute.jump_o or pipeline_request.redirect_valid
+                if pipeline_request.redirect_valid:
+                    out.jump_dest_o.next = pipeline_request.redirect_pc
                 else:
                     out.jump_dest_o.next = self.execute.jump_dest_o
         else:
+            @always_comb
+            def fetch_to_decode():
+                self.decode.word_i.next = fetchBundle.word_i
+                self.decode.current_ip_i.next = fetchBundle.current_ip_i
+                self.decode.next_ip_i.next = fetchBundle.next_ip_i
+
             @always_comb
             def proc_out():
                 out.jump_o.next = self.execute.jump_o

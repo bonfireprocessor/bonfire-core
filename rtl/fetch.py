@@ -25,7 +25,7 @@ class FetchUnit(PipelineControl):
         
 
     @block
-    def SimpleFetchUnit(self,fetch,ibus,clock,reset,debugRegisterBundle=None):
+    def SimpleFetchUnit(self,fetch,ibus,clock,reset):
         """
        
         fetch : FetchInputBundle, input to backend pipeline
@@ -43,7 +43,6 @@ class FetchUnit(PipelineControl):
         new_jump = Signal(bool(0))
 
         run = Signal(bool(0)) # processor not in reset 
-        debug_halted = Signal(bool(0))
 
         # Fifo 
         current_word = [Signal(modbv(0)[32:0]) for i in range(0,2)]
@@ -54,16 +53,9 @@ class FetchUnit(PipelineControl):
 
         p_inst = self.pipeline_instance(busy,valid)
 
-        if debugRegisterBundle:
-            from rtl.debug import t_debug_hart_state
-
-            @always_comb
-            def debug_reg_comb():
-                debug_halted.next = debugRegisterBundle.hart_state == t_debug_hart_state.halted
-
         @always_comb
         def new_j():
-            new_jump.next = self.jump_i and not (jump_taken or debug_halted)
+            new_jump.next = self.jump_i and not jump_taken
              
 
         @always_comb
@@ -95,7 +87,7 @@ class FetchUnit(PipelineControl):
             if not run:
                 run.next = True # Comming out of reset 
             else: 
-                if valid or debug_halted: # reset jump_taken
+                if valid or (self.stall_i and not self.jump_i):
                     jump_taken.next = False
 
                 if ( not outstanding or ibus.ack_i ) and new_jump: # a new jump resets the fetch unit

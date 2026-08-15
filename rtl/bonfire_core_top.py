@@ -56,8 +56,7 @@ class BonfireCoreTop:
         """
 
         i_fetch = self.fetch.SimpleFetchUnit(
-            self.backend_fetch_input, ibus, clock, reset,
-            debugRegisterBundle=self.debugRegs)
+            self.backend_fetch_input, ibus, clock, reset)
         i_backend = self.backend.backend(
             self.backend_fetch_input, self.fetch,
             dbus, clock, reset, self.backend_fetch_output, debug,

@@ -16,7 +16,7 @@ from rtl.debug.ecp5_jtagg_client import (
     Ecp5JtaggInputBundle,
     Ecp5JtaggOutputBundle,
 )
-from rtl.debug.jtag_dtm import t_tap_state
+from rtl.debug.tap_fsm import TapStateController, t_tap_state
 from rtl.type_aliases import BitSignal
 
 ECP5_JTAG_INSTR_IDCODE = 0x01
@@ -108,92 +108,6 @@ class Ecp5JtaggTapEmulator:
                 tap_state_o.next = tap_state
 
         @always(tck_i.posedge)
-        def state_transition():
-            if reset or not trstn_i:
-                tap_state.next = t_tap_state.test_logic_reset
-            else:
-                if tap_state == t_tap_state.test_logic_reset:
-                    if tms_i:
-                        tap_state.next = t_tap_state.test_logic_reset
-                    else:
-                        tap_state.next = t_tap_state.run_test_idle
-                elif tap_state == t_tap_state.run_test_idle:
-                    if tms_i:
-                        tap_state.next = t_tap_state.select_dr_scan
-                    else:
-                        tap_state.next = t_tap_state.run_test_idle
-                elif tap_state == t_tap_state.select_dr_scan:
-                    if tms_i:
-                        tap_state.next = t_tap_state.select_ir_scan
-                    else:
-                        tap_state.next = t_tap_state.capture_dr
-                elif tap_state == t_tap_state.capture_dr:
-                    if tms_i:
-                        tap_state.next = t_tap_state.exit1_dr
-                    else:
-                        tap_state.next = t_tap_state.shift_dr
-                elif tap_state == t_tap_state.shift_dr:
-                    if tms_i:
-                        tap_state.next = t_tap_state.exit1_dr
-                    else:
-                        tap_state.next = t_tap_state.shift_dr
-                elif tap_state == t_tap_state.exit1_dr:
-                    if tms_i:
-                        tap_state.next = t_tap_state.update_dr
-                    else:
-                        tap_state.next = t_tap_state.pause_dr
-                elif tap_state == t_tap_state.pause_dr:
-                    if tms_i:
-                        tap_state.next = t_tap_state.exit2_dr
-                    else:
-                        tap_state.next = t_tap_state.pause_dr
-                elif tap_state == t_tap_state.exit2_dr:
-                    if tms_i:
-                        tap_state.next = t_tap_state.update_dr
-                    else:
-                        tap_state.next = t_tap_state.shift_dr
-                elif tap_state == t_tap_state.update_dr:
-                    if tms_i:
-                        tap_state.next = t_tap_state.select_dr_scan
-                    else:
-                        tap_state.next = t_tap_state.run_test_idle
-                elif tap_state == t_tap_state.select_ir_scan:
-                    if tms_i:
-                        tap_state.next = t_tap_state.test_logic_reset
-                    else:
-                        tap_state.next = t_tap_state.capture_ir
-                elif tap_state == t_tap_state.capture_ir:
-                    if tms_i:
-                        tap_state.next = t_tap_state.exit1_ir
-                    else:
-                        tap_state.next = t_tap_state.shift_ir
-                elif tap_state == t_tap_state.shift_ir:
-                    if tms_i:
-                        tap_state.next = t_tap_state.exit1_ir
-                    else:
-                        tap_state.next = t_tap_state.shift_ir
-                elif tap_state == t_tap_state.exit1_ir:
-                    if tms_i:
-                        tap_state.next = t_tap_state.update_ir
-                    else:
-                        tap_state.next = t_tap_state.pause_ir
-                elif tap_state == t_tap_state.pause_ir:
-                    if tms_i:
-                        tap_state.next = t_tap_state.exit2_ir
-                    else:
-                        tap_state.next = t_tap_state.pause_ir
-                elif tap_state == t_tap_state.exit2_ir:
-                    if tms_i:
-                        tap_state.next = t_tap_state.update_ir
-                    else:
-                        tap_state.next = t_tap_state.shift_ir
-                else:
-                    if tms_i:
-                        tap_state.next = t_tap_state.select_dr_scan
-                    else:
-                        tap_state.next = t_tap_state.run_test_idle
-
-        @always(tck_i.posedge)
         def actions():
             if reset or not trstn_i:
                 instruction.next = ECP5_JTAG_INSTR_IDCODE
@@ -223,5 +137,7 @@ class Ecp5JtaggTapEmulator:
                         idcode_shift.next[31:0] = idcode_shift[32:1]
                     elif instruction != ECP5_JTAGG_IR_ER1 and instruction != ECP5_JTAGG_IR_ER2:
                         bypass.next = tdi_i
+
+        tap_fsm = TapStateController(tck_i, reset, trstn_i, tms_i, tap_state)
 
         return instances()

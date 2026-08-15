@@ -10,6 +10,18 @@ from myhdl import *
 from rtl.decode import *
 from rtl.execute import *
 from rtl.regfile import * 
+from rtl.debug.abstract_command import (
+    AbstractCommandController,
+    AbstractRegisterTransferBundle,
+    ProgbufCompletionBundle,
+    ProgbufIssueBundle,
+)
+from rtl.debug.hart_debug import HartDebugController
+from rtl.debug.pipeline_adapter import (
+    DebugPipelineAdapter,
+    DebugPipelineEventBundle,
+    DebugPipelineRequestBundle,
+)
 
 from  rtl import config
 def_config= config.BonfireConfig()
@@ -52,12 +64,45 @@ class SimpleBackend:
     def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport, debugRegisterBundle=None):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
-        decode_inst = self.decode.decoder(clock,reset,debugRegisterBundle=debugRegisterBundle)
-        exec_inst = self.execute.SimpleExecute(self.decode, databus, debugport, clock,reset, debugRegisterBundle=debugRegisterBundle )
+
+        if self.config.enableDebugModule:
+            register_transfer = AbstractRegisterTransferBundle(self.config)
+            progbuf_issue = ProgbufIssueBundle(self.config)
+            progbuf_completion = ProgbufCompletionBundle()
+            pipeline_request = DebugPipelineRequestBundle(self.config)
+            pipeline_events = DebugPipelineEventBundle(self.config)
+            pipeline_empty = Signal(bool(0))
+
+            decode_inst = self.decode.decoder(
+                clock, reset, debugRegisterBundle=debugRegisterBundle,
+                register_transfer=register_transfer)
+            exec_inst = self.execute.SimpleExecute(
+                self.decode, databus, debugport, clock, reset,
+                debugRegisterBundle=debugRegisterBundle,
+                debug_flush_i=pipeline_request.flush)
+
+            abstract_command_inst = AbstractCommandController(
+                self.config, clock, debugRegisterBundle, register_transfer,
+                progbuf_issue, progbuf_completion)
+            hart_debug_inst = HartDebugController(
+                self.config, clock, debugRegisterBundle,
+                self.decode.debugCSRBundle, self.decode.debugCSRUpdateBundle,
+                pipeline_request, pipeline_events)
+            pipeline_adapter_inst = DebugPipelineAdapter(
+                self.config, clock, fetchBundle, frontEnd, self.decode,
+                pipeline_request, pipeline_events, progbuf_issue,
+                progbuf_completion, pipeline_empty,
+                self.execute.jump_o, self.execute.jump_dest_o,
+                self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o)
+        else:
+            decode_inst = self.decode.decoder(clock, reset)
+            exec_inst = self.execute.SimpleExecute(
+                self.decode, databus, debugport, clock, reset)
 
         d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
 
-        f_d_inst = self.decode.connect(clock,reset,previous=frontEnd)
+        if not self.config.enableDebugModule:
+            f_d_inst = self.decode.connect(clock,reset,previous=frontEnd)
 
         @always_comb
         def comb():
@@ -73,15 +118,7 @@ class SimpleBackend:
             self.reg_writePort.we.next = self.execute.reg_we_o
             self.reg_writePort.wd.next = self.execute.result_o
 
-            out.busy_o.next = self.decode.busy_o 
-
-
-            # Front end interface
-            
-            self.decode.word_i.next = fetchBundle.word_i
-            self.decode.current_ip_i.next = fetchBundle.current_ip_i
-            self.decode.next_ip_i.next  = fetchBundle.next_ip_i 
-            self.decode.fetch_redirect_pending_i.next = fetchBundle.redirect_pending_i
+            out.busy_o.next = self.decode.busy_o
 
 
         @always_comb
@@ -91,21 +128,25 @@ class SimpleBackend:
             debugport.rd_adr_o.next = self.execute.rd_adr_o
             debugport.reg_we_o.next = self.execute.reg_we_o
 
+        if not self.config.enableDebugModule:
+            @always_comb
+            def fetch_to_decode():
+                self.decode.word_i.next = fetchBundle.word_i
+                self.decode.current_ip_i.next = fetchBundle.current_ip_i
+                self.decode.next_ip_i.next = fetchBundle.next_ip_i
 
-        if debugRegisterBundle:
-            debug_redirect_valid = Signal(bool(0))
-            debug_redirect_dest = Signal(intbv(0)[self.config.xlen:])
 
-            @always_seq(clock.posedge, reset=reset)
-            def debug_redirect_seq():
-                debug_redirect_valid.next = debugRegisterBundle.dpc_jump
-                debug_redirect_dest.next = concat(debugRegisterBundle.dpc, intbv(0)[self.config.ip_low:])
+        if self.config.enableDebugModule:
+            @always_comb
+            def debug_pipeline_status():
+                pipeline_empty.next = not self.decode.valid_o and \
+                    not self.execute.busy_o and not self.execute.valid_o
 
             @always_comb
             def proc_out():
-                out.jump_o.next = self.execute.jump_o or debug_redirect_valid
-                if debug_redirect_valid:
-                    out.jump_dest_o.next = debug_redirect_dest
+                out.jump_o.next = self.execute.jump_o or pipeline_request.redirect_valid
+                if pipeline_request.redirect_valid:
+                    out.jump_dest_o.next = pipeline_request.redirect_pc
                 else:
                     out.jump_dest_o.next = self.execute.jump_dest_o
         else:

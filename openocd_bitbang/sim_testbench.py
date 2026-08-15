@@ -23,7 +23,8 @@ from rtl.debug import (
     t_abstract_command_state,
     t_debug_hart_state,
 )
-from rtl.debug.jtag_dtm import JtagDTM, t_tap_state
+from rtl.debug.jtag_dtm import JtagDTM
+from rtl.debug.tap_fsm import t_tap_state
 from tb.ClkDriver import ClkDriver
 from tb.disassemble import abi_name, disassemble
 from tb.sim_ram import sim_ram
