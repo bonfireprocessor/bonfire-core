@@ -37,6 +37,7 @@ class ProgbufCompletionBundle:
         self.accepted = Signal(bool(0))
         self.complete = Signal(bool(0))
         self.terminated = Signal(bool(0))
+        self.exception = Signal(bool(0))
 
 
 @block
@@ -79,9 +80,12 @@ def AbstractCommandController(
 
     @always(clock.posedge)
     def state_machine():
-        if debug_regs.hart_state == t_debug_hart_state.halted:
+        if not debug_regs.dmactive:
+            debug_regs.abstract_command_state.next = t_abstract_command_state.none
+            issued_last.next = False
+        elif debug_regs.hart_state == t_debug_hart_state.halted:
             if debug_regs.abstract_command_state == t_abstract_command_state.none:
-                if command_request and (debug_regs.transfer or debug_regs.postexec):
+                if command_request:
                     debug_regs.abstract_command_state.next = t_abstract_command_state.taken
 
             elif debug_regs.abstract_command_state == t_abstract_command_state.taken:
@@ -95,6 +99,8 @@ def AbstractCommandController(
                     debug_regs.abstract_command_state.next = t_abstract_command_state.regvalid
                 elif debug_regs.postexec:
                     debug_regs.abstract_command_state.next = t_abstract_command_state.exec
+                else:
+                    debug_regs.abstract_command_state.next = t_abstract_command_state.none
 
             elif debug_regs.abstract_command_state == t_abstract_command_state.regvalid:
                 if debug_regs.postexec:
@@ -111,10 +117,15 @@ def AbstractCommandController(
                     debug_regs.abstract_command_state.next = t_abstract_command_state.wait_retire
 
             elif debug_regs.abstract_command_state == t_abstract_command_state.wait_retire:
-                if progbuf_completion.complete:
+                if progbuf_completion.exception:
+                    debug_regs.abstract_command_state.next = t_abstract_command_state.failed
+                elif progbuf_completion.complete:
                     if issued_last:
                         debug_regs.abstract_command_state.next = t_abstract_command_state.none
                     else:
                         debug_regs.abstract_command_state.next = t_abstract_command_state.exec2
+
+            elif debug_regs.abstract_command_state == t_abstract_command_state.failed:
+                debug_regs.abstract_command_state.next = t_abstract_command_state.none
 
     return instances()

@@ -12,10 +12,9 @@ from myhdl import *
 
 from rtl.config import BonfireConfig
 from rtl.debug import DmiBundle
-from rtl.debug.constants import DMI_OP_READ, DMI_OP_WRITE, DTM_IDLE
+from rtl.debug.constants import DMI_OP_BUSY, DMI_OP_READ, DMI_OP_WRITE, DTM_IDLE
 from rtl.debug.tap_fsm import t_tap_state
 from rtl.type_aliases import BitSignal
-from tb.ClkDriver import ClkDriver
 from rtl.debug.jtag_dtm import (
     JTAG_IDCODE,
     JTAG_INSTR_DMI,
@@ -171,6 +170,7 @@ TAP_TRANSITIONS = (
 def jtag_dtm_testbench(conf: BonfireConfig | None = None, verbose: bool = True):
     conf = conf or BonfireConfig()
     clock = Signal(bool(0))
+    clock_enable = Signal(bool(1))
     reset = ResetSignal(0, active=1, isasync=False)
     tck = Signal(bool(0))
     trstn = Signal(bool(1))
@@ -182,7 +182,15 @@ def jtag_dtm_testbench(conf: BonfireConfig | None = None, verbose: bool = True):
     last_scan = Signal(modbv(0)[conf.dmi_adr_width + 34:])
     regs = [Signal(modbv(0)[32:]) for _ in range(2**conf.dmi_adr_width)]
 
-    clk_driver = ClkDriver(clock, period=10)
+    @instance
+    def clk_driver():
+        while True:
+            yield delay(5)
+            if clock_enable:
+                clock.next = True
+            yield delay(5)
+            clock.next = False
+
     dut = JtagDTM(conf).createInstance(clock, reset, tck, tms, tdi, trstn, tdo, dtm, tap_state_o=tap_state)
 
     @always_seq(clock.posedge, reset=None)
@@ -275,18 +283,46 @@ def jtag_dtm_testbench(conf: BonfireConfig | None = None, verbose: bool = True):
         yield bfm.scan_dr(0, 32)
         dtmcs = modbv(int(bfm.last_scan))[32:]
         print("@{}ns [jtag-tb] DTMCS read {} version={} abits={} dmistat={} idle={}".format(now(), hex(int(dtmcs)), int(dtmcs[3:0]), int(dtmcs[9:4]), int(dtmcs[12:10]), int(dtmcs[15:12])))
-        assert int(dtmcs) == 0x00001061
+        assert int(dtmcs) == 0x00001071
         assert dtmcs[3:0] == 1
         assert dtmcs[9:4] == conf.dmi_adr_width
         assert dtmcs[12:10] == 0
-        assert dtmcs[15:12] == DTM_IDLE
 
-        print("@{}ns [jtag-tb] DTMCS dmireset write".format(now()))
+        # Hold the core clock so the request cannot cross the CDC while the
+        # scan side applies dmireset. The request must remain pending and must
+        # complete once the core clock resumes.
+        yield bfm.set_ir(JTAG_INSTR_DMI)
+        clock_enable.next = False
+        yield delay(20)
+        pending_write = (0x12 << 34) | (0x11223344 << 2) | DMI_OP_WRITE
+        yield bfm.scan_dr(pending_write, dmi_width)
+        yield bfm.set_ir(JTAG_INSTR_DTMCS)
+        print("@{}ns [jtag-tb] DTMCS dmireset during pending request".format(now()))
         yield bfm.scan_dr(1 << 16, 32)
         yield bfm.scan_dr(0, 32)
         dtmcs = modbv(int(bfm.last_scan))[32:]
-        print("@{}ns [jtag-tb] DTMCS after dmireset {} dmistat={}".format(now(), hex(int(dtmcs)), int(dtmcs[12:10])))
-        assert dtmcs[12:10] == 0
+        assert dtmcs[12:10] == DMI_OP_BUSY, "dmireset aborted a pending DMI request"
+        clock_enable.next = True
+        yield bfm.idle(2)
+        assert regs[0x12] == 0x11223344, "pending request did not complete after dmireset"
+
+        # dtmhardreset has the opposite behavior: it acknowledges and discards
+        # the pending request without presenting it to the DMI register model.
+        yield bfm.set_ir(JTAG_INSTR_DMI)
+        clock_enable.next = False
+        yield delay(20)
+        aborted_write = (0x13 << 34) | (0x55667788 << 2) | DMI_OP_WRITE
+        yield bfm.scan_dr(aborted_write, dmi_width)
+        yield bfm.set_ir(JTAG_INSTR_DTMCS)
+        print("@{}ns [jtag-tb] DTMCS dtmhardreset during pending request".format(now()))
+        yield bfm.scan_dr(1 << 17, 32)
+        clock_enable.next = True
+        yield bfm.idle(2)
+        yield bfm.scan_dr(0, 32)
+        dtmcs = modbv(int(bfm.last_scan))[32:]
+        assert dtmcs[12:10] == 0, "dtmhardreset did not clear the pending request"
+        assert dtmcs[15:12] == DTM_IDLE
+        assert regs[0x13] == 0, "dtmhardreset did not abort the pending DMI write"
 
         print("@{}ns [jtag-tb] BYPASS shift test".format(now()))
         yield bfm.set_ir(JTAG_INSTR_BYPASS)

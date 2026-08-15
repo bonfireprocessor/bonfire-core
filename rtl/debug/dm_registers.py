@@ -24,6 +24,7 @@ class DebugModuleRegisterBundle:
         self.xlen = xlen
 
         assert self.config.progbuf_size in range(1, 3), "progbuf_size must be 1 or 2"
+        assert self.config.dmi_adr_width in range(7, 33), "Debug Spec 1.0 requires 7 to 32 DMI address bits"
         get_diagnostics().detail("DebugModuleRegisterBundle: xlen={} ip_low={} numdata={} progbuf_size={} dmi_adr_width={}".format(
             config.xlen,
             config.ip_low,
@@ -33,6 +34,9 @@ class DebugModuleRegisterBundle:
         ))
 
         self.hart_state = Signal(t_debug_hart_state.running)
+        self.dmactive = Signal(bool(0))
+        self.havereset = Signal(bool(0))
+        self.abstract_busy_error = Signal(bool(0))
 
         # Signals from DMI to debug core, written by DMI
         self.haltreq = Signal(bool(0))

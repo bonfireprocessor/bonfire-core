@@ -34,7 +34,7 @@ def HartDebugController(
         request.allow_fetch.next = state == t_hart_debug_state.running or state == t_hart_debug_state.step_issue
         if state == t_hart_debug_state.running and debug_regs.haltreq:
             request.allow_fetch.next = False
-        request.flush.next = events.ebreak or redirect_valid
+        request.flush.next = events.ebreak or events.progbuf_exception or redirect_valid
         request.redirect_valid.next = redirect_valid
         request.redirect_pc.next = redirect_pc
 
@@ -50,7 +50,10 @@ def HartDebugController(
         debug_csr_update.we_dpc.next = False
         debug_csr_update.we_cause.next = False
 
-        if events.ebreak and state != t_hart_debug_state.halted:
+        if not debug_regs.dmactive and state == t_hart_debug_state.halt_pending:
+            state.next = t_hart_debug_state.running
+
+        elif events.ebreak and state != t_hart_debug_state.halted:
             debug_csr_update.dpc.next = events.ebreak_pc[config.xlen:config.ip_low]
             debug_csr_update.cause.next = 1
             debug_csr_update.we_dpc.next = True

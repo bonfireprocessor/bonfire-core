@@ -8,6 +8,8 @@ from __future__ import annotations
 from collections.abc import Generator
 from typing import Any
 
+from myhdl import delay
+
 from rtl.config import BonfireConfig
 from tb.debug.debug_api import DebugAPI
 
@@ -27,9 +29,9 @@ class DmiDebugAPI(DebugAPI):
         self.dtm_bundle.we.next = False
         self.dtm_bundle.en.next = True
         yield self.clock.posedge
-        yield self.clock.posedge
-        self.result._val = self.dtm_bundle.dbo
         self.dtm_bundle.en.next = False
+        yield delay(0)
+        self.result._val = self.dtm_bundle.dbo
 
     def dmi_write(self, adr: int, data: int) -> Generator[Any, None, None]:
         yield self.clock.posedge

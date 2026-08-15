@@ -222,7 +222,6 @@ These FuseSoC parameters are converted into `soc_config`:
 | `register_wishbone_dbus` | `registerWishboneDbus` | `false` |
 | `debug` | `debug` | `false` |
 | `enable_jtag_debug` | `enableJtagDebug` | `false` |
-| `enable_debug_ndmreset` | `enableDebugNdmreset` | `false` |
 | `inst_uart_only` | `instUartOnly` | `false` |
 | `uart_fifo_depth` | `uartFifoDepth` | `6` |
 

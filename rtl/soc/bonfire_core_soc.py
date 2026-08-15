@@ -48,7 +48,6 @@ class BonfireCoreSoC:
         self.uartCaptureBitTime: int = soc_config.get('uartCaptureBitTime', 2170)
         self.uartCaptureExpected: tuple[int, ...] | None = soc_config.get('uartCaptureExpected', None)
         self.uartCaptureRequireLedSuccess: bool = soc_config.get('uartCaptureRequireLedSuccess', False)
-        self.config.enableDebugNdmreset = bool(soc_config.get('enableDebugNdmreset', self.config.enableDebugNdmreset))
         self.conversion: bool = False
         self.reset_signal: BitSignal | None = None
 
@@ -268,7 +267,7 @@ class BonfireCoreSoC:
                     self.config, sysclk, sys_reset, jtagg_i, jtagg_o,
                     debug_transport)
 
-        if self.config.enableDebugNdmreset and debug_transport is not None:
+        if debug_transport is not None:
             @always_comb
             def core_reset_comb():
                 core_reset.next = sys_reset or debug_transport.ndmreset

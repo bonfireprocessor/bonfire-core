@@ -104,7 +104,6 @@ class SoCGenerationConfigBuilder:
         "debug": False,
         "enable_jtag_debug": False,
         "debug_jtag_transport": "native",
-        "enable_debug_ndmreset": False,
         "inst_uart_only": False,
         "uart_fifo_depth": 6,
     }

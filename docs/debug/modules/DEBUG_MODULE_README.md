@@ -34,7 +34,9 @@ From DMI onward, every frontend uses the same internal path:
 
 ## 1. Architecture Overview
 
-The implementation targets **RISC-V Debug Spec 0.13** semantics in a pragmatic subset (single-hart focus, abstract command driven debug flow).
+The implementation targets the mandatory single-hart subset of **RISC-V Debug
+Spec 1.0**. Optional facilities such as Quick Access, System Bus Access and
+multi-hart selection are not implemented.
 
 The implementation separates four concerns:
 
@@ -59,17 +61,25 @@ Normal Fetch and the Program Buffer are independent instruction sources. When de
 - Launch and track abstract commands
 - Provide command result and error signaling (`cmderr`)
 - Store debug-visible control/state (e.g. `dpc`, `dcsr` fields)
+- Reset Debug Module state through `dmactive`; the bit resets to 0 and must be
+  set before other Debug Module operations are accepted
+- Keep sticky per-hart reset status until `ackhavereset` is written
 
 ### 2.2 Implemented register-level behavior
 
-- **`dmstatus` (0x11):** reports running/halted, resumeack, authenticated, spec version, impbreak
-- **`dmcontrol` (0x10):** handles halt request, resume request, ndmreset bit storage
-- **`hartinfo` (0x12):** reports datacount and dscratch count from config
+- **`dmstatus` (0x11):** reports running/halted, resumeack, authenticated, reset status, spec version, and impebreak
+- **`dmcontrol` (0x10):** implements `dmactive`, halt/resume requests, `ndmreset`, and `ackhavereset`
+- **`hartinfo` (0x12):** reports the data window and `nscratch=0`; no `dscratch` CSR is advertised
 - **`abstractcs` (0x16):** reports `progbufsize`, `busy`, `cmderr`, `datacount`; supports write-1-to-clear for `cmderr`
 - **`command` (0x17):** accepts access-register command type (subset)
 - **`abstractauto` (0x18):** supports autoexec triggers for `dataN` and `progbufN`
 - **`data0..dataN` (0x04+):** command input/output data registers
 - **`progbuf0..1` (0x20/0x21):** up to 2 program buffer words (config dependent)
+
+Bonfire retains the Data and Program Buffer contents while `dmactive=0`, since
+the specification does not define reset values for these registers. Accesses
+while inactive return zero, and debuggers must not rely on the retained values
+as a portable Debug Module behavior.
 
 ### 2.3 Abstract command support
 
@@ -84,12 +94,15 @@ Supported behavior:
 - Limited CSR access path for debug CSRs (`dpc`, `dcsr` mapping used by current logic)
 - Optional `postexec` to execute program buffer after transfer
 - `transfer=0` + `postexec=1` style execution flow
+- Unsupported Quick Access and `aarpostincrement` variants report `cmderr=2`
+- DMI accesses that conflict with a busy abstract command report `cmderr=1`
 
 Program buffer execution:
 
 - `progbuf_size` supports **1 or 2** entries
 - Execution state machine uses `exec` / `exec2` / `wait_retire`
 - Two-slot execution runs `progbuf1` after `progbuf0` unless `ebreak` stops sequencing
+- Exceptions stop execution, leave the hart halted, preserve `dpc`, and report `cmderr=3`
 
 Autoexec support:
 
@@ -182,6 +195,7 @@ Key constants:
 - IR width: 5
 - IDCODE: `0x10E31913`
 - DTM version: 1
+- DMI address width: 7 bits by default, with the Spec 1.0 range of 7 to 32 bits enforced
 - Fixed IR map: `IRLEN=5`, `IDCODE=0x01`, `DTMCS=0x10`, `DMI=0x11`, `BYPASS=0x1F`
 
 ### 3.3 Native clock-domain handling
@@ -213,7 +227,8 @@ Implemented behavior:
 - Read pipeline behavior implemented via internal request/response staging
 - Holds the response payload stable while a response toggle is synchronized
   back into the scan clock domain
-- Transfers `dmireset` through a separately synchronized toggle
+- `dmireset` clears the optional sticky DTM error state without cancelling an outstanding request
+- Transfers `dtmhardreset` through a separately synchronized toggle so an outstanding request can be aborted
 - `dmistat` currently kept at OK under normal operation
 
 It intentionally does **not** contain:
@@ -253,7 +268,7 @@ Key constants:
 
 The JTAGG scan/update logic runs directly in the ECP5 `JTCK` domain. As with
 the native TAP, `DmiCdcBridge` transfers only complete DMI transactions and DTM
-reset requests into the system clock domain and returns completed responses to
+`dtmhardreset` requests into the system clock domain and returns completed responses to
 the `JTCK` domain.
 
 ### 5.3 Simulation support
@@ -318,6 +333,9 @@ In `BonfireCoreTop`:
 - `DebugModuleRegisterBundle` and `DebugModuleInterface` are created only when `config.enableDebugModule` is true.
 - The core instance requires a `debugTransportBundle` in this mode.
 - The DMI interface connects the selected transport frontend to the shared debug register bundle.
+- The hart reset input is observed by the Debug Module for `havereset` status.
+- Every instantiated debug transport exposes `ndmreset`; the SoC combines it
+  with the platform reset while the Debug Module and transport remain accessible.
 - Fetch itself has no dependency on the debug register bundle or hart debug state.
 
 ### 7.2 Pipeline integration
@@ -362,12 +380,12 @@ With `config.enableDebugModule=False`, none of the debug controller instances or
 ## 9. Missing or Incomplete Functionality
 
 1. **Full RISC-V Debug Spec coverage is not implemented**
-   - Implementation is a practical subset, not a complete 0.13 feature set.
+   - Implementation provides the mandatory single-hart Debug Spec 1.0 path, not every optional feature.
 
 2. **Abstract command coverage is incomplete**
-   - `quick_access` command type is defined but not implemented.
+   - Quick Access is not implemented and is rejected with `cmderr=2`.
    - Only 32-bit transfer size is accepted.
-   - `aarpostincrement` is parsed but not functionally applied.
+   - `aarpostincrement` is not implemented and is rejected with `cmderr=2`.
    - Instruction-stuffed Program Buffer execution has no guaranteed PC value;
      PC-relative instructions and control-flow sequences are not a portable
      supported behavior.
@@ -376,15 +394,12 @@ With `config.enableDebugModule=False`, none of the debug controller instances or
    - Current command decode path is tailored to core GPR + limited debug CSR handling.
    - No general CSR access framework for arbitrary CSR numbers.
 
-4. **Potentially incomplete debug-module fields/flows**
+4. **Optional debug-module fields/flows**
    - Multi-hart selection/management flows are not present.
    - Authentication/challenge flows are not implemented beyond always-authenticated status bit.
    - Additional optional DM features (e.g. full system-bus access block) are not present.
 
-5. **OpenOCD examination compatibility gaps remain**
-   - Repository docs already note that OpenOCD target examination may still fail until remaining DM compatibility gaps are implemented.
-
-6. **Tooling/runtime dependency caveat**
+5. **Tooling/runtime dependency caveat**
    - OpenOCD bitbang tests require generated debug HEX images (e.g. `code/build/debug-tests/endless.hex`), otherwise startup fails.
 
 ---

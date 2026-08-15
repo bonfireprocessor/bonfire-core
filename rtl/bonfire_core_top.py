@@ -67,7 +67,8 @@ class BonfireCoreTop:
             i_dmi = self.dmi.dmi_interface(
                 dtm=debugTransportBundle,
                 debugRegs=self.debugRegs,
-                clock=clock)
+                clock=clock,
+                hart_reset=reset)
 
 
         """

@@ -56,9 +56,11 @@ class DebugAPI:
             ack = self.result[16]
 
     def halt(self, HartId: int = 0) -> Generator[Any, None, bool]:
+        yield self.dmi_write(0x10, 1)  # dmactive
         yield self.check_halted()
         if not self.halted:
             c = modbv(0x80000000)[32:]
+            c[0] = True
             yield self.dmi_write(0x10, c)
             while not self.halted:
                 yield self.check_halted()
@@ -70,6 +72,7 @@ class DebugAPI:
         if self.halted:
             c = modbv(0)[32:]
             c[30] = True
+            c[0] = True
             yield self.dmi_write(0x10, c)
             yield self.wait_resume_ack()
 

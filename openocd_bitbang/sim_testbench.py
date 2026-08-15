@@ -213,19 +213,13 @@ class OpenOCDBitbangTestbench:
         def log_dmcontrol_write(data: int) -> None:
             if data & 0x00000002:
                 append_trace_and_info(
-                    "DMI dmcontrol.ndmreset asserted data=0x{:08x} feature_enabled={}".format(
-                        data,
-                        self.config.enableDebugNdmreset,
-                    )
+                    "DMI dmcontrol.ndmreset asserted data=0x{:08x}".format(data)
                 )
                 ndmreset_command_active[0] = True
             else:
                 if ndmreset_command_active[0]:
                     append_trace_and_info(
-                        "DMI dmcontrol.ndmreset cleared data=0x{:08x} feature_enabled={}".format(
-                            data,
-                            self.config.enableDebugNdmreset,
-                        )
+                        "DMI dmcontrol.ndmreset cleared data=0x{:08x}".format(data)
                     )
                 ndmreset_command_active[0] = False
 
@@ -589,14 +583,9 @@ class OpenOCDBitbangTestbench:
             observer = self.jtag_observer(clock, tck, tms, tdi, tdo, tap_state)
 
         core = bonfire_core_top.BonfireCoreTop(local_config)
-        if local_config.enableDebugNdmreset:
-            @always_comb
-            def core_reset_comb():
-                core_reset.next = sys_reset or dtm.ndmreset
-        else:
-            @always_comb
-            def core_reset_comb():
-                core_reset.next = sys_reset
+        @always_comb
+        def core_reset_comb():
+            core_reset.next = sys_reset or dtm.ndmreset
 
         dut = core.createInstance(ibus, dbus, control, clock, core_reset, debug, debugTransportBundle=dtm)
         debug_trace_i = self.debug_trace_monitor(clock, dtm, dbus, core)
