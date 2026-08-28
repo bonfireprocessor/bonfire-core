@@ -72,6 +72,7 @@ class SimpleBackend:
             pipeline_request = DebugPipelineRequestBundle(self.config)
             pipeline_events = DebugPipelineEventBundle(self.config)
             pipeline_empty = Signal(bool(0))
+            progbuf_active = Signal(bool(0))
 
             decode_inst = self.decode.decoder(
                 clock, reset, debugRegisterBundle=debugRegisterBundle,
@@ -79,7 +80,8 @@ class SimpleBackend:
             exec_inst = self.execute.SimpleExecute(
                 self.decode, databus, debugport, clock, reset,
                 debugRegisterBundle=debugRegisterBundle,
-                debug_flush_i=pipeline_request.flush)
+                debug_flush_i=pipeline_request.flush,
+                debug_progbuf_active_i=progbuf_active)
 
             abstract_command_inst = AbstractCommandController(
                 self.config, clock, debugRegisterBundle, register_transfer,
@@ -93,7 +95,8 @@ class SimpleBackend:
                 pipeline_request, pipeline_events, progbuf_issue,
                 progbuf_completion, pipeline_empty,
                 self.execute.jump_o, self.execute.jump_dest_o,
-                self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o)
+                self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o,
+                self.execute.debug_progbuf_exception_o, progbuf_active)
         else:
             decode_inst = self.decode.decoder(clock, reset)
             exec_inst = self.execute.SimpleExecute(

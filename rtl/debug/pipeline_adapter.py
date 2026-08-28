@@ -32,6 +32,7 @@ class DebugPipelineEventBundle:
         self.next_pc = Signal(modbv(config.reset_address)[config.xlen:])
         self.ebreak = Signal(bool(0))
         self.ebreak_pc = Signal(modbv(0)[config.xlen:])
+        self.progbuf_exception = Signal(bool(0))
 
 
 @block
@@ -50,6 +51,8 @@ def DebugPipelineAdapter(
     execute_redirect_pc_i: Any,
     ebreak_i: Any,
     ebreak_pc_i: Any,
+    progbuf_exception_i: Any,
+    progbuf_active_o: Any,
 ) -> Any:
     """Select Fetch or Program Buffer and track one architectural boundary."""
 
@@ -93,10 +96,13 @@ def DebugPipelineAdapter(
         events.next_pc.next = next_pc
         events.ebreak.next = ebreak_i
         events.ebreak_pc.next = ebreak_pc_i
+        events.progbuf_exception.next = active and active_progbuf and progbuf_exception_i
 
         progbuf_completion.accepted.next = accepted and progbuf_source
-        progbuf_completion.complete.next = complete and active_progbuf
+        progbuf_completion.complete.next = complete and active_progbuf and not progbuf_exception_i
         progbuf_completion.terminated.next = progbuf_terminator
+        progbuf_completion.exception.next = active and active_progbuf and progbuf_exception_i
+        progbuf_active_o.next = active_progbuf
 
     @always(clock.posedge)
     def boundary_tracker():
@@ -111,7 +117,7 @@ def DebugPipelineAdapter(
         elif active and not active_progbuf and execute_redirect_valid_i:
             architectural_next_pc.next = execute_redirect_pc_i
 
-        if active and pipeline_empty_i:
+        if active and (pipeline_empty_i or (active_progbuf and progbuf_exception_i)):
             active.next = False
             active_progbuf.next = False
 

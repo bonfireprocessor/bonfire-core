@@ -55,6 +55,7 @@ class ExecuteBundle(PipelineControl):
         if config.enableDebugModule:
             self.debug_ebreak_o = Signal(bool(0))
             self.debug_ebreak_pc_o = Signal(modbv(0)[xlen:])
+            self.debug_progbuf_exception_o = Signal(bool(0))
 
         # Optional downstream interlock and writeback forwarding.
 
@@ -73,6 +74,7 @@ class ExecuteBundle(PipelineControl):
     def SimpleExecute(
         self, decode, databus, debugport, clock, reset,
         debugRegisterBundle=None, debug_flush_i=None,
+        debug_progbuf_active_i=None,
     ):
         """
         Simple execution Unit designed for single stage in-order execution
@@ -130,14 +132,25 @@ class ExecuteBundle(PipelineControl):
         if self.config.enableDebugModule:
             debug_ebreak_enable = decode.debugCSRBundle.ebreakm
             assert debug_flush_i is not None, "debug execute requires debug_flush_i"
+            assert debug_progbuf_active_i is not None, "debug execute requires progbuf activity"
             debug_flush = debug_flush_i
+            debug_progbuf_active = debug_progbuf_active_i
 
             @always_comb
             def debug_events():
                 self.debug_ebreak_o.next = debug_ebreak
                 self.debug_ebreak_pc_o.next = debug_ebreak_pc
+                self.debug_progbuf_exception_o.next = debug_progbuf_active and (
+                    (self.taken and decode.invalid_opcode) or
+                    self.invalid_opcode_fault or self.csr.invalid_op_o or
+                    self.ls.invalid_op_o or self.ls.misalign_load_o or
+                    self.ls.misalign_store_o or self.ls.bus_error_o or
+                    (self.taken and decode.sys_cmd and
+                     decode.priv_funct_12 == PrivFunct12.RV32_F12_ECALL)
+                )
         else:
             debug_flush = False
+            debug_progbuf_active = False
 
 
         @always_seq(clock.posedge,reset=reset)
@@ -364,7 +377,10 @@ class ExecuteBundle(PipelineControl):
                     jump.next = True
                     jump_we.next = True
                 elif decode.sys_cmd:
-                    if debug_ebreak_enable and \
+                    if debug_progbuf_active and \
+                       decode.priv_funct_12 == PrivFunct12.RV32_F12_ECALL:
+                        pass
+                    elif debug_ebreak_enable and \
                        decode.priv_funct_12 == PrivFunct12.RV32_F12_EBREAK:
                         debug_ebreak.next = True
                     elif decode.priv_funct_12==PrivFunct12.RV32_F12_EBREAK or  decode.priv_funct_12==PrivFunct12.RV32_F12_ECALL:

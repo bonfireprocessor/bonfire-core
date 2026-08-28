@@ -12,6 +12,6 @@ t_abstract_command_type = enum('access_reg', 'quick_access')
 # used and progbuf0 will be executed in exec state.
 t_abstract_command_state = enum('none', 'regvalid', 'taken', 'failed', 'exec', 'exec2', 'wait_retire')
 
-DEBUG_SPEC_VERSION = 2  # RISC-V Debug Spec 0.13
+DEBUG_SPEC_VERSION = 3  # RISC-V Debug Spec 1.0
 CSR_DPC = 0x7b1
-XDEBUGVER = 4  # RISC-V Debug Spec 0.13
+XDEBUGVER = 4  # External Debug Support compatible with Debug Spec 1.0

@@ -57,7 +57,7 @@ def Ecp5JtaggClient(
 
     request_payload = Signal(modbv(0)[dmi_width:])
     request_toggle = Signal(bool(0))
-    dmireset_toggle = Signal(bool(0))
+    dtmhardreset_toggle = Signal(bool(0))
 
     response_payload = Signal(modbv(0)[dmi_width:])
     request_pending = Signal(bool(0))
@@ -77,7 +77,7 @@ def Ecp5JtaggClient(
             jshift_d.next = False
             request_payload.next = 0
             request_toggle.next = False
-            dmireset_toggle.next = False
+            dtmhardreset_toggle.next = False
         else:
             jshift_d.next = jtagg_i.jshift
 
@@ -115,8 +115,8 @@ def Ecp5JtaggClient(
                 if active_er1:
                     request_payload.next = dmi_shift_reg
                     request_toggle.next = not request_toggle
-                elif active_er2 and dtmcs_shift_reg[16]:
-                    dmireset_toggle.next = not dmireset_toggle
+                elif active_er2 and dtmcs_shift_reg[17]:
+                    dtmhardreset_toggle.next = not dtmhardreset_toggle
             elif jtagg_i.jrt1:
                 active_er1.next = True
                 active_er2.next = False
@@ -132,7 +132,7 @@ def Ecp5JtaggClient(
         jtagg_i.jrstn,
         request_payload,
         request_toggle,
-        dmireset_toggle,
+        dtmhardreset_toggle,
         response_payload,
         request_pending,
         dtm,

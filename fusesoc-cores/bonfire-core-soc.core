@@ -106,7 +106,6 @@ generate:
       top_entity_name: 'tb_bonfire_core_soc'
       hexfile: "../code/build/soc/sim/led.hex"
       enable_jtag_debug: true
-      enable_debug_ndmreset: true
 
 
 targets:
@@ -133,7 +132,6 @@ targets:
          led_active_low: false
          expose_wishbone_master: false
          enable_jtag_debug: true
-         enable_debug_ndmreset: true
     tools:
       ghdl:
         analyze_options: [ --ieee=synopsys, -frelaxed-rules ]
@@ -329,7 +327,6 @@ targets:
         register_wishbone_dbus: true
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
-        enable_debug_ndmreset: true
         pipeline_length: 4
         writeback_bypass: true
 
@@ -346,7 +343,6 @@ targets:
         laned_memory: false
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
-        enable_debug_ndmreset: true
         pipeline_length: 4
         writeback_bypass: true
    
@@ -387,7 +383,6 @@ targets:
         led_active_low: false
         laned_memory: false
         enable_jtag_debug: true
-        enable_debug_ndmreset: true
         pipeline_length: 4
         writeback_bypass: true
 
@@ -405,7 +400,6 @@ targets:
         laned_memory: false
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
-        enable_debug_ndmreset: true
         pipeline_length: 4
         writeback_bypass: true
         
@@ -451,6 +445,5 @@ targets:
         register_wishbone_dbus: true
         enable_jtag_debug: true
         debug_jtag_transport: ecp5_jtagg
-        enable_debug_ndmreset: true
         pipeline_length: 4
         writeback_bypass: true 

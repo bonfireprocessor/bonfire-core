@@ -39,7 +39,6 @@ class SoCGenerator:
         if conf.writeback_bypass and conf.pipeline_length != 4:
             raise ValueError("writeback_bypass requires pipeline_length 4")
         conf.enableDebugModule = bool(generation_config.soc_config.get("enableJtagDebug", False))
-        conf.enableDebugNdmreset = bool(generation_config.soc_config.get("enableDebugNdmreset", False))
         diagnostics.summary("kind: {}".format(generation_config.generation_kind))
         diagnostics.summary("top entity: {}".format(generation_config.names.top_entity_name))
         diagnostics.summary("myhdl entity: {}".format(generation_config.names.myhdl_entity_name))
@@ -49,7 +48,6 @@ class SoCGenerator:
         diagnostics.detail("pipeline_length: {}".format(conf.pipeline_length))
         diagnostics.detail("writeback_bypass: {}".format(conf.writeback_bypass))
         diagnostics.detail("enableDebugModule: {}".format(conf.enableDebugModule))
-        diagnostics.detail("enableDebugNdmreset: {}".format(conf.enableDebugNdmreset))
 
         soc = BonfireCoreSoC(
             conf,

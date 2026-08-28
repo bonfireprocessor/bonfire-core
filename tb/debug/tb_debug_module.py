@@ -142,6 +142,117 @@ class BonfireCoreDebugTestbench:
         assert actual4 == expected4, "abstractauto memory[4]: {} expected {}".format(hex(actual4), hex(expected4))
         self.log("abstractauto memory sequence read {} then {}".format(hex(actual0), hex(actual4)))
 
+    def clear_cmderr(self, api: DebugAPI) -> Generator[Any, None, None]:
+        yield api.dmi_write(0x16, 0x00000700)
+
+    def check_spec10_abstract_commands(self, api: DebugAPI) -> Generator[Any, None, None]:
+        # Quick Access is optional and must be rejected when it is not implemented.
+        yield api.dmi_write(0x17, 1 << 24)
+        yield api.dmi_read(0x16)
+        assert api.result[11:8] == 2, "quick access must report not-supported"
+        yield self.clear_cmderr(api)
+
+        # aarpostincrement is optional as well. Silently accepting it would be
+        # incorrect because no increment is performed.
+        aarpostincrement = (2 << 20) | (1 << 19) | (1 << 17) | 0x1001
+        yield api.dmi_write(0x17, aarpostincrement)
+        yield api.dmi_read(0x16)
+        assert api.result[11:8] == 2, "aarpostincrement must report not-supported"
+        yield self.clear_cmderr(api)
+
+        # Resetting dmactive also clears the stored command encoding. Leave an
+        # unsupported GPR write in that storage, reset the DM, and then trigger
+        # autoexec. The reset command is a no-op, so x1 must remain unchanged.
+        yield api.readGPR(regno=1)
+        saved_x1 = api.cmd_result()
+        yield api.dmi_write(0x04, 0x13579BDF)
+        stale_write = (2 << 20) | (1 << 19) | (1 << 17) | (1 << 16) | 0x1001
+        yield api.dmi_write(0x17, stale_write)
+        yield api.dmi_read(0x16)
+        assert api.result[11:8] == 2, "stale command setup must report not-supported"
+        yield api.dmi_write(0x10, 0)
+        yield api.dmi_read(0x10)
+        assert not api.result[0], "dmactive command reset did not deactivate"
+        yield api.dmi_write(0x10, 1)
+        yield api.dmi_write(0x18, 1)
+        yield api.dmi_read(0x04)
+        yield self.wait_abstract_idle(api, "autoexec after dmactive reset")
+        yield api.dmi_write(0x18, 0)
+        yield self.check_gpr(api, regno=1, check_value=saved_x1)
+
+        # With transfer clear, aarsize/write/regno are ignored. The explicit
+        # EBREAK terminates this otherwise empty Program Buffer execution.
+        yield api.dmi_write(0x20, EBREAK)
+        if self.config.progbuf_size == 2:
+            yield api.dmi_write(0x21, EBREAK)
+        postexec_only = (7 << 20) | (1 << 18) | (1 << 16) | 0xFFFF
+        yield api.dmi_write(0x17, postexec_only)
+        yield self.wait_abstract_idle(api, "transfer-free postexec")
+
+    def check_progbuf_exception(self, api: DebugAPI) -> Generator[Any, None, None]:
+        yield api.readGPR(regno=10)
+        saved_a0 = api.cmd_result()
+        yield api.readCSR(csr_adr=0x700 | CSRAdr.dpc)
+        saved_dpc = api.cmd_result()
+
+        yield api.dmi_write(0x20, ECALL)
+        if self.config.progbuf_size == 2:
+            yield api.dmi_write(0x21, 0x03300513)  # must not execute
+        yield api.dmi_write(0x17, (1 << 18))  # postexec, transfer=0
+        yield api.dmi_read(0x16)
+        while api.result[12]:
+            yield api.dmi_read(0x16)
+        assert api.result[11:8] == 3, "Program Buffer exception must report cmderr=3"
+
+        yield self.clear_cmderr(api)
+        yield self.check_gpr(api, regno=10, check_value=saved_a0)
+        yield self.check_dpc(api, saved_dpc, "dpc after Program Buffer exception")
+
+    def check_busy_access_rules(self, api: DmiDebugAPI) -> Generator[Any, None, None]:
+        targets = (
+            (0x04, 0xCAFEBABE),
+            (0x16, 0x00000700),
+            (0x17, (2 << 20) | (1 << 17) | 0x1001),
+            (0x18, 0x00000001),
+            (0x20, 0x12345678),
+        )
+
+        for address, value in targets:
+            yield api.dmi_write(0x18, 0)
+            yield api.dmi_write(0x20, 0x00042483)  # lw s1, 0(s0)
+            if self.config.progbuf_size == 2:
+                yield api.dmi_write(0x21, 0x00042483)  # second load extends busy window
+            yield api.writeGPR(regno=8, value=0)
+            yield api.dmi_write(0x04, 0x11223344)
+
+            # Launch the load and present the conflicting DMI write at the
+            # following busy cycle, without the API's normal setup cycle.
+            yield api.dmi_write(0x17, 1 << 18)
+            yield api.clock.posedge
+            api.dtm_bundle.adr.next = address
+            api.dtm_bundle.we.next = True
+            api.dtm_bundle.en.next = True
+            api.dtm_bundle.dbi.next = value
+            yield api.clock.posedge
+            api.dtm_bundle.en.next = False
+
+            yield api.dmi_read(0x16)
+            while api.result[12]:
+                yield api.dmi_read(0x16)
+            assert api.result[11:8] == 1, "busy write to 0x{:x} reported cmderr={} instead of 1".format(
+                address, int(api.result[11:8]))
+            yield self.clear_cmderr(api)
+
+            if address == 0x04:
+                yield api.dmi_read(0x04)
+                assert api.cmd_result() == 0x11223344, "busy data0 write changed the register"
+            elif address == 0x18:
+                yield api.dmi_read(0x18)
+                assert api.cmd_result() == 0, "busy abstractauto write changed the register"
+            elif address == 0x20:
+                yield api.dmi_read(0x20)
+                assert api.cmd_result() == 0x00042483, "busy progbuf write changed the register"
+
     def execute_progbuf0(self, api: DebugAPI, opcode: int) -> Generator[Any, None, None]:
         yield api.writeProgbuf0(opcode)
         yield api.readReg(transfer=False, postexec=True)
@@ -149,6 +260,7 @@ class BonfireCoreDebugTestbench:
     def resume_without_running_assert(self, api: DebugAPI) -> Generator[Any, None, None]:
         c = modbv(0)[32:]
         c[30] = True
+        c[0] = True
         yield api.dmi_write(0x10, c)
         yield api.wait_resume_ack()
 
@@ -354,12 +466,54 @@ class BonfireCoreDebugTestbench:
                 api = DmiDebugAPI(dtm_bundle=dtm_bundle, clock=clock, config=self.config)
                 self.log("using direct DMI debug transport")
 
+            mark("activating Debug Module")
+            yield api.dmi_read(0x10)
+            assert not api.result[0], "dmactive reset value must be 0"
+            yield api.dmi_write(0x10, 1)
+            yield api.dmi_read(0x10)
+            assert api.result[0], "dmactive did not become 1"
+
+            if self.debug_transport == "dmi":
+                yield api.dmi_write(0x04, 0xA5A55A5A)
+                yield api.dmi_write(0x20, 0x12345678)
+                yield api.dmi_write(0x18, 0x00010001)
+                yield api.dmi_write(0x17, 1 << 24)  # set cmderr before reset
+                yield api.dmi_write(0x10, 0)
+                yield api.dmi_read(0x10)
+                assert not api.result[0], "dmactive did not return to 0"
+
+                # Inactive accesses have no side effects and do not expose the
+                # retained Data or Program Buffer contents.
+                yield api.dmi_read(0x04)
+                assert api.cmd_result() == 0, "inactive data0 read must return zero"
+                yield api.dmi_read(0x20)
+                assert api.cmd_result() == 0, "inactive progbuf0 read must return zero"
+                yield api.dmi_read(0x18)
+                assert api.cmd_result() == 0, "inactive abstractauto read must return zero"
+                yield api.dmi_read(0x16)
+                assert api.cmd_result() == 0, "inactive abstractcs read must return zero"
+                yield api.dmi_write(0x04, 0xDEADBEEF)
+                yield api.dmi_write(0x20, 0x00000013)
+
+                yield api.dmi_write(0x10, 1)
+                yield api.dmi_read(0x04)
+                assert api.cmd_result() == 0xA5A55A5A, "dmactive reset did not preserve data0"
+                yield api.dmi_read(0x20)
+                assert api.cmd_result() == 0x12345678, "dmactive reset did not preserve progbuf0"
+                yield api.dmi_read(0x18)
+                assert api.cmd_result() == 0, "dmactive reset did not clear abstractauto"
+                yield api.dmi_read(0x16)
+                assert not api.result[12], "dmactive reset did not clear abstract busy"
+                assert api.result[11:8] == 0, "dmactive reset did not clear cmderr"
+
             mark("reading debug module version")
             yield api.dmi_read(0x11)
             dmstatus = api.cmd_result()
             dm_version = dmstatus & 0x0F
             self.log("dmstatus = {} version={}".format(hex(dmstatus), dm_version))
             assert dm_version == DEBUG_SPEC_VERSION, "Debug Module version: {} expected {}".format(dm_version, DEBUG_SPEC_VERSION)
+            yield api.dmi_read(0x12)
+            assert api.result[24:20] == 0, "hartinfo must not advertise an unimplemented dscratch CSR"
 
             self.log("starting debug module smoke/integration test")
             mark("waiting initial cycles")
@@ -386,6 +540,14 @@ class BonfireCoreDebugTestbench:
 
             mark("checking second halt dpc")
             yield self.check_dpc(api, 0x0C, "second halt")
+
+            if self.debug_transport == "dmi":
+                mark("checking Spec 1.0 abstract command options")
+                yield self.check_spec10_abstract_commands(api)
+                mark("checking Program Buffer exception handling")
+                yield self.check_progbuf_exception(api)
+                mark("checking Abstract Command busy access rules")
+                yield self.check_busy_access_rules(api)
 
             gpr_save: list[int] = [0]
             if self.debug_transport in ("jtag", "jtagg"):
@@ -564,14 +726,6 @@ class BonfireCoreDebugTestbench:
             for _ in range(0, 5):
                 yield clock.posedge
 
-            if not self.config.enableDebugNdmreset:
-                c = modbv(0)[32:]
-                c[1] = True
-                yield api.dmi_write(0x10, c)
-                yield api.dmi_read(0x10)
-                assert not api.result[1], "dmcontrol.ndmreset should read as 0 when disabled"
-                raise StopSimulation
-
             yield api.halt()
 
             non_reset_dpc = self.config.reset_address + 0x20
@@ -580,18 +734,31 @@ class BonfireCoreDebugTestbench:
 
             c = modbv(0)[32:]
             c[1] = True
+            c[0] = True
             yield api.dmi_write(0x10, c)
             for _ in range(0, 4):
                 yield clock.posedge
             yield api.dmi_read(0x10)
             assert api.result[1], "dmcontrol.ndmreset did not latch high"
+            yield api.dmi_read(0x11)
+            assert api.result[24], "dmstatus.ndmresetpending must track ndmreset"
 
             c[1] = False
+            c[0] = True
             yield api.dmi_write(0x10, c)
             for _ in range(0, 8):
                 yield clock.posedge
             yield api.dmi_read(0x10)
             assert not api.result[1], "dmcontrol.ndmreset did not clear"
+            yield api.dmi_read(0x11)
+            assert api.result[19] and api.result[18], "dmstatus havereset bits were not set"
+
+            c = modbv(0)[32:]
+            c[28] = True  # ackhavereset
+            c[0] = True
+            yield api.dmi_write(0x10, c)
+            yield api.dmi_read(0x11)
+            assert not api.result[19] and not api.result[18], "ackhavereset did not clear reset status"
 
             yield api.check_halted()
             assert api.halted, "hart did not remain halted after ndmreset"
@@ -660,14 +827,9 @@ class BonfireCoreDebugTestbench:
         elif self.debug_transport != "dmi":
             raise ValueError("Unsupported debug_transport: {}".format(self.debug_transport))
 
-        if local_config.enableDebugNdmreset:
-            @always_comb
-            def system_reset_comb():
-                system_reset.next = reset or dtm.ndmreset
-        else:
-            @always_comb
-            def system_reset_comb():
-                system_reset.next = reset
+        @always_comb
+        def system_reset_comb():
+            system_reset.next = reset or dtm.ndmreset
 
         core = bonfire_core_top.BonfireCoreTop(local_config)
         dut = core.createInstance(ibus, dbus, control, clock, system_reset, debug, debugTransportBundle=dtm)

@@ -23,7 +23,7 @@ def DmiCdcBridge(
     scan_resetn: BitSignal,
     request_payload_i: Any,
     request_toggle_i: BitSignal,
-    dmireset_toggle_i: BitSignal,
+    dtmhardreset_toggle_i: BitSignal,
     response_payload_o: Any,
     pending_o: BitSignal,
     dtm: DmiBundle,
@@ -40,9 +40,9 @@ def DmiCdcBridge(
     request_toggle_meta = Signal(bool(0))
     request_toggle_sync = Signal(bool(0))
     request_toggle_seen = Signal(bool(0))
-    dmireset_toggle_meta = Signal(bool(0))
-    dmireset_toggle_sync = Signal(bool(0))
-    dmireset_toggle_seen = Signal(bool(0))
+    dtmhardreset_toggle_meta = Signal(bool(0))
+    dtmhardreset_toggle_sync = Signal(bool(0))
+    dtmhardreset_toggle_seen = Signal(bool(0))
 
     request_active = Signal(bool(0))
     read_pending = Signal(bool(0))
@@ -65,17 +65,17 @@ def DmiCdcBridge(
     def core_clock_domain():
         request_toggle_meta.next = request_toggle_i
         request_toggle_sync.next = request_toggle_meta
-        dmireset_toggle_meta.next = dmireset_toggle_i
-        dmireset_toggle_sync.next = dmireset_toggle_meta
+        dtmhardreset_toggle_meta.next = dtmhardreset_toggle_i
+        dtmhardreset_toggle_sync.next = dtmhardreset_toggle_meta
 
         if reset:
             # Reset and clear the core-facing DMI request channel.
             request_toggle_meta.next = False
             request_toggle_sync.next = False
             request_toggle_seen.next = False
-            dmireset_toggle_meta.next = False
-            dmireset_toggle_sync.next = False
-            dmireset_toggle_seen.next = False
+            dtmhardreset_toggle_meta.next = False
+            dtmhardreset_toggle_sync.next = False
+            dtmhardreset_toggle_seen.next = False
             request_active.next = False
             read_pending.next = False
             read_capture.next = False
@@ -86,10 +86,10 @@ def DmiCdcBridge(
             dtm.adr.next = 0
             dtm.dbi.next = 0
         else:
-            if dmireset_toggle_sync != dmireset_toggle_seen:
-                # DTM reset aborts any in-flight request and immediately acks
+            if dtmhardreset_toggle_sync != dtmhardreset_toggle_seen:
+                # dtmhardreset aborts any in-flight request and immediately acks
                 # the scan side with the synchronized request toggle.
-                dmireset_toggle_seen.next = dmireset_toggle_sync
+                dtmhardreset_toggle_seen.next = dtmhardreset_toggle_sync
                 request_toggle_seen.next = request_toggle_sync
                 request_active.next = False
                 read_pending.next = False

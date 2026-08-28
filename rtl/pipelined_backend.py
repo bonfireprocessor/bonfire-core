@@ -52,6 +52,7 @@ class PipelinedBackend:
             pipeline_request = DebugPipelineRequestBundle(conf)
             pipeline_events = DebugPipelineEventBundle(conf)
             pipeline_empty = Signal(bool(0))
+            progbuf_active = Signal(bool(0))
 
             decode_inst = self.decode.decoder(
                 clock, reset, debugRegisterBundle=debugRegisterBundle,
@@ -59,7 +60,8 @@ class PipelinedBackend:
             exec_inst = self.execute.SimpleExecute(
                 self.decode, databus, debugport, clock, reset,
                 debugRegisterBundle=debugRegisterBundle,
-                debug_flush_i=pipeline_request.flush)
+                debug_flush_i=pipeline_request.flush,
+                debug_progbuf_active_i=progbuf_active)
         else:
             decode_inst = self.decode.decoder(clock, reset)
             exec_inst = self.execute.SimpleExecute(
@@ -162,7 +164,8 @@ class PipelinedBackend:
                 pipeline_request, pipeline_events, progbuf_issue,
                 progbuf_completion, pipeline_empty,
                 self.execute.jump_o, self.execute.jump_dest_o,
-                self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o)
+                self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o,
+                self.execute.debug_progbuf_exception_o, progbuf_active)
 
             @always_comb
             def debug_pipeline_status():

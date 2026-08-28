@@ -129,7 +129,6 @@ def _run_ndmreset_test(
     sim_env,
     repo_root: Path,
     debug_transport: str,
-    enable_ndmreset: bool,
     waveform_name: str,
     duration: int,
     request: pytest.FixtureRequest,
@@ -144,7 +143,6 @@ def _run_ndmreset_test(
     verbose = request.config.getoption("verbose") > 0
 
     conf = config.BonfireConfig()
-    conf.enableDebugNdmreset = enable_ndmreset
     debug_tb = BonfireCoreDebugTestbench(
         conf,
         hexfile=str(hex_path),
@@ -163,24 +161,11 @@ def _run_ndmreset_test(
         pytest.fail(f"MyHDL simulation assertion failed: {e}", pytrace=False)
 
 
-def test_debug_module_ndmreset_disabled(sim_env, repo_root: Path, request: pytest.FixtureRequest):
-    _run_ndmreset_test(
-        sim_env,
-        repo_root,
-        debug_transport="dmi",
-        enable_ndmreset=False,
-        waveform_name="debug_module_ndmreset_disabled",
-        duration=5_000,
-        request=request,
-    )
-
-
 def test_debug_module_ndmreset_dmi(sim_env, repo_root: Path, request: pytest.FixtureRequest):
     _run_ndmreset_test(
         sim_env,
         repo_root,
         debug_transport="dmi",
-        enable_ndmreset=True,
         waveform_name="debug_module_ndmreset_dmi",
         duration=20_000,
         request=request,
@@ -192,7 +177,6 @@ def test_debug_module_ndmreset_jtag(sim_env, repo_root: Path, request: pytest.Fi
         sim_env,
         repo_root,
         debug_transport="jtag",
-        enable_ndmreset=True,
         waveform_name="debug_module_ndmreset_jtag",
         duration=6_000_000,
         request=request,

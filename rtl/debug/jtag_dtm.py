@@ -65,7 +65,7 @@ class JtagDTM:
 
         request_payload = Signal(modbv(0)[dmi_width:])
         request_toggle = Signal(bool(0))
-        dmireset_toggle = Signal(bool(0))
+        dtmhardreset_toggle = Signal(bool(0))
         response_payload = Signal(modbv(0)[dmi_width:])
         request_pending = Signal(bool(0))
 
@@ -105,7 +105,7 @@ class JtagDTM:
                 dtmcs_shift_reg.next = 0
                 request_payload.next = 0
                 request_toggle.next = False
-                dmireset_toggle.next = False
+                dtmhardreset_toggle.next = False
             else:
                 if tap_state == t_tap_state.test_logic_reset and tms_i:
                     instruction.next = JTAG_INSTR_IDCODE
@@ -154,8 +154,8 @@ class JtagDTM:
                     if instruction == JTAG_INSTR_DMI:
                         request_payload.next = dmi_shift_reg
                         request_toggle.next = not request_toggle
-                    elif instruction == JTAG_INSTR_DTMCS and dtmcs_shift_reg[16]:
-                        dmireset_toggle.next = not dmireset_toggle
+                    elif instruction == JTAG_INSTR_DTMCS and dtmcs_shift_reg[17]:
+                        dtmhardreset_toggle.next = not dtmhardreset_toggle
 
         tap_fsm = TapStateController(tck_i, reset, trstn_i, tms_i, tap_state)
         dmi_cdc = DmiCdcBridge(
@@ -166,7 +166,7 @@ class JtagDTM:
             trstn_i,
             request_payload,
             request_toggle,
-            dmireset_toggle,
+            dtmhardreset_toggle,
             response_payload,
             request_pending,
             dtm,
