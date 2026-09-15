@@ -105,6 +105,8 @@ class ExecuteBundle(PipelineControl):
         jump_r =  Signal(bool(0))
         jump_dest =  Signal(intbv(0)[self.config.xlen:])
         jump_dest_r = Signal(intbv(0)[self.config.xlen:])
+        normal_jump = Signal(bool(0))
+        normal_jump_dest = Signal(intbv(0)[self.config.xlen:])
         jump_busy = Signal(bool(0)) # Only used when not config.jump_bypass
 
         if not self.wb_stage:
@@ -124,13 +126,28 @@ class ExecuteBundle(PipelineControl):
         ls_effective_address = Signal(modbv(0)[self.config.xlen:])
         ls_issue_invalid = Signal(bool(0))
         ls_issue_misaligned = Signal(bool(0))
+        jalr_misaligned = Signal(bool(0))
         ls_fault_address = Signal(modbv(0)[self.config.xlen:])
         ls_fault_pc = Signal(modbv(0)[self.config.xlen:])
         ls_fault_store = Signal(bool(0))
         trap_valid = Signal(bool(0))
         trap_cause = Signal(modbv(0)[6:])
+        trap_epc = Signal(modbv(0)[self.config.xlen:])
         trap_tval = Signal(modbv(0)[self.config.xlen:])
+        trap_pending = Signal(bool(0))
+        trap_pending_cause = Signal(modbv(0)[6:])
+        trap_pending_epc = Signal(modbv(0)[self.config.xlen:])
+        trap_pending_jalr = Signal(bool(0))
+        trap_pending_alu_tval = Signal(modbv(0)[self.config.xlen:])
+        trap_pending_jump_tval = Signal(modbv(0)[self.config.xlen:])
+        trap_pending_ls_tval = Signal(modbv(0)[self.config.xlen:])
+        trap_pending_instruction = Signal(modbv(0)[self.config.xlen:])
+        registered_trap_tval = Signal(modbv(0)[self.config.xlen:])
+        trap_pending_progbuf = Signal(bool(0))
         retire = Signal(bool(0))
+        counter_retire = Signal(bool(0))
+        alu_success = Signal(bool(0))
+        ls_success = Signal(bool(0))
 
         op1 = Signal(modbv(0)[self.config.xlen:])
         op2 = Signal(modbv(0)[self.config.xlen:])
@@ -144,11 +161,13 @@ class ExecuteBundle(PipelineControl):
                 debugCSRBundle=decode.debugCSRBundle,
                 debugCSRUpdateBundle=decode.debugCSRUpdateBundle,
                 debugRegisterBundle=debugRegisterBundle,
-                retire_i=retire)
+                retire_i=counter_retire
+                if self.wb_stage and self.config.writeback_bypass else retire)
         else:
             csr_inst = self.csr.CSRUnit(
                 self.trapCSR, self.csrUpdate, clock, reset,
-                retire_i=retire)
+                retire_i=counter_retire
+                if self.wb_stage and self.config.writeback_bypass else retire)
 
         p_inst = self.pipeline_instance(busy,valid)
 
@@ -163,8 +182,12 @@ class ExecuteBundle(PipelineControl):
             def debug_events():
                 self.debug_ebreak_o.next = debug_ebreak
                 self.debug_ebreak_pc_o.next = debug_ebreak_pc
-                self.debug_progbuf_exception_o.next = \
-                    debug_progbuf_active and trap_valid
+                if self.config.jump_bypass:
+                    self.debug_progbuf_exception_o.next = \
+                        debug_progbuf_active and trap_valid
+                else:
+                    self.debug_progbuf_exception_o.next = \
+                        trap_pending and trap_pending_progbuf
         else:
             debug_flush = False
             debug_progbuf_active = False
@@ -174,16 +197,40 @@ class ExecuteBundle(PipelineControl):
         def seq():
 
             jump_busy.next = False
+            counter_retire.next = retire
+            trap_pending.next = False
+            trap_pending_cause.next = trap_cause
+            trap_pending_epc.next = trap_epc
+            trap_pending_jalr.next = decode.jumpr_cmd
+            trap_pending_alu_tval.next = self.alu.res_o & ~1
+            trap_pending_jump_tval.next = decode.jump_dest_o
+            if self.ls.valid_o:
+                trap_pending_ls_tval.next = ls_fault_address
+            else:
+                trap_pending_ls_tval.next = ls_effective_address
+            trap_pending_instruction.next = decode.debug_word_o
+            trap_pending_progbuf.next = debug_progbuf_active
 
             if trap_valid:
-                jump_dest_r.next = jump_dest
-                jump_r.next = jump
-                jump_busy.next = jump and not self.config.jump_bypass
-            elif self.taken:
+                trap_pending.next = True
+
+            if self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
-                jump_dest_r.next = jump_dest
-                jump_r.next = jump
-                jump_busy.next = jump and not self.config.jump_bypass
+
+            if self.config.jump_bypass:
+                if trap_valid:
+                    jump_dest_r.next = jump_dest
+                    jump_r.next = jump
+                elif self.taken:
+                    jump_dest_r.next = jump_dest
+                    jump_r.next = jump
+            elif self.taken:
+                # Machine traps use the separately registered trap event below.
+                # Keep the normal redirect register independent from the
+                # exception classifier and its metadata muxes.
+                jump_dest_r.next = normal_jump_dest
+                jump_r.next = normal_jump
+                jump_busy.next = normal_jump
                 # # Debug code
                 # if self.debug_exec_jump.next:
                 #     print(now(), "jump or branch")
@@ -249,17 +296,19 @@ class ExecuteBundle(PipelineControl):
 
             # Pipeline
             busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy or self.hazard_i
-            valid.next = (self.alu.valid_o or self.ls.valid_o or
-                          self.csr.valid_o or jump_we) and not trap_valid
+            valid.next = alu_success or ls_success or \
+                self.csr.valid_o or jump_we
 
             if self.config.jump_bypass:
                 if self.config.enableDebugModule:
-                    decode.kill_i.next = (self.taken and jump) or debug_flush
+                    decode.kill_i.next = (self.taken and jump) or \
+                        trap_valid or debug_flush
                 else:
                     decode.kill_i.next = self.taken and jump
             else:
                 if self.config.enableDebugModule:
-                    decode.kill_i.next = jump_busy or debug_flush
+                    decode.kill_i.next = jump_busy or trap_pending or \
+                        debug_flush
                 else:
                     decode.kill_i.next = jump_busy
 
@@ -292,9 +341,9 @@ class ExecuteBundle(PipelineControl):
                 # the simultaneously valid ALU result used as its target.
                 if jump_we:
                     self.jump_valid_o.next = True
-                elif self.ls.we_o:
+                elif self.ls.we_o and ls_success:
                     self.load_valid_o.next = True
-                elif self.alu.valid_o:
+                elif alu_success:
                     self.alu_valid_o.next = True
                 elif self.csr.valid_o:
                     self.csr_valid_o.next = True
@@ -322,8 +371,15 @@ class ExecuteBundle(PipelineControl):
         @always_comb
         def comb_misc():
 
-            self.reg_we_o.next = (self.alu.valid_o or self.ls.we_o or
-                                  self.csr.valid_o or jump_we) and not trap_valid
+            # Each functional unit qualifies its own successful completion.
+            # A global ``not trap_valid`` term made the complete exception
+            # classifier part of the primary Execute-to-Writeback valid path.
+            alu_success.next = self.alu.valid_o and \
+                not decode.invalid_opcode and \
+                not (decode.jumpr_cmd and jalr_misaligned)
+            ls_success.next = self.ls.valid_o and not self.ls.bus_error_o
+            self.reg_we_o.next = alu_success or \
+                (self.ls.we_o and ls_success) or self.csr.valid_o or jump_we
             self.retire_o.next = retire
 
             if self.taken:
@@ -331,12 +387,16 @@ class ExecuteBundle(PipelineControl):
             else:
                 self.rd_adr_o.next = rd_adr_reg
 
-            if trap_valid:
+            if trap_valid and self.config.jump_bypass:
                 self.jump_o.next = jump
                 self.jump_dest_o.next = jump_dest
             elif self.taken and self.config.jump_bypass:
                 self.jump_o.next = jump
                 self.jump_dest_o.next = jump_dest
+            elif trap_pending and not self.config.jump_bypass:
+                self.jump_o.next = not trap_pending_progbuf
+                self.jump_dest_o.next = \
+                    self.trapCSR.mtvec << self.config.ip_low
             else:
                 self.jump_o.next = jump_r and not self.taken # supress jump_o when next instruction after jump is taken
                 self.jump_dest_o.next = jump_dest_r
@@ -349,7 +409,10 @@ class ExecuteBundle(PipelineControl):
 
             self.csrUpdate.mcause_irq.next = 0
 
-            self.csrUpdate.mcause.next = trap_cause
+            if self.config.jump_bypass:
+                self.csrUpdate.mcause.next = trap_cause
+            else:
+                self.csrUpdate.mcause.next = trap_pending_cause
 
         @always_comb
         def loadstore_address_comb():
@@ -362,14 +425,90 @@ class ExecuteBundle(PipelineControl):
             byte_mode = funct[2:0] == 0
             half_mode = funct[2:0] == 1
             word_mode = funct[2:0] == 2
+            address_bit0 = bool(op1[0]) != bool(decode.displacement_o[0])
+            address_bit1 = \
+                (bool(op1[1]) != bool(decode.displacement_o[1])) != \
+                (bool(op1[0]) and bool(decode.displacement_o[0]))
 
             ls_issue_invalid.next = funct[2] and decode.store_cmd or not (
                 byte_mode or half_mode or word_mode)
             ls_issue_misaligned.next = \
-                (half_mode and ls_effective_address[0]) or \
-                (word_mode and ls_effective_address[2:0] != 0)
+                (half_mode and address_bit0) or \
+                (word_mode and (address_bit0 or address_bit1))
 
+            # RVC is not supported, so JALR is aligned when bit one of the
+            # addition result is clear (bit zero is cleared by the ISA).  A
+            # dedicated two-bit carry avoids putting trap qualification behind
+            # the full XLEN ALU adder.
+            jalr_misaligned.next = \
+                (bool(op1[1]) != bool(op2[1])) != \
+                (bool(op1[0]) and bool(op2[0]))
 
+        @always_comb
+        def registered_trap_tval_comb():
+            # Select MTVAL after each possible wide data source has crossed
+            # the redirect-stage register boundary.  In particular, the ALU
+            # carry chain no longer feeds the large exception-data mux before
+            # reaching a register.
+            registered_trap_tval.next = 0
+            if trap_pending_cause == 0:
+                if trap_pending_jalr:
+                    registered_trap_tval.next = trap_pending_alu_tval
+                else:
+                    registered_trap_tval.next = trap_pending_jump_tval
+            elif trap_pending_cause == 2:
+                registered_trap_tval.next = trap_pending_instruction
+            elif trap_pending_cause == 4 or trap_pending_cause == 5 or \
+                    trap_pending_cause == 6 or trap_pending_cause == 7:
+                registered_trap_tval.next = trap_pending_ls_tval
+        @always_comb
+        def debug_ebreak_comb():
+            # Keep debug-entry qualification independent from the exception
+            # classifier.  EBREAK-to-debug is not a machine trap, and folding
+            # it into jump_comb made the complete CSR/exception cone feed the
+            # debug controller's DPC write enable.
+            debug_ebreak.next = self.taken and decode.sys_cmd and \
+                decode.debug_word_o == 0x00100073 and debug_ebreak_enable
+            debug_ebreak_pc.next = decode.mepc_o
+
+        @always_comb
+        def normal_redirect_comb():
+            # The registered four-stage redirect path only needs the normal
+            # control-flow decision and target.  Compute both independently
+            # from machine-trap classification so illegal-opcode and CSR fault
+            # logic cannot lengthen the redirect register input.
+            take = False
+            target = modbv(0)[self.config.xlen:]
+
+            if decode.branch_cmd:
+                if decode.funct3_o == b3.RV32_F3_BEQ:
+                    take = bool(self.alu.flag_equal)
+                elif decode.funct3_o == b3.RV32_F3_BGE:
+                    take = bool(self.alu.flag_ge)
+                elif decode.funct3_o == b3.RV32_F3_BGEU:
+                    take = bool(self.alu.flag_uge)
+                elif decode.funct3_o == b3.RV32_F3_BLT:
+                    take = not bool(self.alu.flag_ge)
+                elif decode.funct3_o == b3.RV32_F3_BLTU:
+                    take = not bool(self.alu.flag_uge)
+                elif decode.funct3_o == b3.RV32_F3_BNE:
+                    take = not bool(self.alu.flag_equal)
+                target[:] = decode.jump_dest_o
+                if decode.jump_dest_o[self.config.ip_low:0] != 0:
+                    take = False
+            elif decode.jump_cmd:
+                target[:] = decode.jump_dest_o
+                take = decode.jump_dest_o[self.config.ip_low:0] == 0
+            elif decode.jumpr_cmd:
+                target[:] = self.alu.res_o
+                target[0] = False
+                take = not jalr_misaligned
+            elif decode.sys_cmd and decode.debug_word_o == 0x30200073:
+                target[:] = self.trapCSR.mepc << self.config.ip_low
+                take = True
+
+            normal_jump.next = take
+            normal_jump_dest.next = target
 
         @always_comb
         def jump_comb():
@@ -386,9 +525,6 @@ class ExecuteBundle(PipelineControl):
             fault_epc = modbv(0)[self.config.xlen:]
             fault_epc[:] = decode.mepc_o
             invalid_opcode = False
-
-            debug_ebreak.next = False
-            debug_ebreak_pc.next = decode.mepc_o
 
             if self.ls.valid_o and (
                 self.ls.invalid_op_o or self.ls.misalign_load_o or
@@ -436,7 +572,7 @@ class ExecuteBundle(PipelineControl):
 
                     if take_branch:
                         jump_target[:] = decode.jump_dest_o
-                        if jump_target[lower:0] != 0:
+                        if decode.jump_dest_o[lower:0] != 0:
                             fault = True
                             fault_cause = 0
                             fault_tval[:] = jump_target
@@ -445,7 +581,7 @@ class ExecuteBundle(PipelineControl):
 
                 elif decode.jump_cmd:
                     jump_target[:] = decode.jump_dest_o
-                    if jump_target[lower:0] != 0:
+                    if decode.jump_dest_o[lower:0] != 0:
                         fault = True
                         fault_cause = 0
                         fault_tval[:] = jump_target
@@ -456,7 +592,10 @@ class ExecuteBundle(PipelineControl):
                 elif decode.jumpr_cmd:
                     jump_target[:] = self.alu.res_o
                     jump_target[0] = False
-                    if jump_target[lower:0] != 0:
+                    # Bit zero is cleared architecturally by JALR.  Test only
+                    # the remaining alignment bits directly so trap_valid does
+                    # not inherit the full redirect-data mux and adder cone.
+                    if jalr_misaligned:
                         fault = True
                         fault_cause = 0
                         fault_tval[:] = jump_target
@@ -487,7 +626,7 @@ class ExecuteBundle(PipelineControl):
                 elif decode.sys_cmd:
                     instruction = decode.debug_word_o
                     if instruction == 0x00100073 and debug_ebreak_enable:
-                        debug_ebreak.next = True
+                        pass
                     elif instruction == 0x00000073:
                         fault = True
                         fault_cause = 11
@@ -505,43 +644,78 @@ class ExecuteBundle(PipelineControl):
 
             if fault:
                 do_register_write = False
-                if not debug_progbuf_active:
+                if self.config.jump_bypass and not debug_progbuf_active:
                     do_jump = True
                     jump_target[:] = self.trapCSR.mtvec << lower
 
             trap_valid.next = fault
             trap_cause.next = fault_cause
+            trap_epc.next = fault_epc
             trap_tval.next = fault_tval
             self.invalid_opcode_fault.next = invalid_opcode
             jump.next = do_jump
             jump_dest.next = jump_target
             jump_we.next = do_register_write
-            self.redirect_o.next = do_jump
-            if do_jump:
+            if self.config.jump_bypass:
+                self.redirect_o.next = do_jump
+            else:
+                self.redirect_o.next = normal_jump or \
+                    (trap_pending and not trap_pending_progbuf)
+            if not self.config.jump_bypass and trap_pending:
+                self.next_pc_o.next = self.trapCSR.mtvec << lower
+            elif do_jump:
                 self.next_pc_o.next = jump_target
             else:
                 self.next_pc_o.next = decode.next_ip_o
 
-            self.trap_request.valid.next = fault
             self.trap_request.is_interrupt.next = False
-            self.trap_request.cause.next = fault_cause
-            self.trap_request.epc.next = fault_epc
-            self.trap_request.tval.next = fault_tval
-            if debug_progbuf_active:
-                self.trap_request.source.next = PIPELINE_SOURCE_PROGRAM_BUFFER
-            else:
-                self.trap_request.source.next = PIPELINE_SOURCE_NORMAL
-            self.trap_request.ack.next = fault
+            if self.config.jump_bypass:
+                self.trap_request.valid.next = fault
+                self.trap_request.cause.next = fault_cause
+                self.trap_request.epc.next = fault_epc
+                self.trap_request.tval.next = fault_tval
+                if debug_progbuf_active:
+                    self.trap_request.source.next = \
+                        PIPELINE_SOURCE_PROGRAM_BUFFER
+                else:
+                    self.trap_request.source.next = PIPELINE_SOURCE_NORMAL
+                self.trap_request.ack.next = fault
 
-            self.csrUpdate.mstatus_trap_enter.next = \
-                fault and not debug_progbuf_active
+                self.csrUpdate.mstatus_trap_enter.next = \
+                    fault and not debug_progbuf_active
+                self.csrUpdate.we_mcause.next = \
+                    fault and not debug_progbuf_active
+                self.csrUpdate.we_mtval.next = \
+                    fault and not debug_progbuf_active
+                self.csrUpdate.mtval.next = fault_tval
+                self.csrUpdate.mepc.next = fault_epc[upper:lower]
+                self.csrUpdate.we_mepc.next = \
+                    fault and not debug_progbuf_active
+            else:
+                self.trap_request.valid.next = trap_pending
+                self.trap_request.cause.next = trap_pending_cause
+                self.trap_request.epc.next = trap_pending_epc
+                self.trap_request.tval.next = registered_trap_tval
+                if trap_pending_progbuf:
+                    self.trap_request.source.next = \
+                        PIPELINE_SOURCE_PROGRAM_BUFFER
+                else:
+                    self.trap_request.source.next = PIPELINE_SOURCE_NORMAL
+                self.trap_request.ack.next = trap_pending
+
+                self.csrUpdate.mstatus_trap_enter.next = \
+                    trap_pending and not trap_pending_progbuf
+                self.csrUpdate.we_mcause.next = \
+                    trap_pending and not trap_pending_progbuf
+                self.csrUpdate.we_mtval.next = \
+                    trap_pending and not trap_pending_progbuf
+                self.csrUpdate.mtval.next = registered_trap_tval
+                self.csrUpdate.mepc.next = trap_pending_epc[upper:lower]
+                self.csrUpdate.we_mepc.next = \
+                    trap_pending and not trap_pending_progbuf
+
             self.csrUpdate.mstatus_trap_exit.next = self.taken and \
                 decode.sys_cmd and decode.debug_word_o == 0x30200073
-            self.csrUpdate.we_mcause.next = fault and not debug_progbuf_active
-            self.csrUpdate.we_mtval.next = fault and not debug_progbuf_active
-            self.csrUpdate.mtval.next = fault_tval
-            self.csrUpdate.mepc.next = fault_epc[upper:lower]
-            self.csrUpdate.we_mepc.next = fault and not debug_progbuf_active
 
         @always_comb
         def retirement_event():

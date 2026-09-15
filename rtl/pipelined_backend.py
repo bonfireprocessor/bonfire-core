@@ -51,6 +51,7 @@ class PipelinedBackend:
         boundary_accepted = Signal(bool(0))
         boundary_accepted_source = Signal(modbv(PIPELINE_SOURCE_NORMAL)[2:])
         boundary_accepted_pc = Signal(modbv(0)[conf.xlen:])
+        trap_vector_pc = Signal(modbv(0)[conf.xlen:])
         progbuf_active = Signal(bool(0))
 
         regfile_inst = RegisterFile(
@@ -115,14 +116,24 @@ class PipelinedBackend:
             wb_jump_data.next = self.decode.next_ip_o
             wb_control_retire.next = self.execute.retire_o and \
                 not self.execute.valid_o
+            wb_progbuf.next = progbuf_active
 
-            if self.execute.retire_o:
+            # Capture architectural metadata when Execute accepts the
+            # instruction.  Waiting for the retire expression would put the
+            # full result/trap decision cone on every metadata register CE.
+            if self.execute.taken:
                 wb_pc.next = self.decode.debug_current_ip_o
-                wb_next_pc.next = self.execute.next_pc_o
+                if conf.jump_bypass:
+                    wb_next_pc.next = self.execute.next_pc_o
+                    wb_redirect_pc.next = self.execute.next_pc_o
+                else:
+                    # With the registered redirect stage, the sequential PC is
+                    # cheap to capture here and jump_dest_o holds the registered
+                    # target during the following completion cycle.
+                    wb_next_pc.next = self.decode.next_ip_o
+                    wb_redirect_pc.next = self.decode.next_ip_o
                 wb_store.next = self.decode.store_cmd
-                wb_progbuf.next = progbuf_active
                 wb_redirect.next = self.execute.redirect_o
-                wb_redirect_pc.next = self.execute.next_pc_o
 
         @always_comb
         def writeback_result_mux():
@@ -186,9 +197,9 @@ class PipelinedBackend:
                 self.decode.debugCSRBundle, self.decode.debugCSRUpdateBundle,
                 pipeline_request, debug_pipeline_events)
             pipeline_adapter_inst = DebugPipelineAdapter(
-                conf, clock, fetchBundle, frontEnd, self.decode,
+                conf, clock, reset, fetchBundle, frontEnd, self.decode,
                 pipeline_request, debug_pipeline_events, progbuf_issue,
-                progbuf_completion, self.pipeline_events,
+                progbuf_completion, self.pipeline_events, trap_vector_pc,
                 self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o,
                 self.execute.debug_progbuf_exception_o, progbuf_active)
 
@@ -231,6 +242,10 @@ class PipelinedBackend:
                 out.jump_dest_o.next = self.execute.jump_dest_o
 
         @always_comb
+        def trap_vector_comb():
+            trap_vector_pc.next = self.execute.trapCSR.mtvec << conf.ip_low
+
+        @always_comb
         def boundary_events_comb():
             pipeline_empty = not self.decode.valid_o and \
                 not self.execute.busy_o and not self.execute.valid_o and \
@@ -268,18 +283,29 @@ class PipelinedBackend:
 
             next_pc = boundary_next_pc
             if exception and not progbuf_active:
-                next_pc = self.execute.next_pc_o
+                # A machine-mode exception always redirects to the direct
+                # MTVEC base.  Derive the debug-visible architectural PC from
+                # that registered CSR instead of feeding the Execute redirect
+                # data path combinationally into DPC.
+                next_pc = trap_vector_pc
             elif completed and not wb_progbuf:
-                next_pc = wb_next_pc
+                if wb_redirect and not conf.jump_bypass:
+                    next_pc = self.execute.jump_dest_o
+                else:
+                    next_pc = wb_next_pc
             self.pipeline_events.next_pc.next = next_pc
 
             if exception:
                 self.pipeline_events.redirect.next = \
                     self.execute.redirect_o and not progbuf_active
-                self.pipeline_events.redirect_pc.next = self.execute.next_pc_o
+                self.pipeline_events.redirect_pc.next = trap_vector_pc
             else:
                 self.pipeline_events.redirect.next = wb_redirect
-                self.pipeline_events.redirect_pc.next = wb_redirect_pc
+                if wb_redirect and not conf.jump_bypass:
+                    self.pipeline_events.redirect_pc.next = \
+                        self.execute.jump_dest_o
+                else:
+                    self.pipeline_events.redirect_pc.next = wb_redirect_pc
             self.pipeline_events.register_write.next = completed and wb_valid and wb_we
             self.pipeline_events.register_address.next = wb_rd
             self.pipeline_events.register_data.next = wb_data
@@ -291,19 +317,21 @@ class PipelinedBackend:
             @always_seq(clock.posedge, reset=reset)
             def boundary_next_pc_seq():
                 if self.pipeline_events.terminal:
-                    if self.execute.trap_request.valid and not progbuf_active:
-                        boundary_next_pc.next = self.execute.next_pc_o
-                    elif not self.execute.trap_request.valid and not wb_progbuf:
-                        boundary_next_pc.next = wb_next_pc
+                    if not self.execute.trap_request.valid and not wb_progbuf:
+                        if wb_redirect and not conf.jump_bypass:
+                            boundary_next_pc.next = self.execute.jump_dest_o
+                        else:
+                            boundary_next_pc.next = wb_next_pc
                 if pipeline_request.redirect_valid:
                     boundary_next_pc.next = pipeline_request.redirect_pc
         else:
             @always_seq(clock.posedge, reset=reset)
             def boundary_next_pc_seq():
                 if self.pipeline_events.terminal:
-                    if self.execute.trap_request.valid:
-                        boundary_next_pc.next = self.execute.next_pc_o
-                    else:
-                        boundary_next_pc.next = wb_next_pc
+                    if not self.execute.trap_request.valid:
+                        if wb_redirect and not conf.jump_bypass:
+                            boundary_next_pc.next = self.execute.jump_dest_o
+                        else:
+                            boundary_next_pc.next = wb_next_pc
 
         return instances()

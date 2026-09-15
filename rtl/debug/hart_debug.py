@@ -10,7 +10,10 @@ from rtl.debug.pipeline_adapter import DebugPipelineEventBundle, DebugPipelineRe
 from rtl.debug.types import t_debug_hart_state
 
 
-t_hart_debug_state = enum('running', 'halt_pending', 'halted', 'step_issue', 'step_wait')
+t_hart_debug_state = enum(
+    'running', 'halt_pending', 'halted', 'step_issue', 'step_wait',
+    'halt_exception', 'step_exception',
+)
 
 
 @block
@@ -34,7 +37,10 @@ def HartDebugController(
         request.allow_fetch.next = state == t_hart_debug_state.running or state == t_hart_debug_state.step_issue
         if state == t_hart_debug_state.running and debug_regs.haltreq:
             request.allow_fetch.next = False
-        request.flush.next = events.ebreak or events.progbuf_exception or redirect_valid
+        # Execute kills a faulting instruction locally.  Feeding a Program
+        # Buffer exception back into the same stage as a combinational debug
+        # flush creates a trap -> debug -> decode timing loop.
+        request.flush.next = events.ebreak or redirect_valid
         request.redirect_valid.next = redirect_valid
         request.redirect_pc.next = redirect_pc
 
@@ -65,13 +71,24 @@ def HartDebugController(
                 state.next = t_hart_debug_state.halt_pending
 
         elif state == t_hart_debug_state.halt_pending:
-            if events.pipeline_empty:
+            if events.instruction_exception:
+                state.next = t_hart_debug_state.halt_exception
+            elif events.pipeline_empty:
                 debug_regs.req_ack.next = True
                 debug_csr_update.dpc.next = events.next_pc[config.xlen:config.ip_low]
                 debug_csr_update.cause.next = 3
                 debug_csr_update.we_dpc.next = True
                 debug_csr_update.we_cause.next = True
                 state.next = t_hart_debug_state.halted
+
+        elif state == t_hart_debug_state.halt_exception:
+            debug_regs.req_ack.next = True
+            debug_csr_update.dpc.next = \
+                events.exception_next_pc[config.xlen:config.ip_low]
+            debug_csr_update.cause.next = 3
+            debug_csr_update.we_dpc.next = True
+            debug_csr_update.we_cause.next = True
+            state.next = t_hart_debug_state.halted
 
         elif state == t_hart_debug_state.halted:
             if debug_regs.resumereq:
@@ -94,5 +111,18 @@ def HartDebugController(
                 debug_csr_update.we_dpc.next = True
                 debug_csr_update.we_cause.next = True
                 state.next = t_hart_debug_state.halted
+            elif events.instruction_exception:
+                # Cross a state-register boundary before writing DPC.  The
+                # architectural next PC is registered to MTVEC concurrently
+                # with the exception, so no Execute trap cone reaches DPC.
+                state.next = t_hart_debug_state.step_exception
+
+        elif state == t_hart_debug_state.step_exception:
+            debug_csr_update.dpc.next = \
+                events.exception_next_pc[config.xlen:config.ip_low]
+            debug_csr_update.cause.next = 4
+            debug_csr_update.we_dpc.next = True
+            debug_csr_update.we_cause.next = True
+            state.next = t_hart_debug_state.halted
 
     return instances()

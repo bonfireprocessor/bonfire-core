@@ -74,6 +74,7 @@ class SimpleBackend:
         boundary_accepted = Signal(bool(0))
         boundary_accepted_source = Signal(modbv(PIPELINE_SOURCE_NORMAL)[2:])
         boundary_accepted_pc = Signal(modbv(0)[self.config.xlen:])
+        trap_vector_pc = Signal(modbv(0)[self.config.xlen:])
         progbuf_active = Signal(bool(0))
 
         if self.config.enableDebugModule:
@@ -100,9 +101,9 @@ class SimpleBackend:
                 self.decode.debugCSRBundle, self.decode.debugCSRUpdateBundle,
                 pipeline_request, debug_pipeline_events)
             pipeline_adapter_inst = DebugPipelineAdapter(
-                self.config, clock, fetchBundle, frontEnd, self.decode,
+                self.config, clock, reset, fetchBundle, frontEnd, self.decode,
                 pipeline_request, debug_pipeline_events, progbuf_issue,
-                progbuf_completion, self.pipeline_events,
+                progbuf_completion, self.pipeline_events, trap_vector_pc,
                 self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o,
                 self.execute.debug_progbuf_exception_o, progbuf_active)
 
@@ -179,6 +180,11 @@ class SimpleBackend:
             def proc_out():
                 out.jump_o.next = self.execute.jump_o
                 out.jump_dest_o.next = self.execute.jump_dest_o
+
+        @always_comb
+        def trap_vector_comb():
+            trap_vector_pc.next = \
+                self.execute.trapCSR.mtvec << self.config.ip_low
 
         @always_comb
         def boundary_events_comb():
