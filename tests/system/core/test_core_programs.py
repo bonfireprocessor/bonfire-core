@@ -49,8 +49,10 @@ def _hex_files(repo_root: Path, single: str | None = None) -> list[str]:
         hex_dir = repo_root / hex_dir
 
     files = sorted(hex_dir.glob("*.hex"))
-    # wb_test is a special case, not runnable with the normal tb.
-    files = [p for p in files if p.name != "wb_test.hex"]
+    # These programs need dedicated testbench behavior and are covered by
+    # their own system tests.
+    dedicated_programs = {"wb_test.hex", "precise_traps.hex"}
+    files = [p for p in files if p.name not in dedicated_programs]
     result = []
     for p in files:
         try:

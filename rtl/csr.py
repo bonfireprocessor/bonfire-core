@@ -36,7 +36,11 @@ class CSRUnitBundle(PipelineControl):
 
 
     @block
-    def CSRUnit(self,trap_csrs, trap_csr_upate,clock,reset, debugCSRBundle=None, debugCSRUpdateBundle=None, debugRegisterBundle=None):
+    def CSRUnit(
+        self, trap_csrs, trap_csr_upate, clock, reset,
+        debugCSRBundle=None, debugCSRUpdateBundle=None,
+        debugRegisterBundle=None, retire_i=False,
+    ):
 
         # Pipeline control
         busy = Signal(bool(0))
@@ -57,6 +61,9 @@ class CSRUnitBundle(PipelineControl):
         mcycle = Signal(modbv(0)[64:])
         mcycle_low_we = Signal(bool(0))
         mcycle_high_we = Signal(bool(0))
+        minstret = Signal(modbv(0)[64:])
+        minstret_low_we = Signal(bool(0))
+        minstret_high_we = Signal(bool(0))
 
         bonfirecfg = (
             (int(self.config.pipeline_length == 4) << 0)
@@ -97,6 +104,17 @@ class CSRUnitBundle(PipelineControl):
                 mcycle.next = concat(csr_out, mcycle[32:0])
             else:
                 mcycle.next = mcycle + 1
+
+        @always(clock.posedge)
+        def minstret_seq():
+            if reset:
+                minstret.next = 0
+            elif minstret_low_we:
+                minstret.next = concat(minstret[64:32], csr_out)
+            elif minstret_high_we:
+                minstret.next = concat(csr_out, minstret[32:0])
+            elif retire_i:
+                minstret.next = minstret + 1
 
         @always_comb
         def csr_op_proc():
@@ -139,6 +157,8 @@ class CSRUnitBundle(PipelineControl):
                 csr_we.next = False
                 mcycle_low_we.next = False
                 mcycle_high_we.next = False
+                minstret_low_we.next = False
+                minstret_high_we.next = False
                 csr_select_adr.next = reg
 
                 if priv == 0b11:
@@ -156,6 +176,11 @@ class CSRUnitBundle(PipelineControl):
                     elif rw == 0: # Read Write Registers
                         if reg == CSRAdr.isa:
                             csr_in.next[32:30]=0b01
+                            csr_in.next[8] = True
+                        elif reg == CSRAdr.ip:
+                            csr_in.next = 0
+                            if csr_write_requested:
+                                inv_reg.next = True
                         elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
                             csr_we.next = self.taken and csr_write_requested
                             csr_in.next = trap_csr_read_view.data
@@ -171,6 +196,12 @@ class CSRUnitBundle(PipelineControl):
                         elif reg == CSRAdr.mcycleh:
                             csr_in.next = mcycle[64:32]
                             mcycle_high_we.next = self.taken and csr_write_requested
+                        elif reg == CSRAdr.minstret:
+                            csr_in.next = minstret[32:0]
+                            minstret_low_we.next = self.taken and csr_write_requested
+                        elif reg == CSRAdr.minstreth:
+                            csr_in.next = minstret[64:32]
+                            minstret_high_we.next = self.taken and csr_write_requested
                         else:
                             inv_reg.next = True
                     elif debug_csr_read_view.valid:
@@ -189,6 +220,8 @@ class CSRUnitBundle(PipelineControl):
                 csr_we.next = False
                 mcycle_low_we.next = False
                 mcycle_high_we.next = False
+                minstret_low_we.next = False
+                minstret_high_we.next = False
                 csr_select_adr.next = reg
 
                 if priv == 0b11:
@@ -206,6 +239,11 @@ class CSRUnitBundle(PipelineControl):
                     elif rw == 0: # Read Write Registers
                         if reg == CSRAdr.isa:
                             csr_in.next[32:30]=0b01
+                            csr_in.next[8] = True
+                        elif reg == CSRAdr.ip:
+                            csr_in.next = 0
+                            if csr_write_requested:
+                                inv_reg.next = True
                         elif trap_csr_read_view.valid: # If Valid Trap Reigster selected
                             csr_we.next = self.taken and csr_write_requested
                             csr_in.next = trap_csr_read_view.data
@@ -218,6 +256,12 @@ class CSRUnitBundle(PipelineControl):
                         elif reg == CSRAdr.mcycleh:
                             csr_in.next = mcycle[64:32]
                             mcycle_high_we.next = self.taken and csr_write_requested
+                        elif reg == CSRAdr.minstret:
+                            csr_in.next = minstret[32:0]
+                            minstret_low_we.next = self.taken and csr_write_requested
+                        elif reg == CSRAdr.minstreth:
+                            csr_in.next = minstret[64:32]
+                            minstret_high_we.next = self.taken and csr_write_requested
                         else:
                             inv_reg.next = True
                     else:

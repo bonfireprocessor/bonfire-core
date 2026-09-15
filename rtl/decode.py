@@ -352,7 +352,9 @@ class DecodeBundle(PipelineControl):
                                 rs1_imm_value.next = self.word_i[20:15]
                     else:
                         inv=True
-                    self.valid_o.next = not inv and cmd_seen
+                    # Invalid encodings must reach Execute so they can take the
+                    # same precise architectural trap path as other faults.
+                    self.valid_o.next = inv or cmd_seen
                     self.invalid_opcode.next= inv
                 else:
                     self.valid_o.next=False

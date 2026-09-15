@@ -19,6 +19,11 @@ from tests.conftest import run_sim
 
 CSR_MCYCLE = 0xB00
 CSR_MCYCLEH = 0xB80
+CSR_MINSTRET = 0xB02
+CSR_MINSTRETH = 0xB82
+CSR_MISA = 0x301
+CSR_MIE = 0x304
+CSR_MIP = 0x344
 CSR_MBONFIRECFG = 0xFC0
 
 CSR_F3_CSRRW = 0b001
@@ -40,7 +45,9 @@ def csr_testbench():
     csr = CSRUnitBundle(config)
     trap_csrs = TrapCSRBundle(config)
     trap_update = TrapCSRUpdateBundle(config)
-    dut = csr.CSRUnit(trap_csrs, trap_update, clock, reset)
+    retire = Signal(bool(0))
+    dut = csr.CSRUnit(
+        trap_csrs, trap_update, clock, reset, retire_i=retire)
 
     observed = {"result": 0, "invalid": False, "valid": False}
 
@@ -81,6 +88,20 @@ def csr_testbench():
         assert observed["invalid"]
         assert not observed["valid"]
 
+        yield access(CSR_MISA, CSR_F3_CSRRS, 0)
+        assert observed["result"] == 0x40000100
+
+        yield access(CSR_MIE, CSR_F3_CSRRW, 1, 0xFFFFFFFF)
+        assert not observed["invalid"]
+        yield access(CSR_MIE, CSR_F3_CSRRS, 0)
+        assert observed["result"] == 0xFFFF0888
+
+        yield access(CSR_MIP, CSR_F3_CSRRS, 0)
+        assert observed["result"] == 0
+        yield access(CSR_MIP, CSR_F3_CSRRW, 1, 0)
+        assert observed["invalid"]
+        assert not observed["valid"]
+
         yield access(CSR_MCYCLE, CSR_F3_CSRRS, 0)
         first_cycle = observed["result"]
         yield access(CSR_MCYCLE, CSR_F3_CSRRS, 0)
@@ -110,6 +131,18 @@ def csr_testbench():
         assert observed["result"] == 1
         yield access(CSR_MCYCLE, CSR_F3_CSRRS, 0)
         assert observed["result"] == 1
+
+        yield access(CSR_MINSTRETH, CSR_F3_CSRRW, 1, 0)
+        yield access(CSR_MINSTRET, CSR_F3_CSRRW, 1, 0)
+        retire.next = True
+        yield clock.posedge
+        yield clock.posedge
+        retire.next = False
+        yield delay(1)
+        yield access(CSR_MINSTRET, CSR_F3_CSRRS, 0)
+        assert observed["result"] == 2
+        yield access(CSR_MINSTRETH, CSR_F3_CSRRS, 0)
+        assert observed["result"] == 0
 
         raise StopSimulation
 

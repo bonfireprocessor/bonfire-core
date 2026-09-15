@@ -32,7 +32,7 @@ check_csr(mscratch,0xdeadbeef)
 
 
 check_csr(mimpid,0x8000)
-check_csr(misa,0x40000000)
+check_csr(misa,0x40000100)
 check_csr(mvendorid,0)
 check_csr(marchid,0)
 check_csr(mhartid,0)

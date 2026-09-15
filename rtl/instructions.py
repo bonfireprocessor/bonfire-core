@@ -107,7 +107,9 @@ class MulDivFunct:
 class CSRAdr:
     status = 0
     mcycle = 0x00  # CSR 0xb00
+    minstret = 0x02  # CSR 0xb02
     isa = 1
+    ie = 4
     tvec = 5
     vendorid = 0x11
     archid = 0x12
@@ -121,6 +123,7 @@ class CSRAdr:
     dcsr = 0xb0
     dpc = 0xb1
     mcycleh = 0x80  # CSR 0xb80
+    minstreth = 0x82  # CSR 0xb82
     mbonfirecfg = 0xc0  # CSR 0xfc0
 
 

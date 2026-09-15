@@ -22,6 +22,11 @@ from rtl.debug.pipeline_adapter import (
     DebugPipelineEventBundle,
     DebugPipelineRequestBundle,
 )
+from rtl.bonfire_interfaces import (
+    PIPELINE_SOURCE_NORMAL,
+    PIPELINE_SOURCE_PROGRAM_BUFFER,
+    PipelineBoundaryEventBundle,
+)
 
 from  rtl import config
 def_config= config.BonfireConfig()
@@ -56,6 +61,7 @@ class SimpleBackend:
 
         self.decode = DecodeBundle(config)
         self.execute =  ExecuteBundle(config)
+        self.pipeline_events = PipelineBoundaryEventBundle(config)
 
         self.config=config 
         
@@ -64,15 +70,18 @@ class SimpleBackend:
     def backend(self,fetchBundle, frontEnd, databus, clock, reset, out, debugport, debugRegisterBundle=None):
 
         regfile_inst = RegisterFile(clock,self.reg_portA,self.reg_portB,self.reg_writePort,self.config.xlen)
+        boundary_next_pc = Signal(modbv(self.config.reset_address)[self.config.xlen:])
+        boundary_accepted = Signal(bool(0))
+        boundary_accepted_source = Signal(modbv(PIPELINE_SOURCE_NORMAL)[2:])
+        boundary_accepted_pc = Signal(modbv(0)[self.config.xlen:])
+        progbuf_active = Signal(bool(0))
 
         if self.config.enableDebugModule:
             register_transfer = AbstractRegisterTransferBundle(self.config)
             progbuf_issue = ProgbufIssueBundle(self.config)
             progbuf_completion = ProgbufCompletionBundle()
             pipeline_request = DebugPipelineRequestBundle(self.config)
-            pipeline_events = DebugPipelineEventBundle(self.config)
-            pipeline_empty = Signal(bool(0))
-            progbuf_active = Signal(bool(0))
+            debug_pipeline_events = DebugPipelineEventBundle(self.config)
 
             decode_inst = self.decode.decoder(
                 clock, reset, debugRegisterBundle=debugRegisterBundle,
@@ -89,18 +98,36 @@ class SimpleBackend:
             hart_debug_inst = HartDebugController(
                 self.config, clock, debugRegisterBundle,
                 self.decode.debugCSRBundle, self.decode.debugCSRUpdateBundle,
-                pipeline_request, pipeline_events)
+                pipeline_request, debug_pipeline_events)
             pipeline_adapter_inst = DebugPipelineAdapter(
                 self.config, clock, fetchBundle, frontEnd, self.decode,
-                pipeline_request, pipeline_events, progbuf_issue,
-                progbuf_completion, pipeline_empty,
-                self.execute.jump_o, self.execute.jump_dest_o,
+                pipeline_request, debug_pipeline_events, progbuf_issue,
+                progbuf_completion, self.pipeline_events,
                 self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o,
                 self.execute.debug_progbuf_exception_o, progbuf_active)
+
+            @always_comb
+            def debug_boundary_issue():
+                boundary_accepted.next = \
+                    debug_pipeline_events.instruction_accepted or \
+                    progbuf_completion.accepted
+                boundary_accepted_pc.next = self.decode.current_ip_i
+                if progbuf_completion.accepted:
+                    boundary_accepted_source.next = \
+                        PIPELINE_SOURCE_PROGRAM_BUFFER
+                else:
+                    boundary_accepted_source.next = PIPELINE_SOURCE_NORMAL
         else:
             decode_inst = self.decode.decoder(clock, reset)
             exec_inst = self.execute.SimpleExecute(
                 self.decode, databus, debugport, clock, reset)
+
+            @always_comb
+            def normal_boundary_issue():
+                boundary_accepted.next = self.decode.en_i and \
+                    not self.decode.busy_o
+                boundary_accepted_source.next = PIPELINE_SOURCE_NORMAL
+                boundary_accepted_pc.next = self.decode.current_ip_i
 
         d_e_inst = self.execute.connect(clock,reset,previous=self.decode)
 
@@ -141,11 +168,6 @@ class SimpleBackend:
 
         if self.config.enableDebugModule:
             @always_comb
-            def debug_pipeline_status():
-                pipeline_empty.next = not self.decode.valid_o and \
-                    not self.execute.busy_o and not self.execute.valid_o
-
-            @always_comb
             def proc_out():
                 out.jump_o.next = self.execute.jump_o or pipeline_request.redirect_valid
                 if pipeline_request.redirect_valid:
@@ -157,6 +179,64 @@ class SimpleBackend:
             def proc_out():
                 out.jump_o.next = self.execute.jump_o
                 out.jump_dest_o.next = self.execute.jump_dest_o
+
+        @always_comb
+        def boundary_events_comb():
+            pipeline_empty = not self.decode.valid_o and \
+                not self.execute.busy_o and not self.execute.valid_o
+            exception = self.execute.trap_request.valid
+            completed = self.execute.retire_o and not exception
+            terminal = completed or exception
+
+            self.pipeline_events.accepted.next = boundary_accepted
+            self.pipeline_events.accepted_source.next = \
+                boundary_accepted_source
+            self.pipeline_events.accepted_pc.next = boundary_accepted_pc
+            self.pipeline_events.valid.next = terminal
+            if progbuf_active:
+                self.pipeline_events.source.next = \
+                    PIPELINE_SOURCE_PROGRAM_BUFFER
+            else:
+                self.pipeline_events.source.next = PIPELINE_SOURCE_NORMAL
+
+            self.pipeline_events.terminal.next = terminal
+            self.pipeline_events.completed.next = completed
+            self.pipeline_events.retired.next = completed
+            self.pipeline_events.exception.next = exception
+            self.pipeline_events.trap.next = exception
+            self.pipeline_events.cancelled.next = False
+            self.pipeline_events.killed.next = False
+            self.pipeline_events.instruction_pc.next = \
+                self.decode.debug_current_ip_o
+
+            next_pc = boundary_next_pc
+            if terminal and not progbuf_active:
+                next_pc = self.execute.next_pc_o
+            self.pipeline_events.next_pc.next = next_pc
+            self.pipeline_events.redirect.next = self.execute.jump_o
+            self.pipeline_events.redirect_pc.next = self.execute.jump_dest_o
+            self.pipeline_events.register_write.next = \
+                completed and self.execute.reg_we_o
+            self.pipeline_events.register_address.next = \
+                self.execute.rd_adr_o
+            self.pipeline_events.register_data.next = self.execute.result_o
+            self.pipeline_events.store_commit.next = \
+                completed and self.decode.store_cmd
+            self.pipeline_events.pipeline_empty.next = pipeline_empty
+            self.pipeline_events.drained.next = pipeline_empty
+
+        if self.config.enableDebugModule:
+            @always_seq(clock.posedge, reset=reset)
+            def boundary_next_pc_seq():
+                if self.pipeline_events.terminal and not progbuf_active:
+                    boundary_next_pc.next = self.execute.next_pc_o
+                if pipeline_request.redirect_valid:
+                    boundary_next_pc.next = pipeline_request.redirect_pc
+        else:
+            @always_seq(clock.posedge, reset=reset)
+            def boundary_next_pc_seq():
+                if self.pipeline_events.terminal:
+                    boundary_next_pc.next = self.execute.next_pc_o
 
 
         return instances()

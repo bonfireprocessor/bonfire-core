@@ -22,6 +22,11 @@ from rtl.debug.pipeline_adapter import (
     DebugPipelineEventBundle,
     DebugPipelineRequestBundle,
 )
+from rtl.bonfire_interfaces import (
+    PIPELINE_SOURCE_NORMAL,
+    PIPELINE_SOURCE_PROGRAM_BUFFER,
+    PipelineBoundaryEventBundle,
+)
 
 
 class PipelinedBackend:
@@ -35,12 +40,18 @@ class PipelinedBackend:
 
         self.decode = DecodeBundle(config)
         self.execute = ExecuteBundle(config)
+        self.pipeline_events = PipelineBoundaryEventBundle(config)
 
     @block
     def backend(self, fetchBundle, frontEnd, databus, clock, reset, out,
                 debugport, debugRegisterBundle=None):
         conf = self.config
         bypass = conf.writeback_bypass
+        boundary_next_pc = Signal(modbv(conf.reset_address)[conf.xlen:])
+        boundary_accepted = Signal(bool(0))
+        boundary_accepted_source = Signal(modbv(PIPELINE_SOURCE_NORMAL)[2:])
+        boundary_accepted_pc = Signal(modbv(0)[conf.xlen:])
+        progbuf_active = Signal(bool(0))
 
         regfile_inst = RegisterFile(
             clock, self.reg_portA, self.reg_portB,
@@ -50,9 +61,7 @@ class PipelinedBackend:
             progbuf_issue = ProgbufIssueBundle(conf)
             progbuf_completion = ProgbufCompletionBundle()
             pipeline_request = DebugPipelineRequestBundle(conf)
-            pipeline_events = DebugPipelineEventBundle(conf)
-            pipeline_empty = Signal(bool(0))
-            progbuf_active = Signal(bool(0))
+            debug_pipeline_events = DebugPipelineEventBundle(conf)
 
             decode_inst = self.decode.decoder(
                 clock, reset, debugRegisterBundle=debugRegisterBundle,
@@ -82,6 +91,13 @@ class PipelinedBackend:
         wb_csr_data = Signal(modbv(0)[conf.xlen:])
         wb_jump_data = Signal(modbv(0)[conf.xlen:])
         wb_data = Signal(modbv(0)[conf.xlen:])
+        wb_control_retire = Signal(bool(0))
+        wb_pc = Signal(modbv(0)[conf.xlen:])
+        wb_next_pc = Signal(modbv(conf.reset_address)[conf.xlen:])
+        wb_store = Signal(bool(0))
+        wb_progbuf = Signal(bool(0))
+        wb_redirect = Signal(bool(0))
+        wb_redirect_pc = Signal(modbv(0)[conf.xlen:])
 
         @always_seq(clock.posedge, reset=reset)
         def writeback_seq():
@@ -97,6 +113,16 @@ class PipelinedBackend:
             wb_load_data.next = self.execute.ls.result_o
             wb_csr_data.next = self.execute.csr.result_o
             wb_jump_data.next = self.decode.next_ip_o
+            wb_control_retire.next = self.execute.retire_o and \
+                not self.execute.valid_o
+
+            if self.execute.retire_o:
+                wb_pc.next = self.decode.debug_current_ip_o
+                wb_next_pc.next = self.execute.next_pc_o
+                wb_store.next = self.decode.store_cmd
+                wb_progbuf.next = progbuf_active
+                wb_redirect.next = self.execute.redirect_o
+                wb_redirect_pc.next = self.execute.next_pc_o
 
         @always_comb
         def writeback_result_mux():
@@ -158,20 +184,25 @@ class PipelinedBackend:
             hart_debug_inst = HartDebugController(
                 conf, clock, debugRegisterBundle,
                 self.decode.debugCSRBundle, self.decode.debugCSRUpdateBundle,
-                pipeline_request, pipeline_events)
+                pipeline_request, debug_pipeline_events)
             pipeline_adapter_inst = DebugPipelineAdapter(
                 conf, clock, fetchBundle, frontEnd, self.decode,
-                pipeline_request, pipeline_events, progbuf_issue,
-                progbuf_completion, pipeline_empty,
-                self.execute.jump_o, self.execute.jump_dest_o,
+                pipeline_request, debug_pipeline_events, progbuf_issue,
+                progbuf_completion, self.pipeline_events,
                 self.execute.debug_ebreak_o, self.execute.debug_ebreak_pc_o,
                 self.execute.debug_progbuf_exception_o, progbuf_active)
 
             @always_comb
-            def debug_pipeline_status():
-                pipeline_empty.next = not self.decode.valid_o and \
-                    not self.execute.busy_o and not self.execute.valid_o and \
-                    not wb_valid
+            def debug_boundary_issue():
+                boundary_accepted.next = \
+                    debug_pipeline_events.instruction_accepted or \
+                    progbuf_completion.accepted
+                boundary_accepted_pc.next = self.decode.current_ip_i
+                if progbuf_completion.accepted:
+                    boundary_accepted_source.next = \
+                        PIPELINE_SOURCE_PROGRAM_BUFFER
+                else:
+                    boundary_accepted_source.next = PIPELINE_SOURCE_NORMAL
 
             @always_comb
             def proc_out():
@@ -188,8 +219,91 @@ class PipelinedBackend:
                 self.decode.next_ip_i.next = fetchBundle.next_ip_i
 
             @always_comb
+            def normal_boundary_issue():
+                boundary_accepted.next = self.decode.en_i and \
+                    not self.decode.busy_o
+                boundary_accepted_source.next = PIPELINE_SOURCE_NORMAL
+                boundary_accepted_pc.next = self.decode.current_ip_i
+
+            @always_comb
             def proc_out():
                 out.jump_o.next = self.execute.jump_o
                 out.jump_dest_o.next = self.execute.jump_dest_o
+
+        @always_comb
+        def boundary_events_comb():
+            pipeline_empty = not self.decode.valid_o and \
+                not self.execute.busy_o and not self.execute.valid_o and \
+                not wb_valid and not wb_control_retire
+            exception = self.execute.trap_request.valid
+            completed = (wb_valid or wb_control_retire) and not exception
+            terminal = completed or exception
+
+            self.pipeline_events.accepted.next = boundary_accepted
+            self.pipeline_events.accepted_source.next = \
+                boundary_accepted_source
+            self.pipeline_events.accepted_pc.next = boundary_accepted_pc
+            self.pipeline_events.valid.next = terminal
+            if exception:
+                self.pipeline_events.source.next = \
+                    self.execute.trap_request.source
+            elif wb_progbuf:
+                self.pipeline_events.source.next = \
+                    PIPELINE_SOURCE_PROGRAM_BUFFER
+            else:
+                self.pipeline_events.source.next = PIPELINE_SOURCE_NORMAL
+
+            self.pipeline_events.terminal.next = terminal
+            self.pipeline_events.completed.next = completed
+            self.pipeline_events.retired.next = completed
+            self.pipeline_events.exception.next = exception
+            self.pipeline_events.trap.next = exception
+            self.pipeline_events.cancelled.next = False
+            self.pipeline_events.killed.next = False
+            if exception:
+                self.pipeline_events.instruction_pc.next = \
+                    self.decode.debug_current_ip_o
+            else:
+                self.pipeline_events.instruction_pc.next = wb_pc
+
+            next_pc = boundary_next_pc
+            if exception and not progbuf_active:
+                next_pc = self.execute.next_pc_o
+            elif completed and not wb_progbuf:
+                next_pc = wb_next_pc
+            self.pipeline_events.next_pc.next = next_pc
+
+            if exception:
+                self.pipeline_events.redirect.next = \
+                    self.execute.redirect_o and not progbuf_active
+                self.pipeline_events.redirect_pc.next = self.execute.next_pc_o
+            else:
+                self.pipeline_events.redirect.next = wb_redirect
+                self.pipeline_events.redirect_pc.next = wb_redirect_pc
+            self.pipeline_events.register_write.next = completed and wb_valid and wb_we
+            self.pipeline_events.register_address.next = wb_rd
+            self.pipeline_events.register_data.next = wb_data
+            self.pipeline_events.store_commit.next = completed and wb_valid and wb_store
+            self.pipeline_events.pipeline_empty.next = pipeline_empty
+            self.pipeline_events.drained.next = pipeline_empty
+
+        if conf.enableDebugModule:
+            @always_seq(clock.posedge, reset=reset)
+            def boundary_next_pc_seq():
+                if self.pipeline_events.terminal:
+                    if self.execute.trap_request.valid and not progbuf_active:
+                        boundary_next_pc.next = self.execute.next_pc_o
+                    elif not self.execute.trap_request.valid and not wb_progbuf:
+                        boundary_next_pc.next = wb_next_pc
+                if pipeline_request.redirect_valid:
+                    boundary_next_pc.next = pipeline_request.redirect_pc
+        else:
+            @always_seq(clock.posedge, reset=reset)
+            def boundary_next_pc_seq():
+                if self.pipeline_events.terminal:
+                    if self.execute.trap_request.valid:
+                        boundary_next_pc.next = self.execute.next_pc_o
+                    else:
+                        boundary_next_pc.next = wb_next_pc
 
         return instances()

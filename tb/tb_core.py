@@ -42,7 +42,10 @@ def create_ram(progfile,ramsize):
 
 
 @block
-def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=4096,verbose=False):
+def tb(
+    config=config.BonfireConfig(), hexFile="", elfFile="", sigFile="",
+    ramsize=4096, verbose=False, dbus_error_address=None,
+):
 
     ram = create_ram(hexFile,ramsize)
 
@@ -87,18 +90,25 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
 
     @always_comb
     def slave_connect():
-        ram_sel =  dbus.adr_o>>2 < ramsize and dbus.en_o
+        inject_error = dbus_error_address is not None and dbus.en_o and \
+            dbus.adr_o == dbus_error_address
+        ram_sel = dbus.adr_o>>2 < ramsize and dbus.en_o and not inject_error
         ram_dbus.en_o.next = ram_sel
         ram_dbus.we_o.next = dbus.we_o
         ram_dbus.adr_o.next = dbus.adr_o[log(ramsize,2)+2:]
         ram_dbus.db_wr.next = dbus.db_wr
 
-        mon_dbus.en_o.next = not ram_sel and dbus.en_o
+        mon_dbus.en_o.next = not ram_sel and dbus.en_o and not inject_error
         mon_dbus.we_o.next = dbus.we_o
         mon_dbus.adr_o.next = dbus.adr_o
         mon_dbus.db_wr.next = dbus.db_wr
 
-        if ram_sel or ram_sel_r:
+        dbus.error_i.next = inject_error
+        if inject_error:
+            dbus.stall_i.next = False
+            dbus.ack_i.next = False
+            dbus.db_rd.next = 0
+        elif ram_sel or ram_sel_r:
             dbus.stall_i.next = ram_dbus.stall_i
             dbus.ack_i.next = ram_dbus.ack_i
             dbus.db_rd.next = ram_dbus.db_rd
@@ -118,15 +128,16 @@ def tb(config=config.BonfireConfig(),hexFile="",elfFile="",sigFile="",ramsize=40
             if verbose:
                 instr = int(d.debug_word_o)
                 asm, _ = disassemble(instr)
-                print("@{}ns exc: 0x{:08x}: 0x{:08x} {}".format(now(), int(t_ip), instr, asm))
+                print("@{}ns exc: 0x{:08x}: 0x{:08x} {}".format(
+                    now(), int(t_ip), instr, asm))
+
+        if verbose and core.backend.execute.trap_request.valid:
+            request = core.backend.execute.trap_request
+            print("@{}ns trap: cause={} epc=0x{:08x} tval=0x{:08x}".format(
+                now(), int(request.cause), int(request.epc),
+                int(request.tval)))
            
         
-        inv = d.en_i and d.invalid_opcode and not d.kill_i
-        if inv:
-            instr = int(d.word_i)
-            asm, _ = disassemble(instr)
-            assert False, "Invalid opcode @{}: pc:0x{:08x} op:0x{:08x} {} ".format(now(), int(d.current_ip_i), instr, asm)
-   
     return instances()
 
 

@@ -35,6 +35,8 @@ class PipelineBoundaryEventBundle:
         # ``accepted`` qualifies issue metadata. ``valid`` qualifies the
         # metadata carried by a terminal event.
         self.accepted = Signal(bool(0))
+        self.accepted_source = Signal(modbv(PIPELINE_SOURCE_NORMAL)[2:])
+        self.accepted_pc = Signal(modbv(0)[xlen:])
         self.valid = Signal(bool(0))
         self.source = Signal(modbv(PIPELINE_SOURCE_NORMAL)[2:])
 
@@ -60,6 +62,19 @@ class PipelineBoundaryEventBundle:
         self.drained = Signal(bool(1))
 
 
+class TrapRequestBundle:
+    """Synchronous or asynchronous request for an architectural trap."""
+
+    def __init__(self, config: BonfireConfig) -> None:
+        self.valid = Signal(bool(0))
+        self.is_interrupt = Signal(bool(0))
+        self.cause = Signal(modbv(0)[6:])
+        self.epc = Signal(modbv(0)[config.xlen:])
+        self.tval = Signal(modbv(0)[config.xlen:])
+        self.source = Signal(modbv(PIPELINE_SOURCE_NORMAL)[2:])
+        self.ack = Signal(bool(0))
+
+
 @block
 def PipelineBoundaryEventAssertions(events: PipelineBoundaryEventBundle) -> Any:
     """Check local invariants for a driven pipeline-boundary event bundle."""
@@ -75,7 +90,9 @@ def PipelineBoundaryEventAssertions(events: PipelineBoundaryEventBundle) -> Any:
             "pipeline terminal must identify exactly one outcome"
         assert not events.terminal or events.valid, \
             "a terminal event must carry valid metadata"
-        assert not (events.accepted or events.valid) or events.source != 3, \
+        assert not events.accepted or events.accepted_source != 3, \
+            "accepted pipeline event source is reserved"
+        assert not events.valid or events.source != 3, \
             "pipeline event source is reserved"
         assert not events.retired or events.completed, \
             "only a successfully completed operation may retire"

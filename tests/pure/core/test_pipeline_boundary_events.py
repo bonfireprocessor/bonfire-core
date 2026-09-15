@@ -19,6 +19,8 @@ def test_pipeline_boundary_event_bundle_defaults():
     events = PipelineBoundaryEventBundle(config)
 
     assert len(events.source) == 2
+    assert len(events.accepted_source) == 2
+    assert len(events.accepted_pc) == config.xlen
     assert len(events.instruction_pc) == config.xlen
     assert len(events.next_pc) == config.xlen
     assert len(events.redirect_pc) == config.xlen

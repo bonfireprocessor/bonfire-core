@@ -14,6 +14,11 @@ from rtl.instructions import BranchFunct3  as b3
 from rtl.instructions import Opcodes, PrivFunct12
 
 from rtl.pipeline_control import *
+from rtl.bonfire_interfaces import (
+    PIPELINE_SOURCE_NORMAL,
+    PIPELINE_SOURCE_PROGRAM_BUFFER,
+    TrapRequestBundle,
+)
 
 
 class ExecuteBundle(PipelineControl):
@@ -51,6 +56,10 @@ class ExecuteBundle(PipelineControl):
         self.jump_dest_o = Signal(intbv(0)[xlen:])
 
         self.invalid_opcode_fault = Signal(bool(0))
+        self.trap_request = TrapRequestBundle(config)
+        self.retire_o = Signal(bool(0))
+        self.next_pc_o = Signal(modbv(0)[xlen:])
+        self.redirect_o = Signal(bool(0))
 
         if config.enableDebugModule:
             self.debug_ebreak_o = Signal(bool(0))
@@ -112,6 +121,17 @@ class ExecuteBundle(PipelineControl):
         debug_ebreak = Signal(bool(0))
         debug_ebreak_pc = Signal(modbv(0)[self.config.xlen:])
 
+        ls_effective_address = Signal(modbv(0)[self.config.xlen:])
+        ls_issue_invalid = Signal(bool(0))
+        ls_issue_misaligned = Signal(bool(0))
+        ls_fault_address = Signal(modbv(0)[self.config.xlen:])
+        ls_fault_pc = Signal(modbv(0)[self.config.xlen:])
+        ls_fault_store = Signal(bool(0))
+        trap_valid = Signal(bool(0))
+        trap_cause = Signal(modbv(0)[6:])
+        trap_tval = Signal(modbv(0)[self.config.xlen:])
+        retire = Signal(bool(0))
+
         op1 = Signal(modbv(0)[self.config.xlen:])
         op2 = Signal(modbv(0)[self.config.xlen:])
 
@@ -123,9 +143,12 @@ class ExecuteBundle(PipelineControl):
                 self.trapCSR,self.csrUpdate,clock,reset,
                 debugCSRBundle=decode.debugCSRBundle,
                 debugCSRUpdateBundle=decode.debugCSRUpdateBundle,
-                debugRegisterBundle=debugRegisterBundle)
+                debugRegisterBundle=debugRegisterBundle,
+                retire_i=retire)
         else:
-            csr_inst = self.csr.CSRUnit(self.trapCSR,self.csrUpdate,clock,reset)
+            csr_inst = self.csr.CSRUnit(
+                self.trapCSR, self.csrUpdate, clock, reset,
+                retire_i=retire)
 
         p_inst = self.pipeline_instance(busy,valid)
 
@@ -140,14 +163,8 @@ class ExecuteBundle(PipelineControl):
             def debug_events():
                 self.debug_ebreak_o.next = debug_ebreak
                 self.debug_ebreak_pc_o.next = debug_ebreak_pc
-                self.debug_progbuf_exception_o.next = debug_progbuf_active and (
-                    (self.taken and decode.invalid_opcode) or
-                    self.invalid_opcode_fault or self.csr.invalid_op_o or
-                    self.ls.invalid_op_o or self.ls.misalign_load_o or
-                    self.ls.misalign_store_o or self.ls.bus_error_o or
-                    (self.taken and decode.sys_cmd and
-                     decode.priv_funct_12 == PrivFunct12.RV32_F12_ECALL)
-                )
+                self.debug_progbuf_exception_o.next = \
+                    debug_progbuf_active and trap_valid
         else:
             debug_flush = False
             debug_progbuf_active = False
@@ -158,7 +175,11 @@ class ExecuteBundle(PipelineControl):
 
             jump_busy.next = False
 
-            if self.taken:
+            if trap_valid:
+                jump_dest_r.next = jump_dest
+                jump_r.next = jump
+                jump_busy.next = jump and not self.config.jump_bypass
+            elif self.taken:
                 rd_adr_reg.next = decode.rd_adr_o
                 jump_dest_r.next = jump_dest
                 jump_r.next = jump
@@ -167,11 +188,17 @@ class ExecuteBundle(PipelineControl):
                 # if self.debug_exec_jump.next:
                 #     print(now(), "jump or branch")
 
+            if self.ls.taken:
+                ls_fault_address.next = ls_effective_address
+                ls_fault_pc.next = decode.mepc_o
+                ls_fault_store.next = decode.store_cmd
+
         if not self.wb_stage:
             @always_seq(clock.posedge, reset=reset)
             def pending_seq():
                 if self.taken:
-                    load_pending.next = decode.load_cmd
+                    load_pending.next = decode.load_cmd and \
+                        not ls_issue_invalid and not ls_issue_misaligned
                     shift_pending.next = pipelined_shifter and decode.alu_cmd and \
                         (decode.funct3_o == a3.RV32_F3_SLL or \
                          decode.funct3_o == a3.RV32_F3_SRL_SRA)
@@ -222,7 +249,8 @@ class ExecuteBundle(PipelineControl):
 
             # Pipeline
             busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy or self.hazard_i
-            valid.next = self.alu.valid_o or self.ls.valid_o  or self.csr.valid_o  or jump_we
+            valid.next = (self.alu.valid_o or self.ls.valid_o or
+                          self.csr.valid_o or jump_we) and not trap_valid
 
             if self.config.jump_bypass:
                 if self.config.enableDebugModule:
@@ -239,7 +267,9 @@ class ExecuteBundle(PipelineControl):
             # Functional Unit selection
 
             self.alu.en_i.next = decode.alu_cmd and self.taken
-            self.ls.en_i.next = ( decode.store_cmd or decode.load_cmd ) and self.taken
+            self.ls.en_i.next = (decode.store_cmd or decode.load_cmd) and \
+                self.taken and not ls_issue_invalid and \
+                not ls_issue_misaligned
             self.csr.en_i.next = decode.csr_cmd and self.taken
 
             # Simulation Debug Signals
@@ -292,14 +322,19 @@ class ExecuteBundle(PipelineControl):
         @always_comb
         def comb_misc():
 
-            self.reg_we_o.next =  self.alu.valid_o or self.ls.we_o  or self.csr.valid_o or jump_we
+            self.reg_we_o.next = (self.alu.valid_o or self.ls.we_o or
+                                  self.csr.valid_o or jump_we) and not trap_valid
+            self.retire_o.next = retire
 
             if self.taken:
                 self.rd_adr_o.next = decode.rd_adr_o
             else:
                 self.rd_adr_o.next = rd_adr_reg
 
-            if self.taken and self.config.jump_bypass:
+            if trap_valid:
+                self.jump_o.next = jump
+                self.jump_dest_o.next = jump_dest
+            elif self.taken and self.config.jump_bypass:
                 self.jump_o.next = jump
                 self.jump_dest_o.next = jump_dest
             else:
@@ -314,10 +349,25 @@ class ExecuteBundle(PipelineControl):
 
             self.csrUpdate.mcause_irq.next = 0
 
-            if decode.priv_funct_12[0]:
-                self.csrUpdate.mcause.next = 0x3 # EBRAK
-            else:
-                self.csrUpdate.mcause.next = 0xb #ECALL
+            self.csrUpdate.mcause.next = trap_cause
+
+        @always_comb
+        def loadstore_address_comb():
+            ls_effective_address.next = \
+                op1 + decode.displacement_o.signed()
+
+        @always_comb
+        def loadstore_issue_check():
+            funct = decode.funct3_o
+            byte_mode = funct[2:0] == 0
+            half_mode = funct[2:0] == 1
+            word_mode = funct[2:0] == 2
+
+            ls_issue_invalid.next = funct[2] and decode.store_cmd or not (
+                byte_mode or half_mode or word_mode)
+            ls_issue_misaligned.next = \
+                (half_mode and ls_effective_address[0]) or \
+                (word_mode and ls_effective_address[2:0] != 0)
 
 
 
@@ -327,74 +377,179 @@ class ExecuteBundle(PipelineControl):
             upper = self.config.xlen
             lower = self.config.ip_low
 
-            self.invalid_opcode_fault.next = False
-            jump.next = False
-            jump_dest.next = 0
-            jump_we.next = False
-
-
-            self.csrUpdate.mstatus_trap_enter.next = False
-            self.csrUpdate.mstatus_trap_exit.next = False
-            self.csrUpdate.we_mcause.next = False
-            self.csrUpdate.we_mtval.next = False
-
-            self.csrUpdate.mtval.next = 0
-
-            # csrUpdate.mepc can be hard wired to decode.mepc_o
-            # bcasue trigger happens with csrUpdate.
-            self.csrUpdate.mepc.next = decode.mepc_o[upper:lower]
-            self.csrUpdate.we_mepc.next = False
+            do_jump = False
+            jump_target = modbv(0)[self.config.xlen:]
+            do_register_write = False
+            fault = False
+            fault_cause = 0
+            fault_tval = modbv(0)[self.config.xlen:]
+            fault_epc = modbv(0)[self.config.xlen:]
+            fault_epc[:] = decode.mepc_o
+            invalid_opcode = False
 
             debug_ebreak.next = False
             debug_ebreak_pc.next = decode.mepc_o
 
-            if self.taken:
-                if decode.branch_cmd:
+            if self.ls.valid_o and (
+                self.ls.invalid_op_o or self.ls.misalign_load_o or
+                self.ls.misalign_store_o or self.ls.bus_error_o
+            ):
+                fault = True
+                fault_epc[:] = ls_fault_pc
+                fault_tval[:] = ls_fault_address
+                if self.ls.misalign_load_o:
+                    fault_cause = 4
+                elif self.ls.misalign_store_o:
+                    fault_cause = 6
+                elif ls_fault_store:
+                    fault_cause = 7
+                else:
+                    fault_cause = 5
 
+            elif self.taken:
+                if decode.invalid_opcode:
+                    fault = True
+                    fault_cause = 2
+                    fault_tval[:] = decode.debug_word_o
+                    invalid_opcode = True
+
+                elif decode.branch_cmd:
+                    take_branch = False
                     f3 = decode.funct3_o
                     if f3==b3.RV32_F3_BEQ:
-                        jump.next = self.alu.flag_equal
+                        take_branch = bool(self.alu.flag_equal)
                     elif f3==b3.RV32_F3_BGE:
-                        jump.next = self.alu.flag_ge
+                        take_branch = bool(self.alu.flag_ge)
                     elif f3==b3.RV32_F3_BGEU:
-                        jump.next = self.alu.flag_uge
+                        take_branch = bool(self.alu.flag_uge)
                     elif f3==b3.RV32_F3_BLT:
-                        jump.next = not self.alu.flag_ge
+                        take_branch = not bool(self.alu.flag_ge)
                     elif f3==b3.RV32_F3_BLTU:
-                        jump.next = not self.alu.flag_uge
+                        take_branch = not bool(self.alu.flag_uge)
                     elif f3==b3.RV32_F3_BNE:
-                        jump.next = not self.alu.flag_equal
+                        take_branch = not bool(self.alu.flag_equal)
                     else:
-                        self.invalid_opcode_fault.next = True
+                        fault = True
+                        fault_cause = 2
+                        fault_tval[:] = decode.debug_word_o
+                        invalid_opcode = True
 
-                    jump_dest.next = decode.jump_dest_o
+                    if take_branch:
+                        jump_target[:] = decode.jump_dest_o
+                        if jump_target[lower:0] != 0:
+                            fault = True
+                            fault_cause = 0
+                            fault_tval[:] = jump_target
+                        else:
+                            do_jump = True
+
                 elif decode.jump_cmd:
-                    jump_dest.next = decode.jump_dest_o
-                    jump.next = True
-                    jump_we.next = True
-                elif decode.jumpr_cmd:
-                    jump_dest.next = self.alu.res_o
-                    jump.next = True
-                    jump_we.next = True
-                elif decode.sys_cmd:
-                    if debug_progbuf_active and \
-                       decode.priv_funct_12 == PrivFunct12.RV32_F12_ECALL:
-                        pass
-                    elif debug_ebreak_enable and \
-                       decode.priv_funct_12 == PrivFunct12.RV32_F12_EBREAK:
-                        debug_ebreak.next = True
-                    elif decode.priv_funct_12==PrivFunct12.RV32_F12_EBREAK or  decode.priv_funct_12==PrivFunct12.RV32_F12_ECALL:
-                        jump_dest.next[upper:lower] = self.trapCSR.mtvec
-                        jump.next = True
-                        self.csrUpdate.mstatus_trap_enter.next=True
-                        self.csrUpdate.we_mcause.next=True
-                        self.csrUpdate.we_mepc.next=True
-                    elif decode.priv_funct_12==PrivFunct12.RV32_F12_ERET:
-                        jump_dest.next[upper:lower] = self.trapCSR.mepc
-                        jump.next = True
-                        self.csrUpdate.mstatus_trap_exit.next=True
+                    jump_target[:] = decode.jump_dest_o
+                    if jump_target[lower:0] != 0:
+                        fault = True
+                        fault_cause = 0
+                        fault_tval[:] = jump_target
                     else:
-                        self.invalid_opcode_fault.next = True
+                        do_jump = True
+                        do_register_write = True
+
+                elif decode.jumpr_cmd:
+                    jump_target[:] = self.alu.res_o
+                    jump_target[0] = False
+                    if jump_target[lower:0] != 0:
+                        fault = True
+                        fault_cause = 0
+                        fault_tval[:] = jump_target
+                    else:
+                        do_jump = True
+                        do_register_write = True
+
+                elif decode.load_cmd or decode.store_cmd:
+                    if ls_issue_invalid:
+                        fault = True
+                        fault_cause = 2
+                        fault_tval[:] = decode.debug_word_o
+                        invalid_opcode = True
+                    elif ls_issue_misaligned:
+                        fault = True
+                        fault_tval[:] = ls_effective_address
+                        if decode.store_cmd:
+                            fault_cause = 6
+                        else:
+                            fault_cause = 4
+
+                elif decode.csr_cmd and self.csr.invalid_op_o:
+                    fault = True
+                    fault_cause = 2
+                    fault_tval[:] = decode.debug_word_o
+                    invalid_opcode = True
+
+                elif decode.sys_cmd:
+                    instruction = decode.debug_word_o
+                    if instruction == 0x00100073 and debug_ebreak_enable:
+                        debug_ebreak.next = True
+                    elif instruction == 0x00000073:
+                        fault = True
+                        fault_cause = 11
+                    elif instruction == 0x00100073:
+                        fault = True
+                        fault_cause = 3
+                    elif instruction == 0x30200073:
+                        do_jump = True
+                        jump_target[:] = self.trapCSR.mepc << lower
+                    else:
+                        fault = True
+                        fault_cause = 2
+                        fault_tval[:] = instruction
+                        invalid_opcode = True
+
+            if fault:
+                do_register_write = False
+                if not debug_progbuf_active:
+                    do_jump = True
+                    jump_target[:] = self.trapCSR.mtvec << lower
+
+            trap_valid.next = fault
+            trap_cause.next = fault_cause
+            trap_tval.next = fault_tval
+            self.invalid_opcode_fault.next = invalid_opcode
+            jump.next = do_jump
+            jump_dest.next = jump_target
+            jump_we.next = do_register_write
+            self.redirect_o.next = do_jump
+            if do_jump:
+                self.next_pc_o.next = jump_target
+            else:
+                self.next_pc_o.next = decode.next_ip_o
+
+            self.trap_request.valid.next = fault
+            self.trap_request.is_interrupt.next = False
+            self.trap_request.cause.next = fault_cause
+            self.trap_request.epc.next = fault_epc
+            self.trap_request.tval.next = fault_tval
+            if debug_progbuf_active:
+                self.trap_request.source.next = PIPELINE_SOURCE_PROGRAM_BUFFER
+            else:
+                self.trap_request.source.next = PIPELINE_SOURCE_NORMAL
+            self.trap_request.ack.next = fault
+
+            self.csrUpdate.mstatus_trap_enter.next = \
+                fault and not debug_progbuf_active
+            self.csrUpdate.mstatus_trap_exit.next = self.taken and \
+                decode.sys_cmd and decode.debug_word_o == 0x30200073
+            self.csrUpdate.we_mcause.next = fault and not debug_progbuf_active
+            self.csrUpdate.we_mtval.next = fault and not debug_progbuf_active
+            self.csrUpdate.mtval.next = fault_tval
+            self.csrUpdate.mepc.next = fault_epc[upper:lower]
+            self.csrUpdate.we_mepc.next = fault and not debug_progbuf_active
+
+        @always_comb
+        def retirement_event():
+            control_retire = self.taken and not trap_valid and (
+                decode.branch_cmd or decode.fence_cmd or
+                (decode.sys_cmd and decode.debug_word_o == 0x30200073)
+            )
+            retire.next = valid or control_retire
 
             #TODO: Implement other functional units
 

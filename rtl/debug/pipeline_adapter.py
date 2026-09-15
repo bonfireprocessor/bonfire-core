@@ -46,9 +46,7 @@ def DebugPipelineAdapter(
     events: DebugPipelineEventBundle,
     progbuf_issue: ProgbufIssueBundle,
     progbuf_completion: ProgbufCompletionBundle,
-    pipeline_empty_i: Any,
-    execute_redirect_valid_i: Any,
-    execute_redirect_pc_i: Any,
+    boundary_events: Any,
     ebreak_i: Any,
     ebreak_pc_i: Any,
     progbuf_exception_i: Any,
@@ -58,7 +56,6 @@ def DebugPipelineAdapter(
 
     active = Signal(bool(0))
     active_progbuf = Signal(bool(0))
-    architectural_next_pc = Signal(modbv(config.reset_address)[config.xlen:])
     source_accepted = Signal(bool(0))
     source_progbuf = Signal(bool(0))
 
@@ -79,10 +76,7 @@ def DebugPipelineAdapter(
             source_valid = not progbuf_terminator
 
         accepted = source_valid and not decode.busy_o
-        complete = active and pipeline_empty_i
-        next_pc = architectural_next_pc
-        if active and not active_progbuf and execute_redirect_valid_i:
-            next_pc = execute_redirect_pc_i
+        complete = active and boundary_events.terminal
 
         decode.en_i.next = source_valid
         source_accepted.next = accepted
@@ -92,8 +86,8 @@ def DebugPipelineAdapter(
 
         events.instruction_accepted.next = accepted and not progbuf_source
         events.instruction_complete.next = complete and not active_progbuf
-        events.pipeline_empty.next = pipeline_empty_i
-        events.next_pc.next = next_pc
+        events.pipeline_empty.next = boundary_events.pipeline_empty
+        events.next_pc.next = boundary_events.next_pc
         events.ebreak.next = ebreak_i
         events.ebreak_pc.next = ebreak_pc_i
         events.progbuf_exception.next = active and active_progbuf and progbuf_exception_i
@@ -110,14 +104,7 @@ def DebugPipelineAdapter(
             active.next = True
             active_progbuf.next = source_progbuf
 
-        if request.redirect_valid:
-            architectural_next_pc.next = request.redirect_pc
-        elif source_accepted and not source_progbuf:
-            architectural_next_pc.next = decode.next_ip_i
-        elif active and not active_progbuf and execute_redirect_valid_i:
-            architectural_next_pc.next = execute_redirect_pc_i
-
-        if active and (pipeline_empty_i or (active_progbuf and progbuf_exception_i)):
+        if active and boundary_events.terminal:
             active.next = False
             active_progbuf.next = False
 
