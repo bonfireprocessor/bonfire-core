@@ -11,7 +11,7 @@ from rtl import alu, loadstore, csr, trap
 
 from rtl.instructions import ArithmeticFunct3 as a3
 from rtl.instructions import BranchFunct3  as b3
-from rtl.instructions import Opcodes, PrivFunct12
+from rtl.instructions import Opcodes
 
 from rtl.pipeline_control import *
 from rtl.bonfire_interfaces import (
@@ -140,7 +140,6 @@ class ExecuteBundle(PipelineControl):
         trap_pending_jalr = Signal(bool(0))
         trap_pending_alu_tval = Signal(modbv(0)[self.config.xlen:])
         trap_pending_jump_tval = Signal(modbv(0)[self.config.xlen:])
-        trap_pending_ls_tval = Signal(modbv(0)[self.config.xlen:])
         trap_pending_instruction = Signal(modbv(0)[self.config.xlen:])
         registered_trap_tval = Signal(modbv(0)[self.config.xlen:])
         trap_pending_progbuf = Signal(bool(0))
@@ -204,10 +203,6 @@ class ExecuteBundle(PipelineControl):
             trap_pending_jalr.next = decode.jumpr_cmd
             trap_pending_alu_tval.next = self.alu.res_o & ~1
             trap_pending_jump_tval.next = decode.jump_dest_o
-            if self.ls.valid_o:
-                trap_pending_ls_tval.next = ls_fault_address
-            else:
-                trap_pending_ls_tval.next = ls_effective_address
             trap_pending_instruction.next = decode.debug_word_o
             trap_pending_progbuf.next = debug_progbuf_active
 
@@ -235,8 +230,10 @@ class ExecuteBundle(PipelineControl):
                 # if self.debug_exec_jump.next:
                 #     print(now(), "jump or branch")
 
-            if self.ls.taken:
+            if self.taken and (decode.load_cmd or decode.store_cmd):
                 ls_fault_address.next = ls_effective_address
+
+            if self.ls.taken:
                 ls_fault_pc.next = decode.mepc_o
                 ls_fault_store.next = decode.store_cmd
 
@@ -460,7 +457,8 @@ class ExecuteBundle(PipelineControl):
                 registered_trap_tval.next = trap_pending_instruction
             elif trap_pending_cause == 4 or trap_pending_cause == 5 or \
                     trap_pending_cause == 6 or trap_pending_cause == 7:
-                registered_trap_tval.next = trap_pending_ls_tval
+                registered_trap_tval.next = ls_fault_address
+
         @always_comb
         def debug_ebreak_comb():
             # Keep debug-entry qualification independent from the exception

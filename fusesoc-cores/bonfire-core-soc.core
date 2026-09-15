@@ -388,6 +388,8 @@ targets:
 
   icepizero_jtagg:
     <<: *target_icepizero
+    flow_options:
+      nextpnr_options: ['--seed', '5']
     filesets: [icepizero_lpf,icepizero_top, scripts]
     generate:
     - soc_top:
