@@ -52,12 +52,13 @@ jobs:
           python -m pip install -U pip
           python -m pip install -r requirements.txt
 
-      - name: Download latest OSS CAD Suite nightly
+      - name: Download pinned OSS CAD Suite nightly
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          api_url="https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/latest"
+          release_tag="2026-09-08"
+          api_url="https://api.github.com/repos/YosysHQ/oss-cad-suite-build/releases/tags/${release_tag}"
           release_json=$(curl -fsSL \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${GH_TOKEN}" \
