@@ -1,3 +1,7 @@
+# Copyright (c) 2016 Alex I. Kuznetsov
+# Copyright (c) 2019-2026 The Bonfire Project
+# License: See LICENSE
+
 """
 Divider
 Part of the bonfire-core CPU (ported from LXP32 CPU)
@@ -30,10 +34,12 @@ class DividerBundle:
         self.signed_i = Signal(bool(0))       # 1=signed division, 0=unsigned
         self.rem_i = Signal(bool(0))          # 1=compute remainder, 0=compute quotient
         self.ce_i = Signal(bool(0))           # Chip enable / start division
+        self.cancel_i = Signal(bool(0))       # Cancel an in-flight operation
         
         # Outputs
         self.result_o = Signal(modbv(0)[xlen:])  # Result (quotient or remainder)
         self.ce_o = Signal(bool(0))              # Output enable (result ready)
+        self.busy_o = Signal(bool(0))
         
         # Constants
         self.xlen = xlen
@@ -145,7 +151,7 @@ class DividerBundle:
         @always_seq(clk_i.posedge, reset=rst_i)
         def fsm_control():
             """Control FSM and result inversion"""
-            fsm_ce.next = self.ce_i
+            fsm_ce.next = self.ce_i and not self.cancel_i
             
             if self.ce_i:
                 want_remainder.next = self.rem_i
@@ -155,7 +161,9 @@ class DividerBundle:
                     inv_res.next = bool(self.op1_i[31]) and bool(self.signed_i)
                 else:
                     # Quotient: invert if signs differ (and not div by zero)
-                    inv_res.next = bool(self.op1_i[31] ^ self.op2_i[31]) and bool(self.signed_i) and not bool(op2_zero)
+                    inv_res.next = \
+                        (bool(self.op1_i[31]) != bool(self.op2_i[31])) and \
+                        bool(self.signed_i) and not bool(op2_zero)
         
         @always_comb
         def adder_input():
@@ -177,17 +185,24 @@ class DividerBundle:
         def divider_fsm():
             """Main divider state machine"""
             # Generate output enable pulse
-            if cnt == 1:
+            if self.cancel_i:
+                ceo.next = False
+                cnt.next = 0
+            elif cnt == 1:
                 ceo.next = True
             else:
                 ceo.next = False
             
-            if self.ce_i:
+            if self.ce_i and not self.cancel_i:
                 # Load divisor with sign extension
                 divisor.next[32:0] = self.op2_i
                 divisor.next[32] = bool(self.op2_i[31]) and bool(self.signed_i)
             
-            if fsm_ce:
+            if self.cancel_i:
+                dividend.next = 0
+                partial_remainder.next = 0
+                sum_subtract.next = False
+            elif fsm_ce:
                 # Initialize division
                 # Shift dividend left by 1, store in dividend register
                 # VHDL: dividend<=unsigned(compl_out(30 downto 0)&"0");
@@ -221,7 +236,8 @@ class DividerBundle:
             # Compute remainder corrector
             temp = modbv(0)[32:0]  # 32 bits
             for i in range(32):
-                temp[i] = bool( divisor[i] ^ divisor[32]) and not sum_positive
+                temp[i] = (bool(divisor[i]) != bool(divisor[32])) and \
+                    not bool(sum_positive)
             remainder_corrector.next = temp
             
             remainder_corrector_1.next = divisor[32] and not sum_positive
@@ -243,6 +259,7 @@ class DividerBundle:
             """Assign module outputs"""
             self.result_o.next = compl_out
             self.ce_o.next = ceo
+            self.busy_o.next = fsm_ce or cnt != 0
         
         return instances()
 

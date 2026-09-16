@@ -20,6 +20,21 @@ PIPELINE_SOURCE_PROGRAM_BUFFER = 1
 PIPELINE_SOURCE_DEBUG_REGISTER = 2
 
 
+class MachineExtensionBundle:
+    """Common request/completion contract for RV32M functional units."""
+
+    def __init__(self, config: BonfireConfig) -> None:
+        self.op1_i = Signal(modbv(0)[config.xlen:])
+        self.op2_i = Signal(modbv(0)[config.xlen:])
+        self.operation_i = Signal(modbv(0)[3:])
+        self.request_i = Signal(bool(0))
+        self.cancel_i = Signal(bool(0))
+
+        self.busy_o = Signal(bool(0))
+        self.valid_o = Signal(bool(0))
+        self.result_o = Signal(modbv(0)[config.xlen:])
+
+
 class PipelineBoundaryEventBundle:
     """Debug-neutral events at the architectural pipeline boundary.
 

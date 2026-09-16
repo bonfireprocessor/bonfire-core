@@ -34,6 +34,7 @@ class SoCGenerator:
         # retained as an explicit compatibility/debugging configuration.
         conf.pipeline_length = int(parameters.get("pipeline_length", 4))
         conf.writeback_bypass = bool(parameters.get("writeback_bypass", False))
+        conf.enable_m_extension = bool(parameters.get("enable_m_extension", False))
         if conf.pipeline_length not in (3, 4):
             raise ValueError("pipeline_length must be 3 or 4")
         if conf.writeback_bypass and conf.pipeline_length != 4:
@@ -47,6 +48,7 @@ class SoCGenerator:
         diagnostics.detail("jump_bypass: {}".format(conf.jump_bypass))
         diagnostics.detail("pipeline_length: {}".format(conf.pipeline_length))
         diagnostics.detail("writeback_bypass: {}".format(conf.writeback_bypass))
+        diagnostics.detail("enable_m_extension: {}".format(conf.enable_m_extension))
         diagnostics.detail("enableDebugModule: {}".format(conf.enableDebugModule))
 
         soc = BonfireCoreSoC(

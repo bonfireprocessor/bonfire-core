@@ -1,3 +1,6 @@
+# Copyright (c) 2026 The Bonfire Project
+# License: See LICENSE
+
 """Four-stage RV32 multiplier built from 16 x 16 partial products."""
 
 from __future__ import annotations
@@ -35,6 +38,7 @@ class MultiplierBundle:
         self.signed_b_i = Signal(bool(0))
         self.high_i = Signal(bool(0))
         self.ce_i = Signal(bool(0))
+        self.cancel_i = Signal(bool(0))
 
         self.result_o = Signal(modbv(0)[xlen:])
         self.ce_o = Signal(bool(0))
@@ -140,10 +144,16 @@ class MultiplierBundle:
 
         @always_seq(clock.posedge, reset=reset)
         def valid_pipeline():
-            valid_s1.next = self.ce_i
-            valid_s2.next = valid_s1
-            valid_s3.next = valid_s2
-            valid_s4.next = valid_s3
+            if self.cancel_i:
+                valid_s1.next = False
+                valid_s2.next = False
+                valid_s3.next = False
+                valid_s4.next = False
+            else:
+                valid_s1.next = self.ce_i
+                valid_s2.next = valid_s1
+                valid_s3.next = valid_s2
+                valid_s4.next = valid_s3
 
         @always_comb
         def outputs():

@@ -57,6 +57,23 @@ after_illegal:
     li t0, TEST_VALUE
     bne t6, t0, test_failure
 
+    # With the default configuration RV32M is absent: MISA.M is clear and an
+    # otherwise valid MUL encoding follows the precise illegal-opcode path.
+    csrr t0, misa
+    li t1, (1 << 12)
+    and t0, t0, t1
+    bnez t0, test_failure
+    li t6, TEST_VALUE
+    li s1, CAUSE_ILLEGAL_INSTRUCTION
+    la s2, disabled_mul_instruction
+    li s3, 0x02628fb3
+    la s4, after_disabled_mul
+disabled_mul_instruction:
+    .word 0x02628fb3
+after_disabled_mul:
+    li t0, TEST_VALUE
+    bne t6, t0, test_failure
+
     li t6, TEST_VALUE
     li s1, CAUSE_ILLEGAL_INSTRUCTION
     la s2, illegal_csr_instruction
@@ -128,7 +145,7 @@ store_access_fault_instruction:
     sw zero, 0(t0)
 after_store_access_fault:
 
-    li t0, 9
+    li t0, 10
     bne s5, t0, test_failure
     li t0, 1
     sw t0, 0(s0)

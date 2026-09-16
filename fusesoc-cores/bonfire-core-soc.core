@@ -404,6 +404,7 @@ targets:
         debug_jtag_transport: ecp5_jtagg
         pipeline_length: 4
         writeback_bypass: true
+        enable_m_extension: true
         
 
   icepizero_extended:

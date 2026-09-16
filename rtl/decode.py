@@ -91,6 +91,7 @@ class DecodeBundle(PipelineControl):
 
         # Functional unit control
         self.alu_cmd = Signal(bool(0))
+        self.m_cmd = Signal(bool(0))
         self.load_cmd = Signal(bool(0))
         self.store_cmd = Signal(bool(0))
         self.branch_cmd = Signal(bool(0))
@@ -161,10 +162,10 @@ class DecodeBundle(PipelineControl):
             self.uses_rs1_o.next = self.valid_o and \
                 (self.branch_cmd or self.load_cmd or self.store_cmd or \
                  self.jumpr_cmd or (self.alu_cmd and not rs1_immediate) or \
-                 (self.csr_cmd and not rs1_immediate))
+                 self.m_cmd or (self.csr_cmd and not rs1_immediate))
             self.uses_rs2_o.next = self.valid_o and \
                 (self.branch_cmd or self.store_cmd or \
-                 (self.alu_cmd and not rs2_immediate))
+                 self.m_cmd or (self.alu_cmd and not rs2_immediate))
 
 
             # Operand output side
@@ -218,6 +219,7 @@ class DecodeBundle(PipelineControl):
                 rs1_imm_value.next = transfer_write_data
                 rs2_imm_value.next = 0
                 self.alu_cmd.next = True
+                self.m_cmd.next = False
                 self.funct3_o.next = f3.RV32_F3_OR
                 self.rd_adr_o.next = transfer_regno
 
@@ -237,6 +239,7 @@ class DecodeBundle(PipelineControl):
                 self.valid_o.next = False
                 self.invalid_opcode.next = False
                 self.fence_cmd.next = False
+                self.m_cmd.next = False
             elif not downstream_busy:
                 if self.en_i:
                     inv=False
@@ -265,6 +268,7 @@ class DecodeBundle(PipelineControl):
                     rs2_immediate.next = False
 
                     self.alu_cmd.next = False
+                    self.m_cmd.next = False
                     self.branch_cmd.next = False
                     self.jump_cmd.next = False
                     self.jumpr_cmd.next = False
@@ -281,8 +285,18 @@ class DecodeBundle(PipelineControl):
                         inv=True
 
                     elif opcode==op.RV32_OP:
+                        # Keep the ordinary OP class direct.  m_cmd is an
+                        # orthogonal qualifier, so enabling RV32M does not add
+                        # a funct7-dependent mux to every ALU instruction.
                         self.alu_cmd.next = True
-                        cmd_seen = True
+                        if self.word_i[32:25] == 0b0000001:
+                            if self.config.enable_m_extension:
+                                self.m_cmd.next = True
+                                cmd_seen = True
+                            else:
+                                inv = True
+                        else:
+                            cmd_seen = True
                     elif opcode==op.RV32_IMM:
                         self.alu_cmd.next = True
                         cmd_seen = True
@@ -359,5 +373,8 @@ class DecodeBundle(PipelineControl):
                 else:
                     self.valid_o.next=False
                     self.fence_cmd.next = False
+                    # m_cmd qualifies its own validity in Execute, so never
+                    # leave it asserted while the decode stage is empty.
+                    self.m_cmd.next = False
 
         return instances()

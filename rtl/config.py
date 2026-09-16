@@ -10,6 +10,9 @@ class BonfireConfig:
         self.registered_read_stage = True #  register stage in loadstore unit between data bus and LSU output 
         self.pipeline_length = 3 # Fetch, Decode, Execute; supported values are 3 and 4
         self.writeback_bypass = False # forward active writeback data to dependent operands
+        # Complete RV32M extension.  This is intentionally a single switch:
+        # partial M implementations must neither decode nor advertise MISA.M.
+        self.enable_m_extension = False
         self.reset_address=0x0
         self.mcause_max = 64 # Highest mcause reason
         self.enableDebugModule=False # Enable RISC-V Debug Module

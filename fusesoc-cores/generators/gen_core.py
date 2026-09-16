@@ -120,6 +120,7 @@ targets:
             conversion_warnings = get(parameters,"conversion_warnings","default")
             pipeline_length = int(get(parameters, "pipeline_length", 4))
             writeback_bypass = bool(get(parameters, "writeback_bypass", False))
+            enable_m_extension = bool(get(parameters, "enable_m_extension", False))
             if pipeline_length not in (3, 4):
                 raise ValueError("pipeline_length must be 3 or 4")
             if writeback_bypass and pipeline_length != 4:
@@ -128,6 +129,7 @@ targets:
             config=config.BonfireConfig()
             config.pipeline_length = pipeline_length
             config.writeback_bypass = writeback_bypass
+            config.enable_m_extension = enable_m_extension
             gen_extended_core(config,hdl,name,gen_path,
                               bram_adr_base=bram_base,
                               bramAdrWidth=bram_adr_width,

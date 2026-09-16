@@ -103,37 +103,46 @@ class PipelinedBackend:
         @always_seq(clock.posedge, reset=reset)
         def writeback_seq():
             wb_valid.next = self.execute.valid_o
-            wb_we.next = self.execute.reg_we_o
+            # Store the effective write enable.  Qualifying it here, before
+            # the register boundary, avoids placing ``wb_valid AND wb_we`` in
+            # front of the already long writeback-bypass/Execute path.
+            wb_we.next = self.execute.valid_o and self.execute.reg_we_o
             wb_rd.next = self.execute.rd_adr_o
             wb_alu_valid.next = self.execute.alu_valid_o
             wb_load_valid.next = self.execute.load_valid_o
-            wb_csr_valid.next = self.execute.csr_valid_o
+            wb_csr_valid.next = \
+                self.execute.csr_valid_o or self.execute.m_valid_o
             wb_jump_valid.next = self.execute.jump_valid_o
 
             wb_alu_data.next = self.execute.alu.res_o
             wb_load_data.next = self.execute.ls.result_o
-            wb_csr_data.next = self.execute.csr.result_o
+            if self.execute.m_valid_o:
+                wb_csr_data.next = self.execute.result_o
+            else:
+                wb_csr_data.next = self.execute.csr.result_o
             wb_jump_data.next = self.decode.next_ip_o
-            wb_control_retire.next = self.execute.retire_o and \
-                not self.execute.valid_o
+            # Execute already has the exact mutually exclusive control-only
+            # retire term.  Reusing it avoids rebuilding it through the full
+            # result-valid tree (including RV32M completion).
+            wb_control_retire.next = self.execute.control_retire_o
             wb_progbuf.next = progbuf_active
 
-            # Capture architectural metadata when Execute accepts the
-            # instruction.  Waiting for the retire expression would put the
-            # full result/trap decision cone on every metadata register CE.
-            if self.execute.taken:
-                wb_pc.next = self.decode.debug_current_ip_o
-                if conf.jump_bypass:
-                    wb_next_pc.next = self.execute.next_pc_o
-                    wb_redirect_pc.next = self.execute.next_pc_o
-                else:
-                    # With the registered redirect stage, the sequential PC is
-                    # cheap to capture here and jump_dest_o holds the registered
-                    # target during the following completion cycle.
-                    wb_next_pc.next = self.decode.next_ip_o
-                    wb_redirect_pc.next = self.decode.next_ip_o
-                wb_store.next = self.decode.store_cmd
-                wb_redirect.next = self.execute.redirect_o
+            # Metadata is unqualified data until wb_valid is asserted.  Load
+            # it every cycle so no Execute taken/trap decision cone is placed
+            # on the clock-enable inputs of these registers.  Decode remains
+            # held during multi-cycle operations, including RV32M.
+            wb_pc.next = self.decode.debug_current_ip_o
+            if conf.jump_bypass:
+                wb_next_pc.next = self.execute.next_pc_o
+                wb_redirect_pc.next = self.execute.next_pc_o
+            else:
+                # With the registered redirect stage, the sequential PC is
+                # cheap to capture here and jump_dest_o holds the registered
+                # target during the following completion cycle.
+                wb_next_pc.next = self.decode.next_ip_o
+                wb_redirect_pc.next = self.decode.next_ip_o
+            wb_store.next = self.decode.store_cmd
+            wb_redirect.next = self.execute.redirect_o
 
         @always_comb
         def writeback_result_mux():
@@ -151,18 +160,18 @@ class PipelinedBackend:
         if bypass:
             @always_comb
             def forward_comb():
-                self.execute.forward_we_i.next = wb_valid and wb_we
+                self.execute.forward_we_i.next = wb_we
                 self.execute.forward_rd_i.next = wb_rd
                 self.execute.forward_data_i.next = wb_data
                 self.execute.hazard_i.next = False
         else:
             @always_comb
             def four_stage_hazard():
-                hazard_rs1 = wb_valid and wb_we and wb_rd != 0 and \
+                hazard_rs1 = wb_we and wb_rd != 0 and \
                     self.decode.valid_o and self.decode.uses_rs1_o and \
                     self.decode.source_rs1_o == wb_rd
 
-                hazard_rs2 = wb_valid and wb_we and wb_rd != 0 and \
+                hazard_rs2 = wb_we and wb_rd != 0 and \
                     self.decode.valid_o and self.decode.uses_rs2_o and \
                     self.decode.source_rs2_o == wb_rd
                 self.execute.hazard_i.next = hazard_rs1 or hazard_rs2
@@ -176,7 +185,7 @@ class PipelinedBackend:
             self.decode.rs2_data_i.next = self.reg_portB.rd
 
             self.reg_writePort.wa.next = wb_rd
-            self.reg_writePort.we.next = wb_valid and wb_we
+            self.reg_writePort.we.next = wb_we
             self.reg_writePort.wd.next = wb_data
 
             out.busy_o.next = self.decode.busy_o
@@ -186,7 +195,7 @@ class PipelinedBackend:
             debugport.valid_o.next = wb_valid
             debugport.result_o.next = wb_data
             debugport.rd_adr_o.next = wb_rd
-            debugport.reg_we_o.next = wb_valid and wb_we
+            debugport.reg_we_o.next = wb_we
 
         if conf.enableDebugModule:
             abstract_command_inst = AbstractCommandController(
@@ -306,7 +315,7 @@ class PipelinedBackend:
                         self.execute.jump_dest_o
                 else:
                     self.pipeline_events.redirect_pc.next = wb_redirect_pc
-            self.pipeline_events.register_write.next = completed and wb_valid and wb_we
+            self.pipeline_events.register_write.next = completed and wb_we
             self.pipeline_events.register_address.next = wb_rd
             self.pipeline_events.register_data.next = wb_data
             self.pipeline_events.store_commit.next = completed and wb_valid and wb_store

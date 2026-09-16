@@ -8,6 +8,8 @@ from __future__ import print_function
 from myhdl import *
 
 from rtl import alu, loadstore, csr, trap
+from rtl.divider import DividerBundle
+from rtl.multiplier import MultiplierBundle
 
 from rtl.instructions import ArithmeticFunct3 as a3
 from rtl.instructions import BranchFunct3  as b3
@@ -48,6 +50,7 @@ class ExecuteBundle(PipelineControl):
             self.load_valid_o = Signal(bool(0))
             self.csr_valid_o = Signal(bool(0))
             self.jump_valid_o = Signal(bool(0))
+            self.m_valid_o = Signal(bool(0))
 
         self.reg_we_o = Signal(bool(0)) # Register File Write Enable
         self.rd_adr_o =  Signal(modbv(0)[5:]) # Target register
@@ -58,6 +61,7 @@ class ExecuteBundle(PipelineControl):
         self.invalid_opcode_fault = Signal(bool(0))
         self.trap_request = TrapRequestBundle(config)
         self.retire_o = Signal(bool(0))
+        self.control_retire_o = Signal(bool(0))
         self.next_pc_o = Signal(modbv(0)[xlen:])
         self.redirect_o = Signal(bool(0))
 
@@ -144,15 +148,103 @@ class ExecuteBundle(PipelineControl):
         registered_trap_tval = Signal(modbv(0)[self.config.xlen:])
         trap_pending_progbuf = Signal(bool(0))
         retire = Signal(bool(0))
+        control_retire = Signal(bool(0))
         counter_retire = Signal(bool(0))
         alu_success = Signal(bool(0))
         ls_success = Signal(bool(0))
+
+        # RV32M issue is single-shot: Decode remains stalled while the
+        # selected unit is active and is released in the registered completion
+        # cycle.  The result itself never feeds the busy/control path.
+        m_pending = Signal(bool(0))
+        m_start = Signal(bool(0))
+        m_complete = Signal(bool(0))
+        m_wait = Signal(bool(0))
+        m_result = Signal(modbv(0)[self.config.xlen:])
+        m_cancel = Signal(bool(0))
+        m_rd = Signal(modbv(0)[5:])
+        m_release = Signal(bool(0))
 
         op1 = Signal(modbv(0)[self.config.xlen:])
         op2 = Signal(modbv(0)[self.config.xlen:])
 
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
+
+        if self.config.enable_m_extension:
+            multiplier = MultiplierBundle(self.config.xlen)
+            divider = DividerBundle(self.config.xlen)
+            multiplier_inst = multiplier.multiplier(clock, reset)
+            divider_inst = divider.divider(clock, reset)
+
+            @always_comb
+            def m_unit_connect():
+                funct3 = decode.funct3_o
+                is_division = bool(funct3[2])
+
+                # m_cmd is a registered, valid-qualified command.  Depending
+                # on it directly avoids the combinational
+                # decode.valid -> Execute busy -> Decode stall loop.
+                m_start.next = decode.m_cmd and \
+                    not m_pending and not m_release and \
+                    not self.hazard_i
+                m_cancel.next = debug_flush
+                m_complete.next = multiplier.ce_o or divider.ce_o
+                # Keep Decode stalled throughout the completion cycle.  A
+                # following release cycle consumes the held instruction but
+                # suppresses a second request.
+                m_wait.next = m_pending or \
+                    (decode.m_cmd and not m_release)
+
+                if divider.ce_o:
+                    m_result.next = divider.result_o
+                else:
+                    m_result.next = multiplier.result_o
+
+                multiplier.op1_i.next = op1
+                multiplier.op2_i.next = op2
+                multiplier.ce_i.next = m_start and not is_division
+                multiplier.cancel_i.next = m_cancel
+                multiplier.high_i.next = funct3 != 0
+                multiplier.signed_a_i.next = \
+                    funct3 == 1 or funct3 == 2
+                multiplier.signed_b_i.next = funct3 == 1
+
+                divider.op1_i.next = op1
+                divider.op2_i.next = op2
+                divider.ce_i.next = m_start and is_division
+                divider.cancel_i.next = m_cancel
+                divider.signed_i.next = funct3 == 4 or funct3 == 6
+                divider.rem_i.next = funct3 == 6 or funct3 == 7
+
+            @always_seq(clock.posedge, reset=reset)
+            def m_pending_seq():
+                if m_cancel:
+                    m_pending.next = False
+                    m_release.next = False
+                elif m_start:
+                    m_pending.next = True
+                    m_release.next = False
+                    m_rd.next = decode.rd_adr_o
+                elif m_complete:
+                    m_pending.next = False
+                    m_release.next = True
+                elif m_release and self.taken:
+                    m_release.next = False
+        else:
+            @always_comb
+            def m_disabled():
+                # Keep a real sensitivity input for MyHDL while producing
+                # constants after elaboration (m_cmd is never asserted when
+                # the extension is disabled).
+                m_start.next = decode.m_cmd and False
+                m_complete.next = decode.m_cmd and False
+                m_wait.next = decode.m_cmd and False
+                if decode.m_cmd:
+                    m_result.next = op1
+                else:
+                    m_result.next = 0
+                m_cancel.next = decode.m_cmd and debug_flush
 
         if self.config.enableDebugModule:
             csr_inst = self.csr.CSRUnit(
@@ -244,6 +336,7 @@ class ExecuteBundle(PipelineControl):
                     load_pending.next = decode.load_cmd and \
                         not ls_issue_invalid and not ls_issue_misaligned
                     shift_pending.next = pipelined_shifter and decode.alu_cmd and \
+                        not decode.m_cmd and \
                         (decode.funct3_o == a3.RV32_F3_SLL or \
                          decode.funct3_o == a3.RV32_F3_SRL_SRA)
                 else:
@@ -292,9 +385,10 @@ class ExecuteBundle(PipelineControl):
             self.csr.source_i.next = decode.source_rs1_o
 
             # Pipeline
-            busy.next = self.alu.busy_o or self.ls.busy_o or self.csr.busy_o or jump_busy or self.hazard_i
+            busy.next = self.alu.busy_o or self.ls.busy_o or \
+                self.csr.busy_o or jump_busy or self.hazard_i or m_wait
             valid.next = alu_success or ls_success or \
-                self.csr.valid_o or jump_we
+                self.csr.valid_o or jump_we or m_complete
 
             if self.config.jump_bypass:
                 if self.config.enableDebugModule:
@@ -312,7 +406,8 @@ class ExecuteBundle(PipelineControl):
 
             # Functional Unit selection
 
-            self.alu.en_i.next = decode.alu_cmd and self.taken
+            self.alu.en_i.next = decode.alu_cmd and not decode.m_cmd and \
+                self.taken
             self.ls.en_i.next = (decode.store_cmd or decode.load_cmd) and \
                 self.taken and not ls_issue_invalid and \
                 not ls_issue_misaligned
@@ -327,10 +422,15 @@ class ExecuteBundle(PipelineControl):
         if self.wb_stage:
             @always_comb
             def wb_prepare():
+                # The ordinary sources are captured from their dedicated
+                # functional-unit buses.  result_o carries the registered
+                # RV32M completion value for the additional writeback source.
+                self.result_o.next = m_result
                 self.alu_valid_o.next = False
                 self.load_valid_o.next = False
                 self.csr_valid_o.next = False
                 self.jump_valid_o.next = False
+                self.m_valid_o.next = False
 
                 # The source selector is registered together with the functional
                 # unit results. Completion signals can therefore identify the
@@ -338,6 +438,8 @@ class ExecuteBundle(PipelineControl):
                 # the simultaneously valid ALU result used as its target.
                 if jump_we:
                     self.jump_valid_o.next = True
+                elif m_complete:
+                    self.m_valid_o.next = True
                 elif self.ls.we_o and ls_success:
                     self.load_valid_o.next = True
                 elif alu_success:
@@ -355,9 +457,11 @@ class ExecuteBundle(PipelineControl):
 
                 if jump_we:
                     self.result_o.next = decode.next_ip_o
+                elif m_complete:
+                    self.result_o.next = m_result
                 elif load_pending:
                     self.result_o.next = self.ls.result_o
-                elif shift_pending or decode.alu_cmd:
+                elif shift_pending or (decode.alu_cmd and not decode.m_cmd):
                     self.result_o.next = self.alu.res_o
                 elif decode.csr_cmd:
                     self.result_o.next = self.csr.result_o
@@ -375,11 +479,13 @@ class ExecuteBundle(PipelineControl):
                 not decode.invalid_opcode and \
                 not (decode.jumpr_cmd and jalr_misaligned)
             ls_success.next = self.ls.valid_o and not self.ls.bus_error_o
-            self.reg_we_o.next = alu_success or \
+            self.reg_we_o.next = alu_success or m_complete or \
                 (self.ls.we_o and ls_success) or self.csr.valid_o or jump_we
             self.retire_o.next = retire
 
-            if self.taken:
+            if m_complete:
+                self.rd_adr_o.next = m_rd
+            elif self.taken:
                 self.rd_adr_o.next = decode.rd_adr_o
             else:
                 self.rd_adr_o.next = rd_adr_reg
@@ -717,11 +823,12 @@ class ExecuteBundle(PipelineControl):
 
         @always_comb
         def retirement_event():
-            control_retire = self.taken and not trap_valid and (
+            control_retire.next = self.taken and not trap_valid and (
                 decode.branch_cmd or decode.fence_cmd or
                 (decode.sys_cmd and decode.debug_word_o == 0x30200073)
             )
             retire.next = valid or control_retire
+            self.control_retire_o.next = control_retire
 
             #TODO: Implement other functional units
 

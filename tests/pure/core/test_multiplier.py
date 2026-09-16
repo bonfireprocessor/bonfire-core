@@ -1,3 +1,6 @@
+# Copyright (c) 2026 The Bonfire Project
+# License: See LICENSE
+
 """Tests for the isolated four-stage cascaded RV32 multiplier."""
 
 from __future__ import annotations

@@ -71,6 +71,7 @@ class CSRUnitBundle(PipelineControl):
             | (int(self.config.enableDebugModule) << 2)
             | (int(self.config.jump_predictor) << 3)
             | (int(self.config.mem_write_early_term) << 4)
+            | (int(self.config.enable_m_extension) << 5)
         )
 
         # CSR Address parts
@@ -177,6 +178,7 @@ class CSRUnitBundle(PipelineControl):
                         if reg == CSRAdr.isa:
                             csr_in.next[32:30]=0b01
                             csr_in.next[8] = True
+                            csr_in.next[12] = self.config.enable_m_extension
                         elif reg == CSRAdr.ip:
                             csr_in.next = 0
                             if csr_write_requested:
@@ -240,6 +242,7 @@ class CSRUnitBundle(PipelineControl):
                         if reg == CSRAdr.isa:
                             csr_in.next[32:30]=0b01
                             csr_in.next[8] = True
+                            csr_in.next[12] = self.config.enable_m_extension
                         elif reg == CSRAdr.ip:
                             csr_in.next = 0
                             if csr_write_requested:

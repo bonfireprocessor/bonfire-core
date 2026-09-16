@@ -1,3 +1,6 @@
+# Copyright (c) 2026 The Bonfire Project
+# License: See LICENSE
+
 """
 Unit tests for Divider (Non-Restoring Division)
 
@@ -215,3 +218,60 @@ def test_divider_signed_remainder(sim_env):
     """Test signed modulo (remainder)"""
     tb = divider_testbench(signed_mode=True, test_remainder=True)
     run_sim(tb(), trace=True, waveforms_dir=sim_env["waveforms_dir"], duration=50000, filename="divider_signed_rem")
+
+
+@block
+def divider_cancel_testbench():
+    clock = Signal(bool(0))
+    reset = ResetSignal(0, active=1, isasync=False)
+    divider = DividerBundle()
+    dut = divider.divider(clock, reset)
+
+    @always(delay(5))
+    def clock_gen():
+        clock.next = not clock
+
+    @instance
+    def stimulus():
+        reset.next = True
+        yield clock.posedge
+        reset.next = False
+
+        divider.op1_i.next = 0x12345678
+        divider.op2_i.next = 7
+        divider.ce_i.next = True
+        yield clock.posedge
+        divider.ce_i.next = False
+        for _ in range(5):
+            yield clock.posedge
+
+        divider.cancel_i.next = True
+        yield clock.posedge
+        divider.cancel_i.next = False
+        for _ in range(40):
+            yield clock.posedge
+            assert not divider.ce_o
+
+        divider.op1_i.next = 100
+        divider.op2_i.next = 7
+        divider.ce_i.next = True
+        yield clock.posedge
+        divider.ce_i.next = False
+        for _ in range(45):
+            yield clock.posedge
+            if divider.ce_o:
+                assert int(divider.result_o) == 14
+                raise StopSimulation
+        raise AssertionError("divider did not recover after cancellation")
+
+    return instances()
+
+
+def test_divider_cancel_suppresses_late_result(sim_env):
+    run_sim(
+        divider_cancel_testbench(),
+        trace=False,
+        waveforms_dir=sim_env["waveforms_dir"],
+        duration=2000,
+        filename="divider_cancel",
+    )

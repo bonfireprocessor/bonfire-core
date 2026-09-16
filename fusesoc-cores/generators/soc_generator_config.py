@@ -83,6 +83,7 @@ class SoCGenerationConfigBuilder:
         "jump_bypass",
         "pipeline_length",
         "writeback_bypass",
+        "enable_m_extension",
         "top_entity_name",
         "myhdl_entity_name",
         "entity_name",
