@@ -92,6 +92,14 @@ class PrivFunct12:
     RV32_F12_ERET   = 0x302
 
 
+class SystemOperation:
+    NONE = 0
+    ECALL = 1
+    EBREAK = 2
+    MRET = 3
+    INVALID = 4
+
+
 class MulDivFunct:
     RV32_F7_MUL_DIV = 0b0000001
     RV32_F3_MUL     = 0

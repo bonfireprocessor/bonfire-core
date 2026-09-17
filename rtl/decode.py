@@ -9,6 +9,7 @@ from rtl.instructions import Opcodes as op
 from rtl.instructions import ArithmeticFunct3  as f3
 from rtl.instructions import SystemFunct3
 from rtl.instructions import PrivFunct12
+from rtl.instructions import SystemOperation
 from rtl.util import signed_resize
 from rtl.debug import (
     DebugCSRBundle,
@@ -87,6 +88,7 @@ class DecodeBundle(PipelineControl):
         self.jump_dest_o = Signal(modbv(0)[xlen:])
         self.next_ip_o = Signal(modbv(0)[xlen:])
         self.priv_funct_12 = Signal(modbv(0)[12:])
+        self.system_operation_o = Signal(modbv(SystemOperation.NONE)[3:])
         self.mepc_o = Signal(modbv(0)[xlen:])
 
         # Functional unit control
@@ -220,6 +222,7 @@ class DecodeBundle(PipelineControl):
                 rs2_imm_value.next = 0
                 self.alu_cmd.next = True
                 self.m_cmd.next = False
+                self.system_operation_o.next = SystemOperation.NONE
                 self.funct3_o.next = f3.RV32_F3_OR
                 self.rd_adr_o.next = transfer_regno
 
@@ -240,6 +243,7 @@ class DecodeBundle(PipelineControl):
                 self.invalid_opcode.next = False
                 self.fence_cmd.next = False
                 self.m_cmd.next = False
+                self.system_operation_o.next = SystemOperation.NONE
             elif not downstream_busy:
                 if self.en_i:
                     inv=False
@@ -278,6 +282,7 @@ class DecodeBundle(PipelineControl):
                     self.invalid_opcode.next = False
                     self.sys_cmd.next = False
                     self.fence_cmd.next = False
+                    self.system_operation_o.next = SystemOperation.NONE
 
                     self.mepc_o.next = self.current_ip_i
 
@@ -358,6 +363,25 @@ class DecodeBundle(PipelineControl):
                         if self.word_i[15:12]==SystemFunct3.RV32_F3_PRIV:
                             self.sys_cmd.next = True
                             cmd_seen = True
+                            if self.word_i[20:15] != 0 or \
+                                    self.word_i[12:7] != 0:
+                                self.system_operation_o.next = \
+                                    SystemOperation.INVALID
+                            elif self.word_i[32:20] == \
+                                    PrivFunct12.RV32_F12_ECALL:
+                                self.system_operation_o.next = \
+                                    SystemOperation.ECALL
+                            elif self.word_i[32:20] == \
+                                    PrivFunct12.RV32_F12_EBREAK:
+                                self.system_operation_o.next = \
+                                    SystemOperation.EBREAK
+                            elif self.word_i[32:20] == \
+                                    PrivFunct12.RV32_F12_ERET:
+                                self.system_operation_o.next = \
+                                    SystemOperation.MRET
+                            else:
+                                self.system_operation_o.next = \
+                                    SystemOperation.INVALID
                         else:
                             self.csr_cmd.next = True
                             cmd_seen = True
@@ -376,5 +400,6 @@ class DecodeBundle(PipelineControl):
                     # m_cmd qualifies its own validity in Execute, so never
                     # leave it asserted while the decode stage is empty.
                     self.m_cmd.next = False
+                    self.system_operation_o.next = SystemOperation.NONE
 
         return instances()
