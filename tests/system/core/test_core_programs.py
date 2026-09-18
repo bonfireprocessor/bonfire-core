@@ -51,7 +51,12 @@ def _hex_files(repo_root: Path, single: str | None = None) -> list[str]:
     files = sorted(hex_dir.glob("*.hex"))
     # These programs need dedicated testbench behavior and are covered by
     # their own system tests.
-    dedicated_programs = {"wb_test.hex", "precise_traps.hex", "rv32m.hex"}
+    dedicated_programs = {
+        "csr_hazards.hex",
+        "wb_test.hex",
+        "precise_traps.hex",
+        "rv32m.hex",
+    }
     files = [p for p in files if p.name not in dedicated_programs]
     result = []
     for p in files:

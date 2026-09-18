@@ -91,7 +91,8 @@ generate:
     generator: gen_bonfire_core_soc
     parameters:
       language: vhdl
-      bram_adr_width: 11
+      bram_adr_width: 12
+      enable_m_extension: true
       conversion_warnings: 'ignore'
       top_entity_name: 'bonfire_core_soc_top'
 
@@ -101,7 +102,8 @@ generate:
     parameters:
       gentb: true
       language: vhdl
-      bram_adr_width: 11
+      bram_adr_width: 12
+      enable_m_extension: true
       conversion_warnings: 'ignore'
       top_entity_name: 'tb_bonfire_core_soc'
       hexfile: "../code/build/soc/sim/led.hex"

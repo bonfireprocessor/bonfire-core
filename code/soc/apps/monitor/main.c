@@ -28,6 +28,32 @@
 
 static uint32_t dump_address = BONFIRE_SRAM_BASE;
 
+extern uint32_t monitor_test_m_extension(void);
+extern uint32_t monitor_test_traps(void);
+
+static void run_arch_test(const char *name, uint32_t (*test)(void))
+{
+    uint32_t failure;
+
+    printk("%s test: start\n", name);
+    failure = test();
+    if (failure == 0u) {
+        printk("%s test: OK\n", name);
+    } else {
+        printk("%s test: FAIL code=%u\n", name, failure);
+    }
+}
+
+static void test_m_extension(void)
+{
+    run_arch_test("M extension", monitor_test_m_extension);
+}
+
+static void test_traps(void)
+{
+    run_arch_test("Trap", monitor_test_traps);
+}
+
 static int wishbone_dummy_detected(void)
 {
     return bonfire_read32(BONFIRE_SPI_FLASH_BASE + BONFIRE_SPI_STATUS)
@@ -307,6 +333,7 @@ static void print_info(void)
     printk("commands: I=info C=clear mcycle D [addr]=dump\n");
     printk("          R addr=read W addr value=write\n");
     printk("          G=gpio test S=spi loopback\n");
+    printk("          M=M extension test T=trap test\n");
 }
 
 static int gpio_wait_for_value(uint32_t expected, uint32_t *actual)
@@ -469,6 +496,10 @@ static void handle_command(char *line)
         test_gpio();
     } else if (command == 'S') {
         test_spi_loopback();
+    } else if (command == 'M') {
+        test_m_extension();
+    } else if (command == 'T') {
+        test_traps();
     } else {
         printk("\a?\n");
     }
@@ -481,6 +512,8 @@ int main(void)
 
     bonfire_uart_init(uart_divisor);
     print_info();
+    test_m_extension();
+    test_traps();
 
     while (1) {
         bonfire_uart_puts("\n>");

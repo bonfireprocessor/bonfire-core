@@ -10,34 +10,30 @@ from tests.conftest import assert_monitor_pass, run_sim
 
 
 @pytest.mark.parametrize(
+    ("pipeline_length", "writeback_bypass", "jump_bypass"),
     (
-        "pipeline_length",
-        "writeback_bypass",
-        "jump_bypass",
-        "enable_debug_module",
-    ),
-    (
-        (3, False, True, False),
-        (3, False, True, True),
-        (4, False, True, False),
-        (4, False, True, True),
-        (4, True, True, False),
-        (4, True, True, True),
-        (4, True, False, False),
-        (4, True, False, True),
+        (3, False, True),
+        (3, False, False),
+        (4, False, True),
+        (4, False, False),
+        (4, True, True),
+        (4, True, False),
     ),
     ids=(
-        "3-stage-debug-off",
-        "3-stage-debug-on",
-        "4-stage-debug-off",
-        "4-stage-debug-on",
-        "4-stage-bypass-debug-off",
-        "4-stage-bypass-debug-on",
-        "4-stage-bypass-registered-redirect-debug-off",
-        "4-stage-bypass-registered-redirect-debug-on",
+        "3-stage",
+        "3-stage-registered-redirect",
+        "4-stage",
+        "4-stage-registered-redirect",
+        "4-stage-bypass",
+        "4-stage-bypass-registered-redirect",
     ),
 )
-def test_precise_machine_traps(
+@pytest.mark.parametrize(
+    "enable_debug_module",
+    (False, True),
+    ids=("debug-off", "debug-on"),
+)
+def test_csr_dependencies(
     sim_env,
     capsys: pytest.CaptureFixture[str],
     repo_root: Path,
@@ -54,13 +50,12 @@ def test_precise_machine_traps(
 
     testbench = tb_core.tb(
         config=config,
-        hexFile=str(repo_root / "code/build/core-tests/precise_traps.hex"),
+        hexFile=str(repo_root / "code/build/core-tests/csr_hazards.hex"),
         ramsize=16384,
-        dbus_error_address=0x20000000,
     )
     run_sim(
         testbench,
-        duration=50_000,
+        duration=20_000,
         waveforms_dir=sim_env["waveforms_dir"],
     )
     assert_monitor_pass(capsys.readouterr().out)

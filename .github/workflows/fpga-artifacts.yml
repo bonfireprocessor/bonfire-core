@@ -87,8 +87,8 @@ jobs:
           "$EDALIZE_LAUNCHER" yosys --version
           "$EDALIZE_LAUNCHER" nextpnr-ecp5 --version
 
-          fusesoc run --target=icepizero ::bonfire-core-soc:0
-          fusesoc run --target=icepizero_jtagg ::bonfire-core-soc:0
+          fusesoc run --target=icepizero --flag=fw_monitor ::bonfire-core-soc:0
+          fusesoc run --target=icepizero_jtagg --flag=fw_monitor ::bonfire-core-soc:0
           fusesoc run --target=icepizero_extended --flag=fw_monitor ::bonfire-core-soc:0
 
       - name: Write build facts

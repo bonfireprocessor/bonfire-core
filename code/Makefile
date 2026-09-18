@@ -46,7 +46,8 @@ CORE_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -g
 RV32M_CFLAGS := -march=rv32im_zicsr -mabi=$(ABI) -g
 DEBUG_CFLAGS := $(CORE_CFLAGS) -Og -ffreestanding -fno-builtin -Wall -Wextra
 SOC_CFLAGS := -march=$(ARCH) -mabi=$(ABI) -Og -g -ffreestanding -fno-builtin -Wall -Wextra
-MONITOR_CFLAGS := $(filter-out -Og,$(SOC_CFLAGS)) -Os
+MONITOR_CFLAGS := $(filter-out -Og -march=%,$(SOC_CFLAGS)) \
+	-march=rv32im_zicsr -Os
 
 # The monitor uses the GCC runtime for operations that RV32I cannot implement
 # directly (for example 64-bit division), but keeps the project-local console
@@ -81,6 +82,8 @@ SOC_PLATFORM_DEFINES_icepizero := BONFIRE_PLATFORM_ICEPIZERO
 SOC_PLATFORM_DEFINES_ulx3s := BONFIRE_PLATFORM_ULX3S
 SOC_PLATFORM_DEFINES_cmods7 := BONFIRE_PLATFORM_CMODS7
 SOC_COMMON_SRCS := $(SOC_DIR)/runtime/console.c $(SOC_DIR)/runtime/snprintf.c
+MONITOR_SRCS := $(SOC_DIR)/apps/monitor/main.c \
+	$(SOC_DIR)/apps/monitor/arch_tests.S
 
 $(BUILD_DIR) $(CORE_TEST_BUILD_DIR) $(DEBUG_TEST_BUILD_DIR):
 	@mkdir -p $@
@@ -114,7 +117,7 @@ $(DEBUG_TEST_BUILD_DIR)/%.hex : $(DEBUG_TEST_BUILD_DIR)/%.elf | $(DEBUG_TEST_BUI
 	$(TARGET_PREFIX)-size  $<
 
 PROGRAMS := basic_alu simple_loop loop loadsave branch wb_test csr trap fence hazards
-DEDICATED_PROGRAMS := precise_traps rv32m
+DEDICATED_PROGRAMS := csr_hazards precise_traps rv32m
 HEXES := $(addprefix $(CORE_TEST_BUILD_DIR)/,$(addsuffix .hex,$(PROGRAMS) $(DEDICATED_PROGRAMS)))
 DEBUG_PROGRAMS := debug endless gdb_demo
 DEBUG_HEXES := $(addprefix $(DEBUG_TEST_BUILD_DIR)/,$(addsuffix .hex,$(DEBUG_PROGRAMS)))
@@ -128,13 +131,13 @@ endef
 $(foreach platform,$(SOC_PLATFORMS),$(foreach app,$(filter-out monitor,$(SOC_APPS)),$(eval $(call SOC_APP_RULE,$(platform),$(app)))))
 
 define SOC_MONITOR_RULE
-$(BUILD_DIR)/soc/$(1)/monitor.elf: $(SOC_DIR)/apps/monitor/main.c $(SOC_COMMON_SRCS) $(SOC_DIR)/startup/crt0_runtime.S $(SOC_DIR)/linker/$(1).ld $(SOC_DIR)/linker/common-sections.ld
+$(BUILD_DIR)/soc/$(1)/monitor.elf: $(MONITOR_SRCS) $(SOC_COMMON_SRCS) $(SOC_DIR)/startup/crt0_runtime.S $(SOC_DIR)/linker/$(1).ld $(SOC_DIR)/linker/common-sections.ld
 	@mkdir -p $$(@D)
 	@if [ "$$(MONITOR_RUNTIME)" = "unavailable" ]; then \
 		echo "error: monitor requires picolibc.specs or Newlib nosys.specs"; \
 		exit 1; \
 	fi
-	@$$(TARGET_CC) $$(MONITOR_CFLAGS) $$(MONITOR_RUNTIME_SPECS) -D$$(SOC_PLATFORM_DEFINES_$(1)) -I$$(SOC_DIR)/include -I$$(SOC_DIR)/platforms -nostartfiles -T$$(SOC_DIR)/linker/$(1).ld -Wl,--gc-sections -Wl,-Map,$$@.map -o $$@ $$(SOC_DIR)/startup/crt0_runtime.S $$< $$(SOC_COMMON_SRCS)
+	@$$(TARGET_CC) $$(MONITOR_CFLAGS) $$(MONITOR_RUNTIME_SPECS) -D$$(SOC_PLATFORM_DEFINES_$(1)) -I$$(SOC_DIR)/include -I$$(SOC_DIR)/platforms -nostartfiles -T$$(SOC_DIR)/linker/$(1).ld -Wl,--gc-sections -Wl,-Map,$$@.map -o $$@ $$(SOC_DIR)/startup/crt0_runtime.S $$(MONITOR_SRCS) $$(SOC_COMMON_SRCS)
 endef
 
 $(foreach platform,$(SOC_PLATFORMS),$(eval $(call SOC_MONITOR_RULE,$(platform))))
