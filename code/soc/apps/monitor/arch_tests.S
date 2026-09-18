@@ -111,12 +111,8 @@ monitor_test_traps:
     sw      s3, 12(sp)
     sw      s4, 8(sp)
     csrr    t0, mtvec
-    nop
-    nop
     sw      t0, 4(sp)
     csrr    t0, mstatus
-    nop
-    nop
     sw      t0, 0(sp)
 
     la      t0, .Ltrap_vector
@@ -234,25 +230,13 @@ monitor_test_traps:
     j       .Ltrap_cleanup
 
 .Ltrap_vector:
-    // With a registered redirect (jump_bypass=False), the handler fetch can
-    // start before the pending trap metadata has committed to the CSRs.
-    nop
-    nop
     csrr    t0, mcause
-    nop
-    nop
     bne     t0, s0, .Ltrap_fail_cause
     csrr    t0, mepc
-    nop
-    nop
     bne     t0, s1, .Ltrap_fail_epc
     csrr    t0, mtval
-    nop
-    nop
     bne     t0, s2, .Ltrap_fail_tval
     csrr    t0, mstatus
-    nop
-    nop
     andi    t1, t0, 8
     bnez    t1, .Ltrap_fail_mie
     andi    t1, t0, 0x80
