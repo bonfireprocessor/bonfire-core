@@ -20,12 +20,12 @@ from tests.conftest import assert_monitor_pass, run_sim
         (4, True, False),
     ),
     ids=(
-        "3-stage",
-        "3-stage-registered-redirect",
-        "4-stage",
-        "4-stage-registered-redirect",
-        "4-stage-bypass",
-        "4-stage-bypass-registered-redirect",
+        "pipeline_length=3-writeback_bypass=False-jump_bypass=True",
+        "pipeline_length=3-writeback_bypass=False-jump_bypass=False",
+        "pipeline_length=4-writeback_bypass=False-jump_bypass=True",
+        "pipeline_length=4-writeback_bypass=False-jump_bypass=False",
+        "pipeline_length=4-writeback_bypass=True-jump_bypass=True",
+        "pipeline_length=4-writeback_bypass=True-jump_bypass=False",
     ),
 )
 @pytest.mark.parametrize(

@@ -157,7 +157,12 @@ $(BUILD_DIR)/soc/%.hex : $(BUILD_DIR)/soc/%.elf
 	@$(TARGET_OBJDUMP) -t $< >$(basename $@).sym
 	$(TARGET_PREFIX)-size $<
 
-SOC_HEXES := $(foreach platform,$(SOC_PLATFORMS),$(addprefix $(BUILD_DIR)/soc/$(platform)/,$(addsuffix .hex,$(SOC_APPS))))
+# sim_tests is a simulation-only firmware and deliberately has no linker
+# targets for FPGA platforms. Build the ordinary applications everywhere, and
+# add the simulation test image only for the sim platform.
+SOC_PLATFORM_APPS := $(filter-out sim_tests,$(SOC_APPS))
+SOC_HEXES := $(foreach platform,$(SOC_PLATFORMS),$(addprefix $(BUILD_DIR)/soc/$(platform)/,$(addsuffix .hex,$(SOC_PLATFORM_APPS))))
+SOC_HEXES += $(BUILD_DIR)/soc/sim/sim_tests.hex
 
 all: $(HEXES) $(DEBUG_HEXES) $(SOC_HEXES)
 
