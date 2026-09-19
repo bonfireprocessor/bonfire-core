@@ -275,3 +275,16 @@ jobs:
           cd riscv-compliance
           make -j3 RISCV_TARGET=bonfire-core RISCV_ISA=rv32i
           make -j3 RISCV_TARGET=bonfire-core RISCV_ISA=rv32Zicsr
+
+      # The rv32im suite in the bonfireprocessor fork consists of the M
+      # extension tests only. Keep it advisory: RV32I remains a supported
+      # configuration when enable_m_extension is false.
+      - name: Run RV32M riscv-compliance (advisory)
+        continue-on-error: true
+        env:
+          BONFIRE_CORE_ROOT: ${{ github.workspace }}
+          PYTHON: ${{ github.workspace }}/.venv/bin/python
+        run: |
+          cd riscv-compliance
+          make -j3 RISCV_TARGET=bonfire-core RISCV_DEVICE=rv32i RISCV_ISA=rv32im \
+            BONFIRE_OPTIONS=--enable-m-extension

@@ -43,6 +43,7 @@ def print_core_configuration(core_config):
     print(f"  shifter_mode: {core_config.shifter_mode}")
     print(f"  registered_read_stage: {core_config.registered_read_stage}")
     print(f"  loadstore_outstanding: {core_config.loadstore_outstanding}")
+    print(f"  m_extension: {core_config.enable_m_extension}")
     print(f"  debug_module: {core_config.enableDebugModule}")
 
 
@@ -54,6 +55,10 @@ def main():
     parser.add_argument('--elf', required=True, help='Test program ELF file')
     parser.add_argument('--sig', required=True, help='Output signature file')
     parser.add_argument('--vcd', help='Optional VCD waveform file for debugging')
+    parser.add_argument(
+        '--enable-m-extension', action='store_true',
+        help='Enable the RV32M extension for an RV32IM compliance suite run',
+    )
     parser.add_argument('-v', '--verbose', action='store_true', help='Verbose output')
     
     args = parser.parse_args()
@@ -85,6 +90,7 @@ def main():
     # Create and configure testbench
     core_config = config.BonfireConfig()
     core_config.pipeline_length = 4
+    core_config.enable_m_extension = args.enable_m_extension
     print_core_configuration(core_config)
     tb = tb_core.tb(
         config=core_config,
