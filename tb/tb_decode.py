@@ -30,7 +30,9 @@ commands=[ \
             not d.sys_cmd and not d.invalid_opcode }, \
     {"opcode":0xfec588e3,"source":"beq	a1,a2,0 <_start>", "current_ip": 16, \
          "t": lambda d,rs1,rs2: abi_name(rs1)=="a1" and abi_name(rs2)=="a2" and d.branch_cmd and \
-            d.funct3_onehot_o==2**0 and d.jump_dest_o == 0 }
+            d.funct3_onehot_o==2**0 and d.jump_dest_o == 0 }, \
+    {"opcode":0x00002063,"source":"reserved branch funct3", \
+         "t": lambda d,rs1,rs2: d.invalid_opcode and not d.branch_cmd }
 ]
 
 

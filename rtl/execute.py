@@ -171,16 +171,16 @@ class ExecuteBundle(PipelineControl):
         execute_control_inst = execute_control.controller(
             decode, self.alu.res_o, branch_equal, branch_ge, branch_uge,
             self.ls, self.csr, self.trapCSR,
-            self.csrUpdate, self.trap_request, op1, op2, self.taken,
+            self.csrUpdate, self.trap_request, self.taken,
             clock, reset, debug_ebreak_enable, debug_progbuf_active)
         jump = execute_control.jump_decision_o
         jump_we = execute_control.jump_write_o
         jump_busy = execute_control.jump_busy_o
         trap_valid = execute_control.trap_valid_o
         trap_pending = execute_control.trap_pending_o
-        ls_issue_invalid = execute_control.ls_issue_invalid_o
-        ls_issue_misaligned = execute_control.ls_issue_misaligned_o
-        ls_issue_access_fault = execute_control.ls_issue_access_fault_o
+        ls_issue_invalid = self.ls.issue.invalid_o
+        ls_issue_misaligned = self.ls.issue.misaligned_o
+        ls_issue_access_fault = self.ls.issue.access_fault_o
         jalr_misaligned = execute_control.jalr_misaligned_o
         control_retire = execute_control.control_retire_o
 
@@ -256,6 +256,7 @@ class ExecuteBundle(PipelineControl):
             self.ls.op2_i.next = op2
             self.ls.displacement_i.next = decode.displacement_o
             self.ls.store_i.next = decode.store_cmd
+            self.ls.access_i.next = decode.load_cmd or decode.store_cmd
 
             #csr Unit Input Wirings
             self.csr.csr_adr.next = decode.priv_funct_12

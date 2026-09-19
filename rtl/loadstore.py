@@ -11,6 +11,7 @@ from rtl.instructions import LoadFunct3, StoreFunct3
 
 from rtl.util import signed_resize
 from rtl.barrel_shifter import left_shift_comb
+from rtl.lsu_issue import LoadStoreIssueBundle
 from rtl.pipeline_control import *
 
 write_pipe_index = 0 # Declaration 
@@ -25,6 +26,7 @@ class LoadStoreBundle(PipelineControl):
 
         # Inputs
         self.store_i = Signal(bool(0)) # True: Operation is store, False: load
+        self.access_i = Signal(bool(0))
         self.funct3_i = Signal(modbv(0)[3:])
         self.op1_i = Signal(modbv(0)[xlen:])
         self.op2_i = Signal(modbv(0)[xlen:])
@@ -47,6 +49,7 @@ class LoadStoreBundle(PipelineControl):
         self.misalign_load_o = Signal(bool(0))
         self.bus_error_o = Signal(bool(0))
         self.invalid_op_o = Signal(bool(0))
+        self.issue = LoadStoreIssueBundle(config)
 
         #debug signals
         self.debug_empty=Signal(bool(0))
@@ -116,6 +119,7 @@ class LoadStoreBundle(PipelineControl):
 
         request = Signal(bool(0))
         confirm = Signal(bool(0))
+        issue_accepted = Signal(bool(0))
 
         adr = Signal(modbv(0)[self.config.xlen:])
         op2_shifted = Signal(modbv(0)[self.config.xlen:])
@@ -125,19 +129,20 @@ class LoadStoreBundle(PipelineControl):
         Logic below will check for invalid (misaligned) writes 
         """
         wr_shift_instance= left_shift_comb(self.op2_i,op2_shifted,adr,0,5,3)
+        issue_checker_inst = self.issue.checker(
+            self.access_i, self.store_i, self.funct3_i, self.op1_i,
+            self.displacement_i)
 
 
         @always_seq(clock.posedge,reset=reset)
         def drive_bus():
 
-            invalid_op=False
-           
             # Deassert en if bus is not stalled 
             if not bus.stall_i:
                 bus_en.next = False
 
             if max_outstanding>1:           
-                if (self.en_i or en_r) and not busy:
+                if (issue_accepted or en_r) and not busy:
                     # Advance Pipeline 
                     for i in range(1,max_outstanding):
                         pipe_rd[i].next = pipe_rd[i-1]
@@ -150,57 +155,47 @@ class LoadStoreBundle(PipelineControl):
                         pipe_invalid_op[i].next = pipe_invalid_op[i-1]
 
 
-            if self.taken:
-               
-                byte_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LB
-                word_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LW
-                hword_mode = self.funct3_i[2:] == LoadFunct3.RV32_F3_LH
-          
-                invalid_op = self.funct3_i[2] and self.store_i or \
-                             not ( byte_mode or word_mode or hword_mode )
+            if issue_accepted:
+                byte_mode = self.issue.byte_mode_o
+                word_mode = self.issue.word_mode_o
+                hword_mode = self.issue.hword_mode_o
 
-                # Misalign check
-               
-                misalign =  hword_mode and adr[0] == True or \
-                            word_mode and adr[2:0] != 0
-
-                if not misalign:
-                    #print("Start cycle:",now())
-                    bus.adr_o.next = adr
-                    bus_en.next = True
-                    if self.store_i:
-                        if word_mode:
-                            bus.we_o.next = 0b1111
-                        elif hword_mode:
-                            if adr[1]==0: # All other cases are already excluded with the misalign check
-                                bus.we_o.next = 0b0011
-                            else:
-                                bus.we_o.next = 0b1100     
-                        elif byte_mode:
-                            # convertible construct ;-)
-                            if adr[2:0]==0:
-                                bus.we_o.next = 0b0001
-                            elif adr[2:0]==1:
-                                bus.we_o.next = 0b0010
-                            elif adr[2:0]==2:
-                                bus.we_o.next = 0b0100
-                            else:
-                                bus.we_o.next = 0b1000     
+                #print("Start cycle:",now())
+                bus.adr_o.next = adr
+                bus_en.next = True
+                if self.store_i:
+                    if word_mode:
+                        bus.we_o.next = 0b1111
+                    elif hword_mode:
+                        if adr[1]==0: # All other cases are already excluded with the misalign check
+                            bus.we_o.next = 0b0011
                         else:
-                            bus.we_o.next = 0
+                            bus.we_o.next = 0b1100
+                    elif byte_mode:
+                        # convertible construct ;-)
+                        if adr[2:0]==0:
+                            bus.we_o.next = 0b0001
+                        elif adr[2:0]==1:
+                            bus.we_o.next = 0b0010
+                        elif adr[2:0]==2:
+                            bus.we_o.next = 0b0100
+                        else:
+                            bus.we_o.next = 0b1000
+                    else:
+                        bus.we_o.next = 0
 
-                        bus.db_wr.next = op2_shifted
-                    else: # read
-                        bus.we_o.next = 0     
+                    bus.db_wr.next = op2_shifted
+                else: # read
+                    bus.we_o.next = 0
                 
                   
                 pipe_rd[0].next = self.rd_i
                 pipe_byte_mode[0].next = byte_mode
                 pipe_hword_mode[0].next = hword_mode
                 pipe_store[0].next = self.store_i
-                pipe_unsigned[0].next = self.funct3_i[2]
-                pipe_misalign[0].next = misalign
-                pipe_invalid_op[0].next = invalid_op
+                pipe_unsigned[0].next = self.issue.unsigned_o
+                pipe_misalign[0].next = self.issue.misaligned_o
+                pipe_invalid_op[0].next = self.issue.invalid_o
                 pipe_adr_lo[0].next = adr[2:0]
 
 
@@ -219,7 +214,10 @@ class LoadStoreBundle(PipelineControl):
         """
         @always_comb
         def req_confirm():
-            request.next =  self.taken 
+            accepted = self.taken and not self.issue.invalid_o and \
+                not self.issue.misaligned_o and not self.issue.access_fault_o
+            issue_accepted.next = accepted
+            request.next = accepted
             confirm.next =  ( bus.ack_i or bus.error_i ) and outstanding > 0      
                 
 
@@ -296,7 +294,7 @@ class LoadStoreBundle(PipelineControl):
         @always_comb
         def comb():
 
-            adr.next = self.op1_i + self.displacement_i.signed()
+            adr.next = self.issue.effective_address_o
 
             capacity_busy = outstanding == max_outstanding and not \
                 (not self.config.registered_read_stage and bus.ack_i)

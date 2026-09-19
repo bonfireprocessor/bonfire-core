@@ -9,12 +9,9 @@ from rtl.bonfire_interfaces import (
     PIPELINE_SOURCE_NORMAL,
     PIPELINE_SOURCE_PROGRAM_BUFFER,
 )
-from rtl.instructions import BranchFunct3 as b3
 from rtl.instructions import SystemOperation
-from rtl.static_data_access import (
-    DataAccessFaultMode,
-    StaticDataAccessCheckerBundle,
-)
+from rtl.control_flow import ControlFlowBundle
+from rtl.static_data_access import DataAccessFaultMode
 
 
 CAUSE_INSTRUCTION_ADDRESS_MISALIGNED = 0
@@ -46,9 +43,6 @@ class ExecuteControlBundle:
         self.trap_pending_o = Signal(bool(0))
         self.trap_pending_progbuf_o = Signal(bool(0))
         self.invalid_opcode_fault_o = Signal(bool(0))
-        self.ls_issue_invalid_o = Signal(bool(0))
-        self.ls_issue_misaligned_o = Signal(bool(0))
-        self.ls_issue_access_fault_o = Signal(bool(0))
         self.jalr_misaligned_o = Signal(bool(0))
         self.control_retire_o = Signal(bool(0))
 
@@ -60,26 +54,24 @@ class ExecuteControlBundle:
         self, decode, alu_result, alu_flag_equal, alu_flag_ge, alu_flag_uge,
         loadstore, csr_unit, trap_csrs, csr_update,
         trap_request,
-        op1, op2, taken, clock, reset, debug_ebreak_enable,
+        taken, clock, reset, debug_ebreak_enable,
         debug_progbuf_active,
     ):
         xlen = self.config.xlen
         lower = self.config.ip_low
-        static_access_map = \
-            self.config.data_access_fault_mode == DataAccessFaultMode.STATIC_MAP
-        if static_access_map:
-            static_access_checker = StaticDataAccessCheckerBundle(xlen)
-            static_access_checker_inst = static_access_checker.checker(
-                self.config.data_access_regions)
+        bus_response_faults = \
+            self.config.data_access_fault_mode != DataAccessFaultMode.STATIC_MAP
+        control_flow = ControlFlowBundle(self.config)
+        control_flow_inst = control_flow.controller(
+            decode.branch_cmd, decode.jump_cmd, decode.jumpr_cmd,
+            decode.funct3_o, decode.jump_dest_o, alu_result,
+            alu_flag_equal, alu_flag_ge, alu_flag_uge)
 
         jump_r = Signal(bool(0))
         jump_dest = Signal(modbv(0)[xlen:])
         jump_dest_r = Signal(modbv(0)[xlen:])
         normal_jump = Signal(bool(0))
         normal_jump_dest = Signal(modbv(0)[xlen:])
-        normal_branch_taken = Signal(bool(0))
-
-        ls_effective_address = Signal(modbv(0)[xlen:])
         # These signals are only driven and consumed in bus-response mode.
         # Keeping their declarations unconditional avoids empty closures in
         # MyHDL's static-map conversion; static elaborations contain no
@@ -121,73 +113,18 @@ class ExecuteControlBundle:
                 jump_r.next = normal_jump
                 self.jump_busy_o.next = normal_jump
 
-            if not static_access_map:
+            if bus_response_faults:
                 if taken and (decode.load_cmd or decode.store_cmd):
-                    ls_fault_address.next = ls_effective_address
+                    ls_fault_address.next = loadstore.issue.effective_address_o
 
                 if loadstore.taken:
                     ls_fault_pc.next = decode.mepc_o
                     ls_fault_store.next = decode.store_cmd
 
         @always_comb
-        def loadstore_address_comb():
-            ls_effective_address.next = op1 + decode.displacement_o.signed()
-
-        if static_access_map:
-            @always_comb
-            def static_access_checker_connect():
-                static_access_checker.address_i.next = ls_effective_address
-                static_access_checker.load_i.next = decode.load_cmd
-                static_access_checker.store_i.next = decode.store_cmd
-
-            @always_comb
-            def issue_check():
-                funct = decode.funct3_o
-                byte_mode = funct[2:0] == 0
-                half_mode = funct[2:0] == 1
-                word_mode = funct[2:0] == 2
-                address_bit0 = bool(op1[0]) != bool(decode.displacement_o[0])
-                address_bit1 = \
-                    (bool(op1[1]) != bool(decode.displacement_o[1])) != \
-                    (bool(op1[0]) and bool(decode.displacement_o[0]))
-
-                self.ls_issue_invalid_o.next = \
-                    funct[2] and decode.store_cmd or not (
-                        byte_mode or half_mode or word_mode)
-                self.ls_issue_misaligned_o.next = \
-                    (half_mode and address_bit0) or \
-                    (word_mode and (address_bit0 or address_bit1))
-
-                self.ls_issue_access_fault_o.next = static_access_checker.fault_o
-
-                # JALR clears bit zero. RVC is disabled, so only bit one remains.
-                self.jalr_misaligned_o.next = \
-                    (bool(op1[1]) != bool(op2[1])) != \
-                    (bool(op1[0]) and bool(op2[0]))
-        else:
-            @always_comb
-            def issue_check():
-                funct = decode.funct3_o
-                byte_mode = funct[2:0] == 0
-                half_mode = funct[2:0] == 1
-                word_mode = funct[2:0] == 2
-                address_bit0 = bool(op1[0]) != bool(decode.displacement_o[0])
-                address_bit1 = \
-                    (bool(op1[1]) != bool(decode.displacement_o[1])) != \
-                    (bool(op1[0]) and bool(decode.displacement_o[0]))
-
-                self.ls_issue_invalid_o.next = \
-                    funct[2] and decode.store_cmd or not (
-                        byte_mode or half_mode or word_mode)
-                self.ls_issue_misaligned_o.next = \
-                    (half_mode and address_bit0) or \
-                    (word_mode and (address_bit0 or address_bit1))
-                self.ls_issue_access_fault_o.next = False
-
-                # JALR clears bit zero. RVC is disabled, so only bit one remains.
-                self.jalr_misaligned_o.next = \
-                    (bool(op1[1]) != bool(op2[1])) != \
-                    (bool(op1[0]) and bool(op2[0]))
+        def control_flow_status():
+            self.jalr_misaligned_o.next = \
+                decode.jumpr_cmd and control_flow.misaligned_o
 
         @always_comb
         def debug_ebreak_comb():
@@ -198,42 +135,12 @@ class ExecuteControlBundle:
 
         @always_comb
         def normal_redirect_comb():
-            # This intentionally remains separate from exception_classifier.
-            take = False
-            branch_taken = False
-            target = modbv(0)[xlen:]
-
-            if decode.branch_cmd:
-                if decode.funct3_o == b3.RV32_F3_BEQ:
-                    branch_taken = bool(alu_flag_equal)
-                elif decode.funct3_o == b3.RV32_F3_BGE:
-                    branch_taken = bool(alu_flag_ge)
-                elif decode.funct3_o == b3.RV32_F3_BGEU:
-                    branch_taken = bool(alu_flag_uge)
-                elif decode.funct3_o == b3.RV32_F3_BLT:
-                    branch_taken = not bool(alu_flag_ge)
-                elif decode.funct3_o == b3.RV32_F3_BLTU:
-                    branch_taken = not bool(alu_flag_uge)
-                elif decode.funct3_o == b3.RV32_F3_BNE:
-                    branch_taken = not bool(alu_flag_equal)
-                target[:] = decode.jump_dest_o
-                take = branch_taken and \
-                    decode.jump_dest_o[lower:0] == 0
-            elif decode.jump_cmd:
-                target[:] = decode.jump_dest_o
-                take = decode.jump_dest_o[lower:0] == 0
-            elif decode.jumpr_cmd:
-                target[:] = alu_result
-                target[0] = False
-                take = not self.jalr_misaligned_o
-            elif decode.sys_cmd and \
+            normal_jump.next = control_flow.redirect_o
+            normal_jump_dest.next = control_flow.target_o
+            if decode.sys_cmd and \
                     decode.system_operation_o == SystemOperation.MRET:
-                target[:] = trap_csrs.mepc << lower
-                take = True
-
-            normal_jump.next = take
-            normal_jump_dest.next = target
-            normal_branch_taken.next = branch_taken
+                normal_jump.next = True
+                normal_jump_dest.next = trap_csrs.mepc << lower
 
         @always_comb
         def exception_classifier():
@@ -247,7 +154,7 @@ class ExecuteControlBundle:
             fault_epc[:] = decode.mepc_o
             invalid_opcode = False
 
-            if not static_access_map and loadstore.valid_o and (
+            if bus_response_faults and loadstore.valid_o and (
                 loadstore.invalid_op_o or loadstore.misalign_load_o or
                 loadstore.misalign_store_o or loadstore.bus_error_o
             ):
@@ -269,63 +176,31 @@ class ExecuteControlBundle:
                     fault_cause = CAUSE_ILLEGAL_INSTRUCTION
                     fault_tval[:] = decode.debug_word_o
                     invalid_opcode = True
-                elif decode.branch_cmd:
-                    funct3 = decode.funct3_o
-                    valid_branch = funct3 == b3.RV32_F3_BEQ or \
-                        funct3 == b3.RV32_F3_BGE or \
-                        funct3 == b3.RV32_F3_BGEU or \
-                        funct3 == b3.RV32_F3_BLT or \
-                        funct3 == b3.RV32_F3_BLTU or \
-                        funct3 == b3.RV32_F3_BNE
-                    if not valid_branch:
-                        fault = True
-                        fault_cause = CAUSE_ILLEGAL_INSTRUCTION
-                        fault_tval[:] = decode.debug_word_o
-                        invalid_opcode = True
-
-                    if normal_branch_taken:
-                        jump_target[:] = decode.jump_dest_o
-                        if decode.jump_dest_o[lower:0] != 0:
-                            fault = True
-                            fault_cause = CAUSE_INSTRUCTION_ADDRESS_MISALIGNED
-                            fault_tval[:] = jump_target
-                        else:
-                            do_jump = True
-                elif decode.jump_cmd:
-                    jump_target[:] = decode.jump_dest_o
-                    if decode.jump_dest_o[lower:0] != 0:
+                elif decode.branch_cmd or decode.jump_cmd or decode.jumpr_cmd:
+                    jump_target[:] = control_flow.target_o
+                    if control_flow.misaligned_o:
                         fault = True
                         fault_cause = CAUSE_INSTRUCTION_ADDRESS_MISALIGNED
-                        fault_tval[:] = jump_target
+                        fault_tval[:] = control_flow.tval_o
                     else:
-                        do_jump = True
-                        do_register_write = True
-                elif decode.jumpr_cmd:
-                    jump_target[:] = alu_result
-                    jump_target[0] = False
-                    if self.jalr_misaligned_o:
-                        fault = True
-                        fault_cause = CAUSE_INSTRUCTION_ADDRESS_MISALIGNED
-                        fault_tval[:] = jump_target
-                    else:
-                        do_jump = True
-                        do_register_write = True
+                        do_jump = bool(control_flow.redirect_o)
+                        do_register_write = bool(control_flow.link_write_o)
                 elif decode.load_cmd or decode.store_cmd:
-                    if self.ls_issue_invalid_o:
+                    if loadstore.issue.invalid_o:
                         fault = True
                         fault_cause = CAUSE_ILLEGAL_INSTRUCTION
                         fault_tval[:] = decode.debug_word_o
                         invalid_opcode = True
-                    elif self.ls_issue_misaligned_o:
+                    elif loadstore.issue.misaligned_o:
                         fault = True
-                        fault_tval[:] = ls_effective_address
+                        fault_tval[:] = loadstore.issue.effective_address_o
                         if decode.store_cmd:
                             fault_cause = CAUSE_STORE_ADDRESS_MISALIGNED
                         else:
                             fault_cause = CAUSE_LOAD_ADDRESS_MISALIGNED
-                    elif self.ls_issue_access_fault_o:
+                    elif loadstore.issue.access_fault_o:
                         fault = True
-                        fault_tval[:] = ls_effective_address
+                        fault_tval[:] = loadstore.issue.effective_address_o
                         if decode.store_cmd:
                             fault_cause = CAUSE_STORE_ACCESS_FAULT
                         else:

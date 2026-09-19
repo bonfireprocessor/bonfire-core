@@ -7,6 +7,7 @@ License: See LICENSE
 from myhdl import *
 from rtl.instructions import Opcodes as op
 from rtl.instructions import ArithmeticFunct3  as f3
+from rtl.instructions import BranchFunct3
 from rtl.instructions import SystemFunct3
 from rtl.instructions import PrivFunct12
 from rtl.instructions import SystemOperation
@@ -312,9 +313,20 @@ class DecodeBundle(PipelineControl):
                         rs2_immediate.next = True
 
                     elif opcode==op.RV32_BRANCH:
-                        self.branch_cmd.next = True
-                        cmd_seen = True
-                        self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(self.word_i).signed()
+                        branch_funct3 = self.word_i[15:12]
+                        valid_branch = \
+                            branch_funct3 == BranchFunct3.RV32_F3_BEQ or \
+                            branch_funct3 == BranchFunct3.RV32_F3_BNE or \
+                            branch_funct3 == BranchFunct3.RV32_F3_BLT or \
+                            branch_funct3 == BranchFunct3.RV32_F3_BGE or \
+                            branch_funct3 == BranchFunct3.RV32_F3_BLTU or \
+                            branch_funct3 == BranchFunct3.RV32_F3_BGEU
+                        if valid_branch:
+                            self.branch_cmd.next = True
+                            cmd_seen = True
+                            self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(self.word_i).signed()
+                        else:
+                            inv = True
 
                     elif opcode==op.RV32_JAL:
                         self.jump_cmd.next = True
