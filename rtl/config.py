@@ -1,3 +1,6 @@
+from rtl.static_data_access import DataAccessFaultMode
+
+
 class BonfireConfig:
     def __init__(self):
         self.shifter_mode="pipelined"
@@ -13,6 +16,10 @@ class BonfireConfig:
         # Complete RV32M extension.  This is intentionally a single switch:
         # partial M implementations must neither decode nor advertise MISA.M.
         self.enable_m_extension = False
+        # Generic bus fabrics may report errors asynchronously. Static SoCs
+        # instead reject unmapped or disallowed requests before LSU issue.
+        self.data_access_fault_mode = DataAccessFaultMode.BUS_RESPONSE
+        self.data_access_regions = ()
         self.reset_address=0x0
         self.mcause_max = 64 # Highest mcause reason
         self.enableDebugModule=False # Enable RISC-V Debug Module

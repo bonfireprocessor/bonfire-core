@@ -74,7 +74,7 @@ else
     MONITOR_RUNTIME := unavailable
 endif
 
-SOC_APPS := led wishbone hello hello_io monitor uart_echo
+SOC_APPS := led wishbone hello hello_io monitor sim_tests uart_echo
 SOC_PLATFORMS := sim fireant icepizero ulx3s cmods7
 SOC_PLATFORM_DEFINES_sim := BONFIRE_PLATFORM_SIM
 SOC_PLATFORM_DEFINES_fireant := BONFIRE_PLATFORM_FIREANT
@@ -83,6 +83,8 @@ SOC_PLATFORM_DEFINES_ulx3s := BONFIRE_PLATFORM_ULX3S
 SOC_PLATFORM_DEFINES_cmods7 := BONFIRE_PLATFORM_CMODS7
 SOC_COMMON_SRCS := $(SOC_DIR)/runtime/console.c $(SOC_DIR)/runtime/snprintf.c
 MONITOR_SRCS := $(SOC_DIR)/apps/monitor/main.c \
+	$(SOC_DIR)/apps/monitor/arch_tests.S
+SIM_TEST_SRCS := $(SOC_DIR)/apps/sim_tests/main.c \
 	$(SOC_DIR)/apps/monitor/arch_tests.S
 
 $(BUILD_DIR) $(CORE_TEST_BUILD_DIR) $(DEBUG_TEST_BUILD_DIR):
@@ -128,7 +130,7 @@ $(BUILD_DIR)/soc/$(1)/$(2).elf: $(SOC_DIR)/apps/$(2)/main.c $(SOC_COMMON_SRCS) $
 	@$$(TARGET_CC) $$(SOC_CFLAGS) -D$$(SOC_PLATFORM_DEFINES_$(1)) -I$$(SOC_DIR)/include -I$$(SOC_DIR)/platforms -nostdlib -nostartfiles -T$$(SOC_DIR)/linker/$(1).ld -Wl,--gc-sections -o $$@ $$(SOC_DIR)/startup/crt0.S $$< $$(SOC_COMMON_SRCS)
 endef
 
-$(foreach platform,$(SOC_PLATFORMS),$(foreach app,$(filter-out monitor,$(SOC_APPS)),$(eval $(call SOC_APP_RULE,$(platform),$(app)))))
+$(foreach platform,$(SOC_PLATFORMS),$(foreach app,$(filter-out monitor sim_tests,$(SOC_APPS)),$(eval $(call SOC_APP_RULE,$(platform),$(app)))))
 
 define SOC_MONITOR_RULE
 $(BUILD_DIR)/soc/$(1)/monitor.elf: $(MONITOR_SRCS) $(SOC_COMMON_SRCS) $(SOC_DIR)/startup/crt0_runtime.S $(SOC_DIR)/linker/$(1).ld $(SOC_DIR)/linker/common-sections.ld
@@ -141,6 +143,12 @@ $(BUILD_DIR)/soc/$(1)/monitor.elf: $(MONITOR_SRCS) $(SOC_COMMON_SRCS) $(SOC_DIR)
 endef
 
 $(foreach platform,$(SOC_PLATFORMS),$(eval $(call SOC_MONITOR_RULE,$(platform))))
+
+$(BUILD_DIR)/soc/sim/sim_tests.elf: $(SIM_TEST_SRCS) $(SOC_DIR)/startup/crt0.S $(SOC_DIR)/linker/sim.ld $(SOC_DIR)/linker/common-sections.ld
+	@mkdir -p $(@D)
+	@$(TARGET_CC) -march=rv32im_zicsr -mabi=$(ABI) -Os -ffreestanding -fno-builtin \
+		-D$(SOC_PLATFORM_DEFINES_sim) -I$(SOC_DIR)/include -I$(SOC_DIR)/platforms -nostdlib -nostartfiles \
+		-T$(SOC_DIR)/linker/sim.ld -Wl,--gc-sections -o $@ $(SOC_DIR)/startup/crt0.S $(SIM_TEST_SRCS)
 
 $(BUILD_DIR)/soc/%.hex : $(BUILD_DIR)/soc/%.elf
 	@$(TARGET_OBJCOPY) -O binary $< $(basename $@).bin

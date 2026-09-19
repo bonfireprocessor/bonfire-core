@@ -6,6 +6,7 @@ from myhdl import *
 
 from rtl.bonfire_interfaces import DbusBundle, Wishbone_master_bundle
 from rtl.config import BonfireConfig
+from rtl.static_data_access import DataAccessFaultMode, DataAccessRegion
 from rtl.debug import DmiBundle, Ecp5JtaggClient, Ecp5JtaggInputBundle, Ecp5JtaggOutputBundle
 from rtl.debug.jtag_dtm import JtagDTM
 from rtl.type_aliases import BitSignal
@@ -37,6 +38,8 @@ class BonfireCoreSoC:
         self.ledActiveLow: bool = soc_config.get('ledActiveLow', True)
         self.UseVHDLMemory: bool = soc_config.get('UseVHDLMemory', False) # not used yet
         self.exposeWishboneMaster: bool = soc_config.get('exposeWishboneMaster', False)
+        self.staticDataAccessMap: bool = soc_config.get(
+            'staticDataAccessMap', True)
         self.registerWishboneDbus: bool = soc_config.get('registerWishboneDbus', False)
         self.enableJtagDebug: bool = soc_config.get('enableJtagDebug', False)
         self.debugJtagTransport: str = soc_config.get('debugJtagTransport', 'native')
@@ -196,6 +199,20 @@ class BonfireCoreSoC:
         """
 
         self.config.reset_address=self.resetAdr
+        if self.staticDataAccessMap:
+            # These are leaf regions, matching the effective decode hierarchy:
+            # BRAM and Wishbone are top-level slaves, while LED and UART are
+            # leaves behind the native-I/O window.
+            self.config.data_access_fault_mode = DataAccessFaultMode.STATIC_MAP
+            self.config.data_access_regions = (
+                DataAccessRegion.from_adrmask(self.bramMask),
+                DataAccessRegion.from_adrmask(self.wbMask),
+                DataAccessRegion.from_adrmask(self.ledMask),
+                DataAccessRegion.from_adrmask(self.uartMask),
+            )
+        else:
+            self.config.data_access_fault_mode = DataAccessFaultMode.BUS_RESPONSE
+            self.config.data_access_regions = ()
 
         sys_reset: BitSignal = ResetSignal(0,active=1,isasync=False)
         core_reset: BitSignal = ResetSignal(0,active=1,isasync=False)

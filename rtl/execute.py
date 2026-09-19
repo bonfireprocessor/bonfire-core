@@ -180,6 +180,7 @@ class ExecuteBundle(PipelineControl):
         trap_pending = execute_control.trap_pending_o
         ls_issue_invalid = execute_control.ls_issue_invalid_o
         ls_issue_misaligned = execute_control.ls_issue_misaligned_o
+        ls_issue_access_fault = execute_control.ls_issue_access_fault_o
         jalr_misaligned = execute_control.jalr_misaligned_o
         control_retire = execute_control.control_retire_o
 
@@ -208,7 +209,8 @@ class ExecuteBundle(PipelineControl):
             def pending_seq():
                 if self.taken:
                     load_pending.next = decode.load_cmd and \
-                        not ls_issue_invalid and not ls_issue_misaligned
+                        not ls_issue_invalid and not ls_issue_misaligned and \
+                        not ls_issue_access_fault
                     shift_pending.next = pipelined_shifter and decode.alu_cmd and \
                         not decode.m_cmd and \
                         (decode.funct3_o == a3.RV32_F3_SLL or \
@@ -288,7 +290,7 @@ class ExecuteBundle(PipelineControl):
                 self.taken
             self.ls.en_i.next = (decode.store_cmd or decode.load_cmd) and \
                 self.taken and not ls_issue_invalid and \
-                not ls_issue_misaligned
+                not ls_issue_misaligned and not ls_issue_access_fault
             self.csr.en_i.next = decode.csr_cmd and self.taken
 
             # Simulation Debug Signals

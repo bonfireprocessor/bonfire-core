@@ -11,6 +11,10 @@ from rtl.bonfire_interfaces import (
 )
 from rtl.instructions import BranchFunct3 as b3
 from rtl.instructions import SystemOperation
+from rtl.static_data_access import (
+    DataAccessFaultMode,
+    StaticDataAccessCheckerBundle,
+)
 
 
 CAUSE_INSTRUCTION_ADDRESS_MISALIGNED = 0
@@ -44,6 +48,7 @@ class ExecuteControlBundle:
         self.invalid_opcode_fault_o = Signal(bool(0))
         self.ls_issue_invalid_o = Signal(bool(0))
         self.ls_issue_misaligned_o = Signal(bool(0))
+        self.ls_issue_access_fault_o = Signal(bool(0))
         self.jalr_misaligned_o = Signal(bool(0))
         self.control_retire_o = Signal(bool(0))
 
@@ -60,6 +65,12 @@ class ExecuteControlBundle:
     ):
         xlen = self.config.xlen
         lower = self.config.ip_low
+        static_access_map = \
+            self.config.data_access_fault_mode == DataAccessFaultMode.STATIC_MAP
+        if static_access_map:
+            static_access_checker = StaticDataAccessCheckerBundle(xlen)
+            static_access_checker_inst = static_access_checker.checker(
+                self.config.data_access_regions)
 
         jump_r = Signal(bool(0))
         jump_dest = Signal(modbv(0)[xlen:])
@@ -69,6 +80,10 @@ class ExecuteControlBundle:
         normal_branch_taken = Signal(bool(0))
 
         ls_effective_address = Signal(modbv(0)[xlen:])
+        # These signals are only driven and consumed in bus-response mode.
+        # Keeping their declarations unconditional avoids empty closures in
+        # MyHDL's static-map conversion; static elaborations contain no
+        # registers or logic for them.
         ls_fault_address = Signal(modbv(0)[xlen:])
         ls_fault_pc = Signal(modbv(0)[xlen:])
         ls_fault_store = Signal(bool(0))
@@ -78,11 +93,7 @@ class ExecuteControlBundle:
         trap_tval = Signal(modbv(0)[xlen:])
         trap_pending_cause = Signal(modbv(0)[6:])
         trap_pending_epc = Signal(modbv(0)[xlen:])
-        trap_pending_jalr = Signal(bool(0))
-        trap_pending_alu_tval = Signal(modbv(0)[xlen:])
-        trap_pending_jump_tval = Signal(modbv(0)[xlen:])
-        trap_pending_instruction = Signal(modbv(0)[xlen:])
-        registered_trap_tval = Signal(modbv(0)[xlen:])
+        trap_pending_tval = Signal(modbv(0)[xlen:])
 
         @always_seq(clock.posedge, reset=reset)
         def state():
@@ -90,10 +101,7 @@ class ExecuteControlBundle:
             self.trap_pending_o.next = False
             trap_pending_cause.next = trap_cause
             trap_pending_epc.next = trap_epc
-            trap_pending_jalr.next = decode.jumpr_cmd
-            trap_pending_alu_tval.next = alu_result & ~1
-            trap_pending_jump_tval.next = decode.jump_dest_o
-            trap_pending_instruction.next = decode.debug_word_o
+            trap_pending_tval.next = trap_tval
             self.trap_pending_progbuf_o.next = debug_progbuf_active
 
             if self.trap_valid_o:
@@ -113,56 +121,73 @@ class ExecuteControlBundle:
                 jump_r.next = normal_jump
                 self.jump_busy_o.next = normal_jump
 
-            if taken and (decode.load_cmd or decode.store_cmd):
-                ls_fault_address.next = ls_effective_address
+            if not static_access_map:
+                if taken and (decode.load_cmd or decode.store_cmd):
+                    ls_fault_address.next = ls_effective_address
 
-            if loadstore.taken:
-                ls_fault_pc.next = decode.mepc_o
-                ls_fault_store.next = decode.store_cmd
+                if loadstore.taken:
+                    ls_fault_pc.next = decode.mepc_o
+                    ls_fault_store.next = decode.store_cmd
 
         @always_comb
         def loadstore_address_comb():
-            ls_effective_address.next = \
-                op1 + decode.displacement_o.signed()
+            ls_effective_address.next = op1 + decode.displacement_o.signed()
 
-        @always_comb
-        def issue_check():
-            funct = decode.funct3_o
-            byte_mode = funct[2:0] == 0
-            half_mode = funct[2:0] == 1
-            word_mode = funct[2:0] == 2
-            address_bit0 = bool(op1[0]) != bool(decode.displacement_o[0])
-            address_bit1 = \
-                (bool(op1[1]) != bool(decode.displacement_o[1])) != \
-                (bool(op1[0]) and bool(decode.displacement_o[0]))
+        if static_access_map:
+            @always_comb
+            def static_access_checker_connect():
+                static_access_checker.address_i.next = ls_effective_address
+                static_access_checker.load_i.next = decode.load_cmd
+                static_access_checker.store_i.next = decode.store_cmd
 
-            self.ls_issue_invalid_o.next = \
-                funct[2] and decode.store_cmd or not (
-                    byte_mode or half_mode or word_mode)
-            self.ls_issue_misaligned_o.next = \
-                (half_mode and address_bit0) or \
-                (word_mode and (address_bit0 or address_bit1))
+            @always_comb
+            def issue_check():
+                funct = decode.funct3_o
+                byte_mode = funct[2:0] == 0
+                half_mode = funct[2:0] == 1
+                word_mode = funct[2:0] == 2
+                address_bit0 = bool(op1[0]) != bool(decode.displacement_o[0])
+                address_bit1 = \
+                    (bool(op1[1]) != bool(decode.displacement_o[1])) != \
+                    (bool(op1[0]) and bool(decode.displacement_o[0]))
 
-            # JALR clears bit zero. RVC is disabled, so only bit one remains.
-            self.jalr_misaligned_o.next = \
-                (bool(op1[1]) != bool(op2[1])) != \
-                (bool(op1[0]) and bool(op2[0]))
+                self.ls_issue_invalid_o.next = \
+                    funct[2] and decode.store_cmd or not (
+                        byte_mode or half_mode or word_mode)
+                self.ls_issue_misaligned_o.next = \
+                    (half_mode and address_bit0) or \
+                    (word_mode and (address_bit0 or address_bit1))
 
-        @always_comb
-        def registered_tval_comb():
-            registered_trap_tval.next = 0
-            if trap_pending_cause == CAUSE_INSTRUCTION_ADDRESS_MISALIGNED:
-                if trap_pending_jalr:
-                    registered_trap_tval.next = trap_pending_alu_tval
-                else:
-                    registered_trap_tval.next = trap_pending_jump_tval
-            elif trap_pending_cause == CAUSE_ILLEGAL_INSTRUCTION:
-                registered_trap_tval.next = trap_pending_instruction
-            elif trap_pending_cause == CAUSE_LOAD_ADDRESS_MISALIGNED or \
-                    trap_pending_cause == CAUSE_LOAD_ACCESS_FAULT or \
-                    trap_pending_cause == CAUSE_STORE_ADDRESS_MISALIGNED or \
-                    trap_pending_cause == CAUSE_STORE_ACCESS_FAULT:
-                registered_trap_tval.next = ls_fault_address
+                self.ls_issue_access_fault_o.next = static_access_checker.fault_o
+
+                # JALR clears bit zero. RVC is disabled, so only bit one remains.
+                self.jalr_misaligned_o.next = \
+                    (bool(op1[1]) != bool(op2[1])) != \
+                    (bool(op1[0]) and bool(op2[0]))
+        else:
+            @always_comb
+            def issue_check():
+                funct = decode.funct3_o
+                byte_mode = funct[2:0] == 0
+                half_mode = funct[2:0] == 1
+                word_mode = funct[2:0] == 2
+                address_bit0 = bool(op1[0]) != bool(decode.displacement_o[0])
+                address_bit1 = \
+                    (bool(op1[1]) != bool(decode.displacement_o[1])) != \
+                    (bool(op1[0]) and bool(decode.displacement_o[0]))
+
+                self.ls_issue_invalid_o.next = \
+                    funct[2] and decode.store_cmd or not (
+                        byte_mode or half_mode or word_mode)
+                self.ls_issue_misaligned_o.next = \
+                    (half_mode and address_bit0) or \
+                    (word_mode and (address_bit0 or address_bit1))
+                self.ls_issue_access_fault_o.next = False
+
+                # JALR clears bit zero. RVC is disabled, so only bit one remains.
+                self.jalr_misaligned_o.next = \
+                    (bool(op1[1]) != bool(op2[1])) != \
+                    (bool(op1[0]) and bool(op2[0]))
 
         @always_comb
         def debug_ebreak_comb():
@@ -222,7 +247,7 @@ class ExecuteControlBundle:
             fault_epc[:] = decode.mepc_o
             invalid_opcode = False
 
-            if loadstore.valid_o and (
+            if not static_access_map and loadstore.valid_o and (
                 loadstore.invalid_op_o or loadstore.misalign_load_o or
                 loadstore.misalign_store_o or loadstore.bus_error_o
             ):
@@ -298,6 +323,13 @@ class ExecuteControlBundle:
                             fault_cause = CAUSE_STORE_ADDRESS_MISALIGNED
                         else:
                             fault_cause = CAUSE_LOAD_ADDRESS_MISALIGNED
+                    elif self.ls_issue_access_fault_o:
+                        fault = True
+                        fault_tval[:] = ls_effective_address
+                        if decode.store_cmd:
+                            fault_cause = CAUSE_STORE_ACCESS_FAULT
+                        else:
+                            fault_cause = CAUSE_LOAD_ACCESS_FAULT
                 elif decode.csr_cmd and csr_unit.invalid_op_o:
                     fault = True
                     fault_cause = CAUSE_ILLEGAL_INSTRUCTION
@@ -365,7 +397,7 @@ class ExecuteControlBundle:
                 commit_valid = bool(self.trap_pending_o)
                 commit_cause = int(trap_pending_cause)
                 commit_epc[:] = trap_pending_epc
-                commit_tval[:] = registered_trap_tval
+                commit_tval[:] = trap_pending_tval
                 commit_progbuf = bool(self.trap_pending_progbuf_o)
 
             trap_request.is_interrupt.next = False

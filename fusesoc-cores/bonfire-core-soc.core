@@ -93,6 +93,7 @@ generate:
       language: vhdl
       bram_adr_width: 12
       enable_m_extension: true
+      static_data_access_map: true
       conversion_warnings: 'ignore'
       top_entity_name: 'bonfire_core_soc_top'
 
@@ -104,6 +105,7 @@ generate:
       language: vhdl
       bram_adr_width: 12
       enable_m_extension: true
+      static_data_access_map: true
       conversion_warnings: 'ignore'
       top_entity_name: 'tb_bonfire_core_soc'
       hexfile: "../code/build/soc/sim/led.hex"
@@ -150,11 +152,12 @@ targets:
         bram_adr_width: 12
         hexfile:
           - "fw_monitor ? (../code/build/soc/sim/monitor.hex)"
-          - "!fw_monitor ? (../code/build/soc/sim/hello_io.hex)"
+          - "!fw_monitor ? (../code/build/soc/sim/sim_tests.hex)"
         num_leds: 8
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        static_data_access_map: true
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
@@ -219,6 +222,7 @@ targets:
             led_active_low: false
             laned_memory: false
             extended_soc: true
+            static_data_access_map: true
 
   cmods7_extended_sim:
       flags:  
@@ -304,6 +308,7 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        static_data_access_map: true
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
@@ -323,6 +328,7 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        static_data_access_map: true
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
@@ -423,6 +429,7 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        static_data_access_map: true
         enable_spi: true
         enable_gpio: true
         num_gpio: 8
@@ -444,6 +451,7 @@ targets:
         led_active_low: false
         laned_memory: false
         extended_soc: true
+        static_data_access_map: true
         enable_spi: true
         enable_gpio: true
         num_gpio: 8

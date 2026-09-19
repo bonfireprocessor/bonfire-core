@@ -96,6 +96,7 @@ class SoCGenerationConfigBuilder:
         "num_leds": 4,
         "led_active_low": True,
         "expose_wishbone_master": False,
+        "static_data_access_map": True,
         "num_gpio": 8,
         "enable_uart1": False,
         "enable_spi": False,

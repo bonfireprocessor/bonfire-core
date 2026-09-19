@@ -139,6 +139,7 @@ architecture tb of tb_soc is
     signal total_count : t_uart_kpi;
     signal framing_errors : t_uart_kpi;
     signal uart0_stop : boolean;
+    signal uart0_fail : boolean;
 
     COMPONENT tb_uart_capture_tx
     GENERIC (
@@ -205,11 +206,13 @@ begin
         );
       end generate;
 
-      gpio_capture: process
-      begin
-        wait on gpio_io;
-        print("IO Pads:" & str(gpio_io) & "(" & hstr(gpio_io) & ")");
-      end process;
+      gpio_capture: if DEBUG generate
+        process
+        begin
+          wait on gpio_io;
+          print("IO Pads:" & str(gpio_io) & "(" & hstr(gpio_io) & ")");
+        end process;
+      end generate;
     end generate;
 
     gpio_disabled: if not ENABLE_GPIO generate
@@ -232,13 +235,29 @@ begin
             total_count =>total_count(0)
         );
 
--- Write Chages to LED to console
-process
-    begin
-      wait on led;
-      print("LEDs:" & str(led) & "(" & hstr(led) & ")");
+   capture_tx_fail : tb_uart_capture_tx
+    GENERIC MAP (
+        baudrate => natural(UART_BAUDRATE),
+        bit_time => bit_time,
+        SEND_LOG_NAME => "send0_fail.log",
+        echo_output => False,
+        stop_mark => X"1B"
+    )
+    PORT MAP(
+            txd => uart0_txd,
+            stop => uart0_fail,
+            framing_errors => framing_errors(1),
+            total_count => total_count(1)
+        );
 
-end process;
+-- Write Chages to LED to console
+led_capture: if DEBUG generate
+  process
+      begin
+        wait on led;
+        print("LEDs:" & str(led) & "(" & hstr(led) & ")");
+  end process;
+end generate;
 
 --Wishbone Bus Monitor
 -- wb_monitor : process
@@ -289,16 +308,15 @@ end process;
     stimuli : process
     begin
 
-        print("UART Baudrate:" & str(UART_BAUDRATE) & " Clk:" & str(CLK_FREQ_MHZ));
         wait for ClockPeriod;
         resetn <= '0';
         wait for ClockPeriod * 3;
         resetn<= '1';
-        print("Start simulation");
 
-        wait until uart0_stop;
-        print("");
-        print("UART0 Test captured bytes: " & str(total_count(0)) & " framing errors: " & str(framing_errors(0)));
+        wait until uart0_stop or uart0_fail;
+        assert not uart0_fail
+          report "simulation firmware reported FAIL over UART"
+          severity failure;
 
         TbSimEnded <= '1';
         wait;
