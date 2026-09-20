@@ -1,7 +1,10 @@
+# Copyright (c) 2026 The Bonfire Project
+# License: See LICENSE
+
 """Four-stage Bonfire backend with functional-unit result registers.
 
-ALU, load/store, CSR and jump-link values are registered independently. The
-writeback result mux therefore sits after those registers while preserving
+ALU, load/store, CSR, RV32M and jump-link values are registered independently.
+The writeback result mux therefore sits after those registers while preserving
 the architectural four-stage timing.
 """
 
@@ -85,11 +88,16 @@ class PipelinedBackend:
         wb_rd = Signal(modbv(0)[5:])
         wb_alu_valid = Signal(bool(0))
         wb_load_valid = Signal(bool(0))
+        # Keep the CSR completion tag registered for waveforms and conversion;
+        # the writeback mux uses CSR data as its default and synthesis removes
+        # this otherwise unobserved state bit.
         wb_csr_valid = Signal(bool(0))
+        wb_m_valid = Signal(bool(0))
         wb_jump_valid = Signal(bool(0))
         wb_alu_data = Signal(modbv(0)[conf.xlen:])
         wb_load_data = Signal(modbv(0)[conf.xlen:])
         wb_csr_data = Signal(modbv(0)[conf.xlen:])
+        wb_m_data = Signal(modbv(0)[conf.xlen:])
         wb_jump_data = Signal(modbv(0)[conf.xlen:])
         wb_data = Signal(modbv(0)[conf.xlen:])
         wb_control_retire = Signal(bool(0))
@@ -110,16 +118,14 @@ class PipelinedBackend:
             wb_rd.next = self.execute.rd_adr_o
             wb_alu_valid.next = self.execute.alu_valid_o
             wb_load_valid.next = self.execute.load_valid_o
-            wb_csr_valid.next = \
-                self.execute.csr_valid_o or self.execute.m_valid_o
+            wb_csr_valid.next = self.execute.csr_valid_o
+            wb_m_valid.next = self.execute.m_valid_o
             wb_jump_valid.next = self.execute.jump_valid_o
 
             wb_alu_data.next = self.execute.alu.res_o
             wb_load_data.next = self.execute.ls.result_o
-            if self.execute.m_valid_o:
-                wb_csr_data.next = self.execute.result_o
-            else:
-                wb_csr_data.next = self.execute.csr.result_o
+            wb_csr_data.next = self.execute.csr.result_o
+            wb_m_data.next = self.execute.result_o
             wb_jump_data.next = self.decode.next_ip_o
             # Execute already has the exact mutually exclusive control-only
             # retire term.  Reusing it avoids rebuilding it through the full
@@ -152,10 +158,10 @@ class PipelinedBackend:
                 wb_data.next = wb_load_data
             elif wb_jump_valid:
                 wb_data.next = wb_jump_data
-            elif wb_csr_valid:
-                wb_data.next = wb_csr_data
+            elif wb_m_valid:
+                wb_data.next = wb_m_data
             else:
-                wb_data.next = 0
+                wb_data.next = wb_csr_data
 
         if bypass:
             @always_comb
