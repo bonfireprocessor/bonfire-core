@@ -133,6 +133,11 @@ class DecodeBundle(PipelineControl):
         rs1_adr_o_reg = Signal(modbv(0)[5:])
         rs2_adr_o_reg = Signal(modbv(0)[5:])
 
+        # valid_reg retains the decoded pipeline entry.  valid_o is its
+        # externally visible, kill-qualified form so a registered redirect
+        # can suppress Execute acceptance before Decode clears the entry on
+        # the following clock edge.
+        valid_reg = Signal(bool(0))
         downstream_busy = Signal(bool(0))
 
         if self.config.enableDebugModule:
@@ -151,6 +156,10 @@ class DecodeBundle(PipelineControl):
         @always_comb
         def busy_control():
             downstream_busy.next = self.valid_o and self.stall_i
+
+        @always_comb
+        def valid_output():
+            self.valid_o.next = valid_reg and not self.kill_i
 
 
         @always_comb
@@ -216,7 +225,7 @@ class DecodeBundle(PipelineControl):
             """
 
             if transfer_valid and transfer_write:
-                self.valid_o.next = True
+                valid_reg.next = True
                 rs1_immediate.next = True
                 rs2_immediate.next = True
                 rs1_imm_value.next = transfer_write_data
@@ -240,7 +249,7 @@ class DecodeBundle(PipelineControl):
                 self.fence_cmd.next = False
 
             elif self.kill_i:
-                self.valid_o.next = False
+                valid_reg.next = False
                 self.invalid_opcode.next = False
                 self.fence_cmd.next = False
                 self.m_cmd.next = False
@@ -404,10 +413,10 @@ class DecodeBundle(PipelineControl):
                         inv=True
                     # Invalid encodings must reach Execute so they can take the
                     # same precise architectural trap path as other faults.
-                    self.valid_o.next = inv or cmd_seen
+                    valid_reg.next = inv or cmd_seen
                     self.invalid_opcode.next= inv
                 else:
-                    self.valid_o.next=False
+                    valid_reg.next=False
                     self.fence_cmd.next = False
                     # m_cmd qualifies its own validity in Execute, so never
                     # leave it asserted while the decode stage is empty.

@@ -276,12 +276,16 @@ class ExecuteBundle(PipelineControl):
                 else:
                     decode.kill_i.next = self.taken and jump
             else:
+                # Trap metadata is captured by ExecuteControl in the cycle
+                # where the fault is detected.  Flush Decode from the
+                # registered trap_pending state in the following cycle; its
+                # kill-qualified valid output prevents Execute acceptance
+                # before Decode clears the held entry at the clock edge.
                 if self.config.enableDebugModule:
-                    decode.kill_i.next = jump_busy or trap_valid or \
-                        trap_pending or debug_flush
+                    decode.kill_i.next = jump_busy or trap_pending or \
+                        debug_flush
                 else:
-                    decode.kill_i.next = jump_busy or trap_valid or \
-                        trap_pending
+                    decode.kill_i.next = jump_busy or trap_pending
 
 
             # Functional Unit selection
