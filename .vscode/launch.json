@@ -5,132 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         
-       
-        {
-            "name": "Python: run core compliance",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tb_run.py",
-            "args": [
-                "--hex=/home/thomas/development/riscv/riscv-compliance/work/rv32i/I-JALR-01.elf.hex",
-                "--elf=/home/thomas/development/riscv/riscv-compliance/work/rv32i/I-JALR-01.elf",
-                "--sig=/tmp/dummy.txt",
-                "--vcd=tb_core",
-                "-v"
-            ],
-            "console": "integratedTerminal"
-        },
-       
-        {
-            "name": "Python: run core local code",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tb_run.py",
-            "args": [
-                "--hex=code/loadsave.hex",
-                "--vcd=tb_core"
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: run core local code verbose",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tb_run.py",
-            "args": [
-                "-v",
-                "--hex=code/trap.hex",
-                "--vcd=tb_core"
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: run unit tests",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tb_run.py",
-            "args": [
-                "--pipeline"
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: run Extended Core Test",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tb_run.py",
-            "args": [
-                "--hex=code/loadsave.hex",
-                "--soc",
-                "--vcd=tb_soc"
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: run new SOC test",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tb_run.py",
-            "args": [
-                "--hex=../bonfire-software/test/ledsim.hex",
-                "--new_soc",
-                "--vcd=tb_new_soc",
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: gen core",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/gen_core.py",
-            "args": [
-                "--extended",
-                "--bram_base=0xc",
-                "--bram_adr_width=11",
-                "--path=vhdl_gen/export/extended_core"
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: cache unit tests",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/tb_run.py",
-            "args": [
-                "--ut_cache"
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: gen soc ",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/gen_soc.py",
-            "args": [
-                "--hexfile=../bonfire-software/test/ledslow.hex",
-                "--laned_memory=true",
-                "--bram_adr_width=11",
-                "--path=vhdl_gen/export/soc",
-                //"--expose_wishbone_master",
-                //"--extended_soc",
-                
-            ],
-            "console": "integratedTerminal"
-        },
-        {
-            "name": "Python: gen soc tb ",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "${workspaceFolder}/gen_soc.py",
-            "args": [
-                "--hexfile=/home/thomas/development/bonfire/bonfire-software/test/ledsim.hex",
-                "--bram_base=0xc",
-                "--bram_adr_width=11",
-                "--path=vhdl_gen_tb",
-                "--gentb"
-            ],
-            "console": "integratedTerminal"
-        },
+      
         {
             "name": "Debug openocd_bitbang_server ",
             "cwd": "${workspaceFolder}",
@@ -177,7 +52,46 @@
                 }
             ],
             "launchCompleteCommand": "None"
+        },
+         {
+            "name": "GDB debug on FPGA:iecpizero monitor (OpenOCD/JTAGG)",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/code/build/soc/icepizero/monitor.elf",
+            "cwd": "${workspaceFolder}",
+            "MIMode": "gdb",
+            "stopAtEntry": true,
+            // cppdbg has no RISC-V value and otherwise aborts while parsing the ELF.
+            // This only selects a 32-bit MIEngine code path; GDB still detects RISC-V.
+            "targetArchitecture": "arm",
+            "miDebuggerPath": "/opt/homebrew/bin/gdb",
+            "miDebuggerServerAddress": "localhost:3333",
+            "debugServerPath": "/opt/homebrew/bin/openocd",
+            "debugServerArgs": "-f ${workspaceFolder}/openocd/ecp5_jtagg.cfg",
+            "serverStarted": "Listening on port 3333 for gdb connections",
+            "filterStderr": true,
+            "customLaunchSetupCommands": [
+                 {
+                    "description": "set Architecture",
+                    "text": "set arch riscv:rv32",
+                    "ignoreFailures": true
+                },
+                {
+                    "text": "-file-exec-and-symbols ${workspaceFolder}/code/build/soc/icepizero/monitor.elf"
+                },
+                {
+                    "text": "-target-select extended-remote localhost:3333"
+                },
+                {
+                    "text": "-interpreter-exec console \"monitor reset\""
+                },
+                {
+                    "text": "-interpreter-exec console \"load\""
+                }
+            ],
+            "launchCompleteCommand": "None"
         }
+
 
     ]
 }
