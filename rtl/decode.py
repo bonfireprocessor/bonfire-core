@@ -133,10 +133,9 @@ class DecodeBundle(PipelineControl):
         rs1_adr_o_reg = Signal(modbv(0)[5:])
         rs2_adr_o_reg = Signal(modbv(0)[5:])
 
-        # valid_reg retains the decoded pipeline entry.  valid_o is its
-        # externally visible, kill-qualified form so a registered redirect
-        # can suppress Execute acceptance before Decode clears the entry on
-        # the following clock edge.
+        # valid_reg retains the decoded pipeline entry.  With a registered
+        # redirect, kill_i also immediately suppresses the externally visible
+        # valid_o before Decode clears the entry at the following clock edge.
         valid_reg = Signal(bool(0))
         downstream_busy = Signal(bool(0))
 
@@ -157,9 +156,14 @@ class DecodeBundle(PipelineControl):
         def busy_control():
             downstream_busy.next = self.valid_o and self.stall_i
 
-        @always_comb
-        def valid_output():
-            self.valid_o.next = valid_reg and not self.kill_i
+        if self.config.jump_bypass:
+            @always_comb
+            def valid_output_bypass():
+                self.valid_o.next = valid_reg
+        else:
+            @always_comb
+            def valid_output_registered():
+                self.valid_o.next = valid_reg and not self.kill_i
 
 
         @always_comb

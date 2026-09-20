@@ -37,16 +37,17 @@ def HartDebugController(
     state = Signal(t_hart_debug_state.running)
     redirect_valid = Signal(bool(0))
     redirect_pc = Signal(modbv(0)[config.xlen:])
+    flush_pending = Signal(bool(0))
 
     @always_comb
     def outputs():
         request.allow_fetch.next = state == t_hart_debug_state.running or state == t_hart_debug_state.step_issue
         if state == t_hart_debug_state.running and debug_regs.haltreq:
             request.allow_fetch.next = False
-        # Execute kills a faulting instruction locally.  Feeding a Program
-        # Buffer exception back into the same stage as a combinational debug
-        # flush creates a trap -> debug -> decode timing loop.
-        request.flush.next = events.ebreak or redirect_valid
+        # Both sources are registered state-machine outputs.  Keeping the
+        # EBREAK flush out of the Decode/Execute combinational path makes
+        # request.flush a uniform pipeline-boundary event.
+        request.flush.next = flush_pending or redirect_valid
         request.redirect_valid.next = redirect_valid
         request.redirect_pc.next = redirect_pc
 
@@ -59,6 +60,7 @@ def HartDebugController(
     def state_machine():
         debug_regs.req_ack.next = False
         redirect_valid.next = False
+        flush_pending.next = False
         debug_csr_update.we_dpc.next = False
         debug_csr_update.we_cause.next = False
 
@@ -66,6 +68,7 @@ def HartDebugController(
             state.next = t_hart_debug_state.running
 
         elif events.ebreak and state != t_hart_debug_state.halted:
+            flush_pending.next = True
             debug_csr_update.dpc.next = events.ebreak_pc[config.xlen:config.ip_low]
             debug_csr_update.cause.next = 1
             debug_csr_update.we_dpc.next = True
