@@ -1,29 +1,43 @@
 """
-RV32M Issue, Completion, and Cancellation Control
+RV32M Multiply/Divide Issue, Completion, and Cancellation Control
 (c) 2026 The Bonfire Project
 License: See LICENSE
 
-RV32M issue, completion, and cancellation control.
+RV32M multiply/divide issue, completion, and cancellation control.
 """
 
 from myhdl import Signal, always_comb, always_seq, block, instances, modbv
 
-from rtl.bonfire_interfaces import MachineExtensionBundle
 from rtl.divider import DividerBundle
 from rtl.multiplier import MultiplierBundle
 
 
-class MachineExtensionControllerBundle:
-    """Pipeline-facing wrapper around the RV32M arithmetic units.
+class MulDivBundle:
+    """Pipeline request and completion contract for RV32M operations."""
 
-    ``port.request_i`` remains asserted while Decode is held.  The controller
+    def __init__(self, config) -> None:
+        self.op1_i = Signal(modbv(0)[config.xlen:])
+        self.op2_i = Signal(modbv(0)[config.xlen:])
+        self.operation_i = Signal(modbv(0)[3:])
+        self.request_i = Signal(bool(0))
+        self.cancel_i = Signal(bool(0))
+
+        self.busy_o = Signal(bool(0))
+        self.valid_o = Signal(bool(0))
+        self.result_o = Signal(modbv(0)[config.xlen:])
+
+
+class MulDivControllerBundle:
+    """Pipeline-facing controller around the RV32M arithmetic units.
+
+    ``port.request_i`` remains asserted while Decode is held. The controller
     converts it into a single request pulse, stalls Decode until completion,
     and suppresses a second request during the release cycle.
     """
 
     def __init__(self, config):
         self.config = config
-        self.port = MachineExtensionBundle(config)
+        self.port = MulDivBundle(config)
 
         self.rd_i = Signal(modbv(0)[5:])
         self.rd_o = Signal(modbv(0)[5:])

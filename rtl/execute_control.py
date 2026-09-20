@@ -8,7 +8,7 @@ Control-flow and synchronous-exception handling for Execute.
 
 from myhdl import Signal, always_comb, always_seq, block, instances, modbv
 
-from rtl.bonfire_interfaces import (
+from rtl.pipeline_events import (
     PIPELINE_SOURCE_NORMAL,
     PIPELINE_SOURCE_PROGRAM_BUFFER,
 )
@@ -25,6 +25,19 @@ CAUSE_LOAD_ACCESS_FAULT = 5
 CAUSE_STORE_ADDRESS_MISALIGNED = 6
 CAUSE_STORE_ACCESS_FAULT = 7
 CAUSE_MACHINE_ECALL = 11
+
+
+class TrapRequestBundle:
+    """Synchronous or asynchronous request for an architectural trap."""
+
+    def __init__(self, config):
+        self.valid = Signal(bool(0))
+        self.is_interrupt = Signal(bool(0))
+        self.cause = Signal(modbv(0)[6:])
+        self.epc = Signal(modbv(0)[config.xlen:])
+        self.tval = Signal(modbv(0)[config.xlen:])
+        self.source = Signal(modbv(PIPELINE_SOURCE_NORMAL)[2:])
+        self.ack = Signal(bool(0))
 
 
 class ExecuteControlBundle:

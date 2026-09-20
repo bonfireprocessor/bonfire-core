@@ -27,7 +27,7 @@ from rtl.debug.pipeline_adapter import (
     DebugPipelineEventBundle,
     DebugPipelineRequestBundle,
 )
-from rtl.bonfire_interfaces import (
+from rtl.pipeline_events import (
     PIPELINE_SOURCE_NORMAL,
     PIPELINE_SOURCE_PROGRAM_BUFFER,
     PipelineBoundaryEventBundle,

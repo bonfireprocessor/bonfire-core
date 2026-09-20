@@ -8,13 +8,12 @@ from __future__ import print_function
 from myhdl import *
 
 from rtl import alu, loadstore, csr, trap
-from rtl.execute_control import ExecuteControlBundle
-from rtl.machine_extension import MachineExtensionControllerBundle
+from rtl.execute_control import ExecuteControlBundle, TrapRequestBundle
+from rtl.muldiv import MulDivControllerBundle
 
 from rtl.instructions import ArithmeticFunct3 as a3
 
 from rtl.pipeline_control import *
-from rtl.bonfire_interfaces import TrapRequestBundle
 
 
 class ExecuteBundle(PipelineControl):
@@ -123,23 +122,23 @@ class ExecuteBundle(PipelineControl):
         alu_inst = self.alu.alu(clock,reset,self.config.shifter_mode )
         ls_inst = self.ls.LoadStoreUnit(databus,clock,reset)
 
-        machine_extension = MachineExtensionControllerBundle(self.config)
-        machine_extension_inst = machine_extension.controller(clock, reset)
-        m_complete = machine_extension.port.valid_o
-        m_wait = machine_extension.port.busy_o
-        m_result = machine_extension.port.result_o
-        m_rd = machine_extension.rd_o
+        muldiv = MulDivControllerBundle(self.config)
+        muldiv_inst = muldiv.controller(clock, reset)
+        muldiv_complete = muldiv.port.valid_o
+        muldiv_wait = muldiv.port.busy_o
+        muldiv_result = muldiv.port.result_o
+        muldiv_rd = muldiv.rd_o
 
         @always_comb
-        def machine_extension_connect():
-            machine_extension.port.op1_i.next = op1
-            machine_extension.port.op2_i.next = op2
-            machine_extension.port.operation_i.next = decode.funct3_o
-            machine_extension.port.request_i.next = decode.m_cmd
-            machine_extension.port.cancel_i.next = debug_flush
-            machine_extension.rd_i.next = decode.rd_adr_o
-            machine_extension.hazard_i.next = self.hazard_i
-            machine_extension.consume_i.next = self.taken
+        def muldiv_connect():
+            muldiv.port.op1_i.next = op1
+            muldiv.port.op2_i.next = op2
+            muldiv.port.operation_i.next = decode.funct3_o
+            muldiv.port.request_i.next = decode.m_cmd
+            muldiv.port.cancel_i.next = debug_flush
+            muldiv.rd_i.next = decode.rd_adr_o
+            muldiv.hazard_i.next = self.hazard_i
+            muldiv.consume_i.next = self.taken
 
         if self.config.enableDebugModule:
             csr_inst = self.csr.CSRUnit(
@@ -266,9 +265,9 @@ class ExecuteBundle(PipelineControl):
 
             # Pipeline
             busy.next = self.alu.busy_o or self.ls.busy_o or \
-                self.csr.busy_o or jump_busy or self.hazard_i or m_wait
+                self.csr.busy_o or jump_busy or self.hazard_i or muldiv_wait
             valid.next = alu_success or ls_success or \
-                self.csr.valid_o or jump_we or m_complete
+                self.csr.valid_o or jump_we or muldiv_complete
 
             if self.config.jump_bypass:
                 if self.config.enableDebugModule:
@@ -306,7 +305,7 @@ class ExecuteBundle(PipelineControl):
                 # The ordinary sources are captured from their dedicated
                 # functional-unit buses.  result_o carries the registered
                 # RV32M completion value for the additional writeback source.
-                self.result_o.next = m_result
+                self.result_o.next = muldiv_result
                 self.alu_valid_o.next = False
                 self.load_valid_o.next = False
                 self.csr_valid_o.next = False
@@ -319,7 +318,7 @@ class ExecuteBundle(PipelineControl):
                 # the simultaneously valid ALU result used as its target.
                 if jump_we:
                     self.jump_valid_o.next = True
-                elif m_complete:
+                elif muldiv_complete:
                     self.m_valid_o.next = True
                 elif self.ls.we_o and ls_success:
                     self.load_valid_o.next = True
@@ -338,8 +337,8 @@ class ExecuteBundle(PipelineControl):
 
                 if jump_we:
                     self.result_o.next = decode.next_ip_o
-                elif m_complete:
-                    self.result_o.next = m_result
+                elif muldiv_complete:
+                    self.result_o.next = muldiv_result
                 elif load_pending:
                     self.result_o.next = self.ls.result_o
                 elif shift_pending or (decode.alu_cmd and not decode.m_cmd):
@@ -360,12 +359,12 @@ class ExecuteBundle(PipelineControl):
                 not decode.invalid_opcode and \
                 not (decode.jumpr_cmd and jalr_misaligned)
             ls_success.next = self.ls.valid_o and not self.ls.bus_error_o
-            self.reg_we_o.next = alu_success or m_complete or \
+            self.reg_we_o.next = alu_success or muldiv_complete or \
                 (self.ls.we_o and ls_success) or self.csr.valid_o or jump_we
             self.retire_o.next = retire
 
-            if m_complete:
-                self.rd_adr_o.next = m_rd
+            if muldiv_complete:
+                self.rd_adr_o.next = muldiv_rd
             elif self.taken:
                 self.rd_adr_o.next = decode.rd_adr_o
             else:

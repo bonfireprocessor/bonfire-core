@@ -3,14 +3,15 @@ from __future__ import annotations
 import pytest
 from myhdl import Simulation, StopSimulation, always, block, delay, instance
 
-from rtl.bonfire_interfaces import (
+from rtl.pipeline_events import (
     PIPELINE_SOURCE_DEBUG_REGISTER,
     PIPELINE_SOURCE_NORMAL,
     PIPELINE_SOURCE_PROGRAM_BUFFER,
-    PipelineBoundaryEventAssertions,
     PipelineBoundaryEventBundle,
 )
 from rtl.config import BonfireConfig
+from tests.pure.core.pipeline_event_assertions import \
+    PipelineBoundaryEventAssertions
 
 
 def test_pipeline_boundary_event_bundle_defaults():
