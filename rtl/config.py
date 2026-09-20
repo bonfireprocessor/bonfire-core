@@ -1,3 +1,9 @@
+"""
+Bonfire Configuration
+(c) 2026 The Bonfire Project
+License: See LICENSE
+"""
+
 from rtl.static_data_access import DataAccessFaultMode
 
 

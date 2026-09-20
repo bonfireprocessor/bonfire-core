@@ -1,7 +1,10 @@
-# Copyright (c) 2026 The Bonfire Project
-# License: See LICENSE
+"""
+Dynamic RV32I Branch and Jump Decision Logic
+(c) 2026 The Bonfire Project
+License: See LICENSE
 
-"""Dynamic RV32I branch and jump decision logic."""
+Dynamic RV32I branch and jump decision logic.
+"""
 
 from myhdl import Signal, always_comb, block, modbv
 

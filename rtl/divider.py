@@ -1,9 +1,11 @@
 # Copyright (c) 2016 Alex I. Kuznetsov
-# Copyright (c) 2019-2026 The Bonfire Project
-# License: See LICENSE
-
 """
 Divider
+(c) 2019-2026 The Bonfire Project
+License: See LICENSE
+
+Divider
+
 Part of the bonfire-core CPU (ported from LXP32 CPU)
 
 Original Copyright (c) 2016 by Alex I. Kuznetsov

@@ -1,6 +1,6 @@
 """
 RISC-V debug module — register bundles
-(c) 2023 The Bonfire Project
+(c) 2023-2026 The Bonfire Project
 License: See LICENSE
 """
 from __future__ import annotations

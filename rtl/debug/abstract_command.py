@@ -1,4 +1,10 @@
-"""RISC-V abstract-command and Program Buffer control."""
+"""
+RISC-V Abstract Command and Program Buffer Control
+(c) 2026 The Bonfire Project
+License: See LICENSE
+
+RISC-V abstract-command and Program Buffer control.
+"""
 
 from __future__ import annotations
 

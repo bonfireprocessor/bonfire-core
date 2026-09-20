@@ -1,4 +1,8 @@
 """
+Bonfire DBus UART With Zpuino-Uart Compatible Registers
+(c) 2026 The Bonfire Project
+License: See LICENSE
+
 Bonfire DBus UART with zpuino-uart compatible registers.
 
 This is intentionally smaller than the original zpuino UART.  The first

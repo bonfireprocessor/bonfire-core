@@ -1,7 +1,10 @@
-# Copyright (c) 2026 The Bonfire Project
-# License: See LICENSE
+"""
+Control-Flow and Synchronous-Exception Handling for Execute
+(c) 2026 The Bonfire Project
+License: See LICENSE
 
-"""Control-flow and synchronous-exception handling for Execute."""
+Control-flow and synchronous-exception handling for Execute.
+"""
 
 from myhdl import Signal, always_comb, always_seq, block, instances, modbv
 

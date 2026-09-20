@@ -1,3 +1,9 @@
+"""
+Bonfire Core SoC
+(c) 2026 The Bonfire Project
+License: See LICENSE
+"""
+
 from __future__ import annotations, print_function
 
 from typing import Any, Mapping

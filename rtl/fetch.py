@@ -1,6 +1,6 @@
 """
 RISC-V insturction fetch module
-(c) 2019-2023 The Bonfire Project
+(c) 2019-2026 The Bonfire Project
 License: See LICENSE
 """
 from __future__ import print_function

@@ -1,4 +1,10 @@
-"""Pipeline boundary used by the optional RISC-V debug module."""
+"""
+Pipeline Boundary Used by the Optional RISC-V Debug Module
+(c) 2026 The Bonfire Project
+License: See LICENSE
+
+Pipeline boundary used by the optional RISC-V debug module.
+"""
 
 from __future__ import annotations
 

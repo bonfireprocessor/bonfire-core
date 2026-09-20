@@ -1,7 +1,10 @@
-# Copyright (c) 2026 The Bonfire Project
-# License: See LICENSE
+"""
+Four-Stage RV32 Multiplier Built From 16 x 16 Partial Products
+(c) 2026 The Bonfire Project
+License: See LICENSE
 
-"""Four-stage RV32 multiplier built from 16 x 16 partial products."""
+Four-stage RV32 multiplier built from 16 x 16 partial products.
+"""
 
 from __future__ import annotations
 

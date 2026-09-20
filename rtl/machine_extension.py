@@ -1,7 +1,10 @@
-# Copyright (c) 2026 The Bonfire Project
-# License: See LICENSE
+"""
+RV32M Issue, Completion, and Cancellation Control
+(c) 2026 The Bonfire Project
+License: See LICENSE
 
-"""RV32M issue, completion, and cancellation control."""
+RV32M issue, completion, and cancellation control.
+"""
 
 from myhdl import Signal, always_comb, always_seq, block, instances, modbv
 

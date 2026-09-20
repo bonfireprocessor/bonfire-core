@@ -1,4 +1,10 @@
-"""Hart halt, resume, EBREAK, and single-step control."""
+"""
+Hart Halt, Resume, EBREAK, and Single-Step Control
+(c) 2026 The Bonfire Project
+License: See LICENSE
+
+Hart halt, resume, EBREAK, and single-step control.
+"""
 
 from __future__ import annotations
 

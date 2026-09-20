@@ -1,4 +1,10 @@
-"""Elaboration-time static data-access policy and its RTL checker."""
+"""
+Elaboration-Time Static Data-Access Policy and Its RTL Checker
+(c) 2026 The Bonfire Project
+License: See LICENSE
+
+Elaboration-time static data-access policy and its RTL checker.
+"""
 
 from myhdl import Signal, always_comb, block, instances, modbv
 

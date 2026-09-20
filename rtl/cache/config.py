@@ -1,6 +1,6 @@
 """
 Bonfire Core cache config parameters
-(c) 2019,2020 The Bonfire Project
+(c) 2019-2026 The Bonfire Project
 License: See LICENSE
 """
 

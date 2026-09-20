@@ -1,7 +1,10 @@
-# Copyright (c) 2026 The Bonfire Project
-# License: See LICENSE
+"""
+Local Load/Store Issue Validation Shared by Execute and the LSU
+(c) 2026 The Bonfire Project
+License: See LICENSE
 
-"""Local load/store issue validation shared by Execute and the LSU."""
+Local load/store issue validation shared by Execute and the LSU.
+"""
 
 from myhdl import Signal, always_comb, block, instances, modbv
 

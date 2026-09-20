@@ -18,6 +18,12 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 # THE SOFTWARE.
 
+"""
+RISC-V Instructions
+(c) 2026 The Bonfire Project
+License: See LICENSE
+"""
+
 
 class Opcodes:
     """

@@ -1,3 +1,9 @@
+"""
+RTL Type Aliases
+(c) 2026 The Bonfire Project
+License: See LICENSE
+"""
+
 from __future__ import annotations
 
 from typing import Any

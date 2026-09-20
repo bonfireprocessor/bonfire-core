@@ -1,4 +1,10 @@
 #!/usr/bin/env python
+"""
+RISC-V Register File
+(c) 2026 The Bonfire Project
+License: See LICENSE
+"""
+
 # Copyright (c) 2015 Angel Terrones (<angelterrones@gmail.com>)
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy

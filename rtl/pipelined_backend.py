@@ -1,7 +1,9 @@
-# Copyright (c) 2026 The Bonfire Project
-# License: See LICENSE
+"""
+Four-Stage Bonfire Backend With Functional-Unit Result Registers
+(c) 2026 The Bonfire Project
+License: See LICENSE
 
-"""Four-stage Bonfire backend with functional-unit result registers.
+Four-stage Bonfire backend with functional-unit result registers.
 
 ALU, load/store, CSR, RV32M and jump-link values are registered independently.
 The writeback result mux therefore sits after those registers while preserving
