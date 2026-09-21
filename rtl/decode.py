@@ -130,9 +130,6 @@ class DecodeBundle(PipelineControl):
         rs1_immediate = Signal(bool(0)) # rs1 Operand is an immediate
         rs1_imm_value = Signal(modbv(0)[self.xlen:])
 
-        rs1_adr_o_reg = Signal(modbv(0)[5:])
-        rs2_adr_o_reg = Signal(modbv(0)[5:])
-
         # valid_reg retains the decoded pipeline entry.  With a registered
         # redirect, kill_i also immediately suppresses the externally visible
         # valid_o before Decode clears the entry at the following clock edge.
@@ -171,17 +168,9 @@ class DecodeBundle(PipelineControl):
             if not downstream_busy:
                 self.rs2_adr_o.next = self.word_i[25:20]
             else:
-                self.rs2_adr_o.next = rs2_adr_o_reg
+                self.rs2_adr_o.next = self.source_rs2_o
 
             self.busy_o.next = downstream_busy
-
-            self.uses_rs1_o.next = self.valid_o and \
-                (self.branch_cmd or self.load_cmd or self.store_cmd or \
-                 self.jumpr_cmd or (self.alu_cmd and not rs1_immediate) or \
-                 self.m_cmd or (self.csr_cmd and not rs1_immediate))
-            self.uses_rs2_o.next = self.valid_o and \
-                (self.branch_cmd or self.store_cmd or \
-                 self.m_cmd or (self.alu_cmd and not rs2_immediate))
 
 
             # Operand output side
@@ -207,7 +196,7 @@ class DecodeBundle(PipelineControl):
                 elif not downstream_busy:
                     self.rs1_adr_o.next = self.word_i[20:15]
                 else:
-                    self.rs1_adr_o.next = rs1_adr_o_reg
+                    self.rs1_adr_o.next = self.source_rs1_o
 
         else:
             @always_comb
@@ -216,7 +205,7 @@ class DecodeBundle(PipelineControl):
                 if not downstream_busy:
                     self.rs1_adr_o.next = self.word_i[20:15]
                 else:
-                    self.rs1_adr_o.next = rs1_adr_o_reg
+                    self.rs1_adr_o.next = self.source_rs1_o
 
 
         @always_seq(clock.posedge,reset=reset)
@@ -251,6 +240,8 @@ class DecodeBundle(PipelineControl):
                 self.invalid_opcode.next = False
                 self.sys_cmd.next = False
                 self.fence_cmd.next = False
+                self.uses_rs1_o.next = False
+                self.uses_rs2_o.next = False
 
             elif self.kill_i:
                 valid_reg.next = False
@@ -274,8 +265,6 @@ class DecodeBundle(PipelineControl):
                     self.funct7_o.next = self.word_i[32:25]
                     self.rd_adr_o.next = self.word_i[12:7]
 
-                    rs1_adr_o_reg.next = self.word_i[20:15]
-                    rs2_adr_o_reg.next = self.word_i[25:20]
                     self.source_rs1_o.next = self.word_i[20:15]
                     self.source_rs2_o.next = self.word_i[25:20]
 
@@ -297,6 +286,8 @@ class DecodeBundle(PipelineControl):
                     self.sys_cmd.next = False
                     self.fence_cmd.next = False
                     self.system_operation_o.next = SystemOperation.NONE
+                    self.uses_rs1_o.next = False
+                    self.uses_rs2_o.next = False
 
                     self.mepc_o.next = self.current_ip_i
 
@@ -308,6 +299,8 @@ class DecodeBundle(PipelineControl):
                         # orthogonal qualifier, so enabling RV32M does not add
                         # a funct7-dependent mux to every ALU instruction.
                         self.alu_cmd.next = True
+                        self.uses_rs1_o.next = True
+                        self.uses_rs2_o.next = True
                         if self.word_i[32:25] == 0b0000001:
                             if self.config.enable_m_extension:
                                 self.m_cmd.next = True
@@ -318,6 +311,7 @@ class DecodeBundle(PipelineControl):
                             cmd_seen = True
                     elif opcode==op.RV32_IMM:
                         self.alu_cmd.next = True
+                        self.uses_rs1_o.next = True
                         cmd_seen = True
                         # Workaround for ADDI...
                         if self.word_i[15:12]==f3.RV32_F3_ADD_SUB:
@@ -336,6 +330,8 @@ class DecodeBundle(PipelineControl):
                             branch_funct3 == BranchFunct3.RV32_F3_BGEU
                         if valid_branch:
                             self.branch_cmd.next = True
+                            self.uses_rs1_o.next = True
+                            self.uses_rs2_o.next = True
                             cmd_seen = True
                             self.jump_dest_o.next = self.current_ip_i + get_SB_immediate(self.word_i).signed()
                         else:
@@ -348,6 +344,7 @@ class DecodeBundle(PipelineControl):
 
                     elif opcode==op.RV32_JALR:
                         self.jumpr_cmd.next = True
+                        self.uses_rs1_o.next = True
                         cmd_seen = True
                         # Use ALU to calculate target
                         self.alu_cmd.next = True
@@ -373,10 +370,13 @@ class DecodeBundle(PipelineControl):
                         self.funct7_o.next = 0
                     elif opcode==op.RV32_STORE:
                         self.store_cmd.next = True
+                        self.uses_rs1_o.next = True
+                        self.uses_rs2_o.next = True
                         cmd_seen = True
                         self.displacement_o.next = get_S_immediate(self.word_i)
                     elif opcode==op.RV32_LOAD:
                         self.load_cmd.next = True
+                        self.uses_rs1_o.next = True
                         cmd_seen = True
                         self.displacement_o.next = get_I_immediate(self.word_i)
                     elif opcode==op.RV32_FENCE:
@@ -413,6 +413,8 @@ class DecodeBundle(PipelineControl):
                             if self.word_i[14]: # Immediate
                                 rs1_immediate.next = True
                                 rs1_imm_value.next = self.word_i[20:15]
+                            else:
+                                self.uses_rs1_o.next = True
                     else:
                         inv=True
                     # Invalid encodings must reach Execute so they can take the
